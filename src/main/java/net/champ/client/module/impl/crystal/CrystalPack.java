@@ -27,7 +27,6 @@ public final class CrystalPack {
     public static List<ClientModule> list() {
         List<ClientModule> out = new ArrayList<>();
         out.add(new AutoAnchorModule());
-        out.add(new AnchorMacroModule());
         out.add(new AutoObsidianModule());
         return out;
     }
@@ -91,43 +90,6 @@ public final class CrystalPack {
         }
     }
 
-    /** Anchor Macro: aanzetten, binden, bij klik plaatsen + vullen + exploderen. */
-    static final class AnchorMacroModule extends ModuleBase {
-        final NumberSetting explodeSlot = addSetting(new NumberSetting("Explode hotbar slot", 1, 0, 8));
-        final KeySetting trigger = addSetting(new KeySetting("Macro key", -1));
-        final BooleanSetting swapBack = addSetting(new BooleanSetting("Swap back", true));
-        final AnchorFlow flow = new AnchorFlow();
-        int prevSlot = -1;
-        boolean running;
-
-        AnchorMacroModule() {
-            super("anchor-macro", "Anchor Macro",
-                    "Eén-klik anchor: plaatsen, vullen, exploderen.", Addons.crystal());
-        }
-
-        @Override protected void onEnableInternal() {
-            on(KeyEvent.TYPE, ev -> {
-                if (isEnabled() && trigger.value() >= 0 && ev.key == trigger.value() && ev.action == 1) {
-                    prevSlot = Slots.selected();
-                    flow.stage = 0;
-                    flow.wait = 0;
-                    running = true;
-                }
-            });
-        }
-
-        @Override protected void tick() {
-            if (!running || !inGame()) return;
-            boolean wasBusy = flow.stage != 0 || flow.wait > 0;
-            flow.step((int) explodeSlot.get(), 2);
-            if (wasBusy && flow.stage == 0 && flow.wait <= 0) {
-                running = false;
-                if (swapBack.get() && prevSlot >= 0) Slots.select(prevSlot);
-                prevSlot = -1;
-            }
-        }
-    }
-
     /** Auto Obsidian: bij klik op gekozen bind automatisch obsidian plaatsen. */
     static final class AutoObsidianModule extends ModuleBase {
         final KeySetting trigger = addSetting(new KeySetting("Place key", -1));
@@ -155,6 +117,6 @@ public final class CrystalPack {
             BlockPos pos = p.blockPosition().below();
             Slots.select(obby);
             AnchorFlow.useAt(p, pos.above());
+            }
         }
-    }
 }
