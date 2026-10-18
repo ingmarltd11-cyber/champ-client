@@ -14,13 +14,13 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1011;
-import net.minecraft.class_1044;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_3298;
-import net.minecraft.class_918;
-import net.minecraft.class_9848;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.client.renderer.entity.ItemRenderer;
+import net.minecraft.util.ARGB;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,8 +37,8 @@ public final class CustomGlintModule extends ClientModule {
    private final NumberSetting intensity = this.addSetting("intensity", new NumberSetting("Intensity", 1.0F, 0.05F, 1.0F).step(0.05F));
    private final NumberSetting speed = this.addSetting("speed", new NumberSetting("Speed", 1.0F, 0.1F, 4.0F).step(0.1F));
    private final NumberSetting patternSize = this.addSetting("pattern-size", new NumberSetting("Pattern Size", 1.0F, 0.25F, 4.0F).step(0.25F));
-   private final CustomGlintModule.GlintTexture items = new CustomGlintModule.GlintTexture(class_918.field_43087);
-   private final CustomGlintModule.GlintTexture armor = new CustomGlintModule.GlintTexture(class_918.field_43086);
+   private final CustomGlintModule.GlintTexture items = new CustomGlintModule.GlintTexture(ItemRenderer.ENCHANTED_GLINT_ITEM);
+   private final CustomGlintModule.GlintTexture armor = new CustomGlintModule.GlintTexture(ItemRenderer.ENCHANTED_GLINT_ARMOR);
    private double glintClock = Double.NaN;
    private long glintClockReal;
 
@@ -59,8 +59,8 @@ public final class CustomGlintModule extends ClientModule {
    @Override
    protected void onDisable() {
       active = null;
-      class_310 mc = class_310.method_1551();
-      if (mc.method_18854()) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.isSameThread()) {
          this.restore();
       } else {
          mc.execute(() -> {
@@ -87,8 +87,8 @@ public final class CustomGlintModule extends ClientModule {
    }
 
    private void refresh() {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 != null && mc.method_18506() == null && RenderSystem.tryGetDevice() != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level != null && mc.getOverlay() == null && RenderSystem.tryGetDevice() != null) {
          int itemRgb = this.colorMode.is("Accent") ? CosmeticAccent.argb() & 16777215 : this.itemColor.rgb();
          int armorRgb = this.colorMode.is("Custom") && this.separateArmor.get() ? this.armorColor.rgb() : itemRgb;
          float strength = this.intensity.get();
@@ -98,14 +98,14 @@ public final class CustomGlintModule extends ClientModule {
    }
 
    private void restore() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       this.items.restore(mc);
       this.armor.restore(mc);
    }
 
    @Environment(EnvType.CLIENT)
    private static final class GlintTexture {
-      private final class_2960 id;
+      private final Identifier id;
       private int width;
       private int height;
       private int[] original;
@@ -114,11 +114,11 @@ public final class CustomGlintModule extends ClientModule {
       private long writtenKey;
       private GpuTexture unusable;
 
-      GlintTexture(class_2960 id) {
+      GlintTexture(Identifier id) {
          this.id = id;
       }
 
-      void tint(class_310 mc, int rgb, float intensity) {
+      void tint(Minecraft mc, int rgb, float intensity) {
          GpuTexture gpu = this.gpuTexture(mc);
          if (gpu != null && !gpu.isClosed() && gpu != this.unusable) {
             long key = (long)(rgb & 16777215) << 8 | Math.round(intensity * 255.0F);
@@ -141,7 +141,7 @@ public final class CustomGlintModule extends ClientModule {
          }
       }
 
-      void restore(class_310 mc) {
+      void restore(Minecraft mc) {
          GpuTexture gpu = this.written != null ? this.gpuTexture(mc) : null;
          if (gpu != null && gpu == this.written && !gpu.isClosed() && this.original != null) {
             this.upload(gpu, this.original);
@@ -153,30 +153,30 @@ public final class CustomGlintModule extends ClientModule {
          this.pattern = null;
       }
 
-      private GpuTexture gpuTexture(class_310 mc) {
+      private GpuTexture gpuTexture(Minecraft mc) {
          try {
-            class_1044 texture = mc.method_1531().method_4619(this.id);
-            return texture == null ? null : texture.method_68004();
+            AbstractTexture texture = mc.getTextureManager().getTexture(this.id);
+            return texture == null ? null : texture.getTexture();
          } catch (IllegalStateException notLoaded) {
             return null;
          }
       }
 
-      private boolean readShipped(class_310 mc, GpuTexture gpu) {
-         Optional<class_3298> resource = mc.method_1478().method_14486(this.id);
+      private boolean readShipped(Minecraft mc, GpuTexture gpu) {
+         Optional<Resource> resource = mc.getResourceManager().getResource(this.id);
          if (resource.isEmpty()) {
             return false;
          }
 
-         try (InputStream in = resource.get().method_14482()) {
-            class_1011 image = class_1011.method_4309(in);
+         try (InputStream in = resource.get().open()) {
+            NativeImage image = NativeImage.read(in);
 
             boolean var19;
             label117: {
                int y;
                try {
-                  int w = image.method_4307();
-                  int h = image.method_4323();
+                  int w = image.getWidth();
+                  int h = image.getHeight();
                   if (w != gpu.getWidth(0) || h != gpu.getHeight(0)) {
                      var19 = false;
                      break label117;
@@ -189,9 +189,9 @@ public final class CustomGlintModule extends ClientModule {
 
                   while (y < h) {
                      for (int x = 0; x < w; i++) {
-                        int argb = image.method_61940(x, y);
+                        int argb = image.getPixel(x, y);
                         pixels[i] = argb;
-                        luma[i] = Math.max(class_9848.method_61327(argb), Math.max(class_9848.method_61329(argb), class_9848.method_61331(argb)));
+                        luma[i] = Math.max(ARGB.red(argb), Math.max(ARGB.green(argb), ARGB.blue(argb)));
                         x++;
                      }
 
@@ -234,14 +234,14 @@ public final class CustomGlintModule extends ClientModule {
       }
 
       private int[] tinted(int rgb, float intensity) {
-         float r = class_9848.method_61327(rgb) * intensity / 255.0F;
-         float g = class_9848.method_61329(rgb) * intensity / 255.0F;
-         float b = class_9848.method_61331(rgb) * intensity / 255.0F;
+         float r = ARGB.red(rgb) * intensity / 255.0F;
+         float g = ARGB.green(rgb) * intensity / 255.0F;
+         float b = ARGB.blue(rgb) * intensity / 255.0F;
          int[] out = new int[this.pattern.length];
 
          for (int i = 0; i < out.length; i++) {
             int l = this.pattern[i];
-            out[i] = class_9848.method_61324(class_9848.method_61320(this.original[i]), Math.round(l * r), Math.round(l * g), Math.round(l * b));
+            out[i] = ARGB.color(ARGB.alpha(this.original[i]), Math.round(l * r), Math.round(l * g), Math.round(l * b));
          }
 
          return out;
@@ -249,7 +249,7 @@ public final class CustomGlintModule extends ClientModule {
 
       private boolean upload(GpuTexture gpu, int[] argb) {
          try {
-            class_1011 image = new class_1011(this.width, this.height, false);
+            NativeImage image = new NativeImage(this.width, this.height, false);
 
             int y;
             try {
@@ -258,7 +258,7 @@ public final class CustomGlintModule extends ClientModule {
 
                while (y < this.height) {
                   for (int x = 0; x < this.width; i++) {
-                     image.method_61941(x, y, argb[i]);
+                     image.setPixel(x, y, argb[i]);
                      x++;
                   }
 

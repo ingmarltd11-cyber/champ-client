@@ -5,52 +5,52 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.champ.client.module.impl.render.HandModelModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1007;
-import net.minecraft.class_11659;
-import net.minecraft.class_2960;
-import net.minecraft.class_4587;
-import net.minecraft.class_759;
+import net.minecraft.client.renderer.entity.player.AvatarRenderer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.resources.Identifier;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.ItemInHandRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_759.class)
+@Mixin(ItemInHandRenderer.class)
 public abstract class MixinHandModelItemInHandRenderer {
    @WrapOperation(
-      method = {"method_3219", "method_3216"},
+      method = {"renderPlayerArm", "renderMapHand"},
       at = @At(
          value = "INVOKE",
-         target = "Lnet/minecraft/class_1007;method_4220(Lnet/minecraft/class_4587;Lnet/minecraft/class_11659;ILnet/minecraft/class_2960;Z)V"
+         target = "Lnet/minecraft/client/renderer/entity/player/AvatarRenderer;renderRightHand(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/resources/Identifier;Z)V"
       )
    )
    private void champ$longRightArm(
-      class_1007<?> renderer, class_4587 pose, class_11659 collector, int light, class_2960 skin, boolean sleeve, Operation<Void> original
+      AvatarRenderer<?> renderer, PoseStack pose, SubmitNodeCollector collector, int light, Identifier skin, boolean sleeve, Operation<Void> original
    ) {
       original.call(new Object[]{renderer, pose, collector, light, skin, sleeve});
       if (HandModelModule.active != null) {
-         pose.method_22903();
+         pose.pushPose();
          HandModelModule.shoulder(pose, true, renderer);
          original.call(new Object[]{renderer, pose, collector, light, skin, sleeve});
-         pose.method_22909();
+         pose.popPose();
       }
    }
 
    @WrapOperation(
-      method = {"method_3219", "method_3216"},
+      method = {"renderPlayerArm", "renderMapHand"},
       at = @At(
          value = "INVOKE",
-         target = "Lnet/minecraft/class_1007;method_4221(Lnet/minecraft/class_4587;Lnet/minecraft/class_11659;ILnet/minecraft/class_2960;Z)V"
+         target = "Lnet/minecraft/client/renderer/entity/player/AvatarRenderer;renderLeftHand(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/resources/Identifier;Z)V"
       )
    )
    private void champ$longLeftArm(
-      class_1007<?> renderer, class_4587 pose, class_11659 collector, int light, class_2960 skin, boolean sleeve, Operation<Void> original
+      AvatarRenderer<?> renderer, PoseStack pose, SubmitNodeCollector collector, int light, Identifier skin, boolean sleeve, Operation<Void> original
    ) {
       original.call(new Object[]{renderer, pose, collector, light, skin, sleeve});
       if (HandModelModule.active != null) {
-         pose.method_22903();
+         pose.pushPose();
          HandModelModule.shoulder(pose, false, renderer);
          original.call(new Object[]{renderer, pose, collector, light, skin, sleeve});
-         pose.method_22909();
+         pose.popPose();
       }
    }
 }

@@ -22,13 +22,13 @@ import net.champ.client.util.MobilePerformance;
 import net.champ.client.util.TracerEngine;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12179;
-import net.minecraft.class_12180;
-import net.minecraft.class_2338;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_4604;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.culling.Frustum;
 
 @Environment(EnvType.CLIENT)
 public final class BlockLayer {
@@ -119,7 +119,7 @@ public final class BlockLayer {
    }
 
    private static long chunkOf(long pos) {
-      return chunkKey(class_2338.method_10061(pos) >> 4, class_2338.method_10083(pos) >> 4);
+      return chunkKey(BlockPos.getX(pos) >> 4, BlockPos.getZ(pos) >> 4);
    }
 
    private static long regionOf(long chunk) {
@@ -138,8 +138,8 @@ public final class BlockLayer {
          dirty = world.scanDirty;
       }
 
-      int x = class_2338.method_10061(pos);
-      int z = class_2338.method_10083(pos);
+      int x = BlockPos.getX(pos);
+      int z = BlockPos.getZ(pos);
       int cx = x >> 4;
       int cz = z >> 4;
       dirty.add(chunkKey(cx, cz));
@@ -196,7 +196,7 @@ public final class BlockLayer {
             world.shapeRevision++;
          }
       } else {
-         Map<Object, List<class_2338>> byKind = new LinkedHashMap<>();
+         Map<Object, List<BlockPos>> byKind = new LinkedHashMap<>();
          int minX = Integer.MAX_VALUE;
          int minY = Integer.MAX_VALUE;
          int minZ = Integer.MAX_VALUE;
@@ -207,45 +207,45 @@ public final class BlockLayer {
 
          while (cx.hasNext()) {
             long pos = (Long)cx.next();
-            class_2338 block = class_2338.method_10092(pos);
+            BlockPos block = BlockPos.of(pos);
             byKind.computeIfAbsent(((BlockLayer.Found)world.positions.get(pos)).kind(), k -> new ArrayList<>()).add(block);
-            minX = Math.min(minX, block.method_10263());
-            maxX = Math.max(maxX, block.method_10263());
-            minY = Math.min(minY, block.method_10264());
-            maxY = Math.max(maxY, block.method_10264());
-            minZ = Math.min(minZ, block.method_10260());
-            maxZ = Math.max(maxZ, block.method_10260());
+            minX = Math.min(minX, block.getX());
+            maxX = Math.max(maxX, block.getX());
+            minY = Math.min(minY, block.getY());
+            maxY = Math.max(maxY, block.getY());
+            minZ = Math.min(minZ, block.getZ());
+            maxZ = Math.max(maxZ, block.getZ());
          }
 
          int cxx = (int)chunkKey;
          int cz = (int)(chunkKey >> 32);
          List<BlockLayer.Cluster> clusters = new ArrayList<>();
 
-         for (Entry<Object, List<class_2338>> entry : byKind.entrySet()) {
+         for (Entry<Object, List<BlockPos>> entry : byKind.entrySet()) {
             Object kind = entry.getKey();
             BlockClusterGeometry.Membership same = (x, y, z) -> {
-               BlockLayer.Found found = (BlockLayer.Found)world.positions.get(class_2338.method_10064(x, y, z));
+               BlockLayer.Found found = (BlockLayer.Found)world.positions.get(BlockPos.asLong(x, y, z));
                return found != null && Objects.equals(found.kind(), kind);
             };
 
-            for (List<class_2338> component : BlockClusterGeometry.connectedComponents(entry.getValue())) {
+            for (List<BlockPos> component : BlockClusterGeometry.connectedComponents(entry.getValue())) {
                clusters.add(buildCluster(world, kind, component, same, cxx, cz));
             }
          }
 
-         world.shapes.put(chunkKey, new BlockLayer.Shapes(clusters, new class_238(minX - 1, minY - 1, minZ - 1, maxX + 2, maxY + 2, maxZ + 2)));
+         world.shapes.put(chunkKey, new BlockLayer.Shapes(clusters, new AABB(minX - 1, minY - 1, minZ - 1, maxX + 2, maxY + 2, maxZ + 2)));
          ((LongOpenHashSet)world.shapeRegions.computeIfAbsent(regionOf(chunkKey), k -> new LongOpenHashSet())).add(chunkKey);
          world.shapeRevision++;
       }
    }
 
-   private static Iterable<BlockLayer.Shapes> nearbyShapes(BlockLayer.World world, class_243 eye, double range) {
+   private static Iterable<BlockLayer.Shapes> nearbyShapes(BlockLayer.World world, Vec3 eye, double range) {
       if (!PerformanceModule.optimizationsEnabled()) {
          return world.shapes.values();
       }
 
-      int cx = (int)Math.floor(eye.field_1352) >> 4;
-      int cz = (int)Math.floor(eye.field_1350) >> 4;
+      int cx = (int)Math.floor(eye.x) >> 4;
+      int cz = (int)Math.floor(eye.z) >> 4;
       if (world.candidateRevision == world.shapeRevision && world.candidateX == cx && world.candidateZ == cz && world.candidateRange == range) {
          return world.candidates;
       }
@@ -280,7 +280,7 @@ public final class BlockLayer {
    }
 
    private static BlockLayer.Cluster buildCluster(
-      BlockLayer.World world, Object kind, List<class_2338> component, BlockClusterGeometry.Membership same, int cx, int cz
+      BlockLayer.World world, Object kind, List<BlockPos> component, BlockClusterGeometry.Membership same, int cx, int cz
    ) {
       long[] positions = new long[component.size()];
       List<Long> links = new ArrayList<>();
@@ -290,17 +290,17 @@ public final class BlockLayer {
       long bornAt = Long.MAX_VALUE;
 
       for (int i = 0; i < positions.length; i++) {
-         class_2338 pos = component.get(i);
-         positions[i] = pos.method_10063();
-         sx += pos.method_10263() + 0.5;
-         sy += pos.method_10264() + 0.5;
-         sz += pos.method_10260() + 0.5;
+         BlockPos pos = component.get(i);
+         positions[i] = pos.asLong();
+         sx += pos.getX() + 0.5;
+         sy += pos.getY() + 0.5;
+         sz += pos.getZ() + 0.5;
          bornAt = Math.min(bornAt, ((BlockLayer.Found)world.positions.get(positions[i])).bornAt());
 
-         for (class_2338 next : new class_2338[]{pos.method_10078(), pos.method_10067(), pos.method_10072(), pos.method_10095()}) {
-            if ((next.method_10263() >> 4 != cx || next.method_10260() >> 4 != cz)
-               && same.contains(next.method_10263(), next.method_10264(), next.method_10260())) {
-               links.add(next.method_10063());
+         for (BlockPos next : new BlockPos[]{pos.east(), pos.west(), pos.south(), pos.north()}) {
+            if ((next.getX() >> 4 != cx || next.getZ() >> 4 != cz)
+               && same.contains(next.getX(), next.getY(), next.getZ())) {
+               links.add(next.asLong());
             }
          }
       }
@@ -309,7 +309,7 @@ public final class BlockLayer {
       return new BlockLayer.Cluster(
          kind,
          positions,
-         new class_243(sx / n, sy / n, sz / n),
+         new Vec3(sx / n, sy / n, sz / n),
          bornAt,
          BlockClusterGeometry.build(component, same),
          links.stream().mapToLong(Long::longValue).toArray()
@@ -328,8 +328,8 @@ public final class BlockLayer {
             all.add(cluster);
             if (cluster.links().length != 0) {
                for (long pos : cluster.positions()) {
-                  int lx = class_2338.method_10061(pos) & 15;
-                  int lz = class_2338.method_10083(pos) & 15;
+                  int lx = BlockPos.getX(pos) & 15;
+                  int lz = BlockPos.getZ(pos) & 15;
                   if (lx == 0 || lx == 15 || lz == 0 || lz == 15) {
                      owner.put(pos, cluster);
                   }
@@ -358,9 +358,9 @@ public final class BlockLayer {
       for (BlockLayer.Cluster cluster : all) {
          double[] sum = sums.computeIfAbsent(find(parentx, cluster), r -> new double[4]);
          int n = cluster.positions().length;
-         sum[0] += cluster.center().field_1352 * n;
-         sum[1] += cluster.center().field_1351 * n;
-         sum[2] += cluster.center().field_1350 * n;
+         sum[0] += cluster.center().x * n;
+         sum[1] += cluster.center().y * n;
+         sum[2] += cluster.center().z * n;
          sum[3] += n;
       }
 
@@ -368,7 +368,7 @@ public final class BlockLayer {
 
       for (Entry<BlockLayer.Cluster, double[]> entry : sums.entrySet()) {
          double[] s = entry.getValue();
-         veins.add(new BlockLayer.Vein(entry.getKey().kind(), new class_243(s[0] / s[3], s[1] / s[3], s[2] / s[3])));
+         veins.add(new BlockLayer.Vein(entry.getKey().kind(), new Vec3(s[0] / s[3], s[1] / s[3], s[2] / s[3])));
       }
 
       return veins;
@@ -391,13 +391,13 @@ public final class BlockLayer {
    }
 
    public void render(Render3DEvent event, EspStyle style) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       BlockLayer.World world = this.world(false);
-      if (mc.field_1724 != null && world != null) {
+      if (mc.player != null && world != null) {
          this.rebuildDirty(world);
-         class_4604 frustum = PerformanceModule.frustumCulling() ? event.frustum : null;
+         Frustum frustum = PerformanceModule.frustumCulling() ? event.frustum : null;
          long now = System.nanoTime();
-         class_243 eye = mc.field_1724.method_5836(event.partialTick);
+         Vec3 eye = mc.player.getEyePosition(event.partialTick);
          boolean outline = style.outline();
          boolean glow = style.glow.get();
          boolean fade = style.fade.get();
@@ -420,9 +420,9 @@ public final class BlockLayer {
          }
 
          for (BlockLayer.Shapes shapes : nearbyShapes(world, eye, range)) {
-            if (frustum == null || frustum.method_23093(shapes.bounds())) {
+            if (frustum == null || frustum.isVisible(shapes.bounds())) {
                for (BlockLayer.Cluster cluster : shapes.clusters()) {
-                  double dist = eye.method_1022(cluster.center());
+                  double dist = eye.distanceTo(cluster.center());
                   if (!(dist > range)) {
                      float alpha = fade ? distanceFade(dist) : 1.0F;
                      float t = reveal ? Math.min(1.0F, (float)(now - cluster.bornAt()) / 3.8E8F) : 1.0F;
@@ -447,41 +447,41 @@ public final class BlockLayer {
    }
 
    private static void drawOutline(BlockLayer.Cluster cluster, int stroke, int fill, float width, boolean glow, float scale) {
-      class_243 c = cluster.center();
+      Vec3 c = cluster.center();
       BlockClusterGeometry.Mesh mesh = cluster.mesh();
       if (fill >>> 24 > 0) {
-         class_12179 style = class_12179.method_75539(fill);
+         GizmoStyle style = GizmoStyle.fill(fill);
 
          for (BlockClusterGeometry.Face face : mesh.faces()) {
-            class_12180.method_75547(grow(face.a(), c, scale), grow(face.b(), c, scale), grow(face.c(), c, scale), grow(face.d(), c, scale), style)
-               .method_75533();
+            Gizmos.rect(grow(face.a(), c, scale), grow(face.b(), c, scale), grow(face.c(), c, scale), grow(face.d(), c, scale), style)
+               .setAlwaysOnTop();
          }
       }
 
       int halo = glow ? scaleAlpha(stroke, 0.18F) : 0;
 
       for (BlockClusterGeometry.Segment edge : mesh.edges()) {
-         class_243 a = grow(edge.a(), c, scale);
-         class_243 b = grow(edge.b(), c, scale);
+         Vec3 a = grow(edge.a(), c, scale);
+         Vec3 b = grow(edge.b(), c, scale);
          if (glow) {
-            class_12180.method_75546(a, b, halo, width * 3.0F).method_75533();
+            Gizmos.line(a, b, halo, width * 3.0F).setAlwaysOnTop();
          }
 
-         class_12180.method_75546(a, b, stroke, width).method_75533();
+         Gizmos.line(a, b, stroke, width).setAlwaysOnTop();
       }
    }
 
    private static void drawBoxes(BlockLayer.Cluster cluster, int stroke, int fill, float width, float size, BlockBoxCache cache) {
-      class_12179 style = fill >>> 24 > 0 ? class_12179.method_75537(stroke, width, fill) : class_12179.method_75536(stroke, width);
+      GizmoStyle style = fill >>> 24 > 0 ? GizmoStyle.strokeAndFill(stroke, width, fill) : GizmoStyle.stroke(stroke, width);
 
       for (long pos : cluster.positions()) {
-         class_238 bounds = cache == null ? BlockBoxHelper.scaledBlockBox(class_2338.method_10092(pos), size) : cache.box(pos);
-         class_12180.method_75541(bounds, style).method_75533();
+         AABB bounds = cache == null ? BlockBoxHelper.scaledBlockBox(BlockPos.of(pos), size) : cache.box(pos);
+         Gizmos.cuboid(bounds, style).setAlwaysOnTop();
       }
    }
 
-   private static class_243 grow(class_243 p, class_243 c, float scale) {
-      return scale == 1.0F ? p : c.method_1019(p.method_1020(c).method_1021(scale));
+   private static Vec3 grow(Vec3 p, Vec3 c, float scale) {
+      return scale == 1.0F ? p : c.add(p.subtract(c).scale(scale));
    }
 
    private static float distanceFade(double dist) {
@@ -494,24 +494,24 @@ public final class BlockLayer {
    }
 
    public void renderTracers(EspStyle style) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null) {
-         class_243 eye = mc.field_1724.method_5836(1.0F);
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null) {
+         Vec3 eye = mc.player.getEyePosition(1.0F);
          double rangeSq = (double)style.range.get() * style.range.get();
          List<BlockLayer.Vein> visible = this.veins();
          BlockLayer.World world = this.world(false);
          if (MobilePerformance.active() && world != null) {
             if (world.tracerCandidates == null) {
-               world.tracerCandidates = new HorizontalCandidates<>(veinx -> veinx.center().field_1352, veinx -> veinx.center().field_1350);
+               world.tracerCandidates = new HorizontalCandidates<>(veinx -> veinx.center().x, veinx -> veinx.center().z);
             }
 
-            visible = world.tracerCandidates.select(visible, eye.field_1352, eye.field_1350, style.range.get());
+            visible = world.tracerCandidates.select(visible, eye.x, eye.z, style.range.get());
          } else if (world != null) {
             world.tracerCandidates = null;
          }
 
          for (BlockLayer.Vein vein : visible) {
-            if (!(eye.method_1025(vein.center()) > rangeSq)) {
+            if (!(eye.distanceToSqr(vein.center()) > rangeSq)) {
                int color = this.palette.tracerColor(vein.kind());
                if (color >>> 24 != 0) {
                   TracerEngine.draw(vein.center(), color);
@@ -543,7 +543,7 @@ public final class BlockLayer {
    }
 
    @Environment(EnvType.CLIENT)
-   private record Cluster(Object kind, long[] positions, class_243 center, long bornAt, BlockClusterGeometry.Mesh mesh, long[] links) {
+   private record Cluster(Object kind, long[] positions, Vec3 center, long bornAt, BlockClusterGeometry.Mesh mesh, long[] links) {
    }
 
    @Environment(EnvType.CLIENT)
@@ -558,11 +558,11 @@ public final class BlockLayer {
    }
 
    @Environment(EnvType.CLIENT)
-   private record Shapes(List<BlockLayer.Cluster> clusters, class_238 bounds) {
+   private record Shapes(List<BlockLayer.Cluster> clusters, AABB bounds) {
    }
 
    @Environment(EnvType.CLIENT)
-   public record Vein(Object kind, class_243 center) {
+   public record Vein(Object kind, Vec3 center) {
    }
 
    @Environment(EnvType.CLIENT)

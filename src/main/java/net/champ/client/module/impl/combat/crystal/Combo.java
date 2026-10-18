@@ -8,19 +8,19 @@ import java.util.WeakHashMap;
 import net.champ.client.module.impl.combat.melee.MeleeAttacks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10584;
-import net.minecraft.class_1297;
-import net.minecraft.class_1309;
-import net.minecraft.class_1802;
-import net.minecraft.class_2338;
-import net.minecraft.class_2350;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
-import net.minecraft.class_742;
-import net.minecraft.class_746;
-import net.minecraft.class_2350.class_2353;
+import net.minecraft.world.entity.InterpolationHandler;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.Items;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.Direction.Plane;
 
 @Environment(EnvType.CLIENT)
 public final class Combo {
@@ -38,33 +38,33 @@ public final class Combo {
    private static final double GRAVITY = 0.08;
    private static final double AIR_DRAG = 0.98;
    private static final Combo.Kind[] SETUP = new Combo.Kind[]{Combo.Kind.CHARGE, Combo.Kind.CRYSTAL, Combo.Kind.OBSIDIAN, Combo.Kind.ANCHOR};
-   private static final Map<class_1309, Combo.Track> TRACKS = new WeakHashMap<>();
-   private static class_1309 focus;
+   private static final Map<LivingEntity, Combo.Track> TRACKS = new WeakHashMap<>();
+   private static LivingEntity focus;
 
    private Combo() {
    }
 
-   public static List<class_1309> enemies(class_310 mc, class_746 player) {
-      List<class_1309> enemies = new ArrayList<>();
+   public static List<LivingEntity> enemies(Minecraft mc, LocalPlayer player) {
+      List<LivingEntity> enemies = new ArrayList<>();
 
-      for (class_742 other : mc.field_1687.method_18456()) {
-         if (MeleeAttacks.isEnemy(player, other) && player.method_5858(other) < 100.0) {
+      for (AbstractClientPlayer other : mc.level.players()) {
+         if (MeleeAttacks.isEnemy(player, other) && player.distanceToSqr(other) < 100.0) {
             enemies.add(other);
          }
       }
 
       enemies.sort(
-         Comparator.comparingDouble(enemy -> player.method_5739(enemy) - (enemy == focus ? 2.0 : 0.0) - (CrystalDamage.health(enemy) <= 10.0F ? 2.0 : 0.0))
+         Comparator.comparingDouble(enemy -> player.distanceTo(enemy) - (enemy == focus ? 2.0 : 0.0) - (CrystalDamage.health(enemy) <= 10.0F ? 2.0 : 0.0))
       );
       focus = enemies.isEmpty() ? null : enemies.get(0);
       return enemies.size() > 3 ? enemies.subList(0, 3) : enemies;
    }
 
-   public static List<class_1309> friends(class_310 mc, class_746 player) {
-      List<class_1309> friends = new ArrayList<>();
+   public static List<LivingEntity> friends(Minecraft mc, LocalPlayer player) {
+      List<LivingEntity> friends = new ArrayList<>();
 
-      for (class_742 other : mc.field_1687.method_18456()) {
-         if (other != player && other.method_5805() && MeleeAttacks.isFriend(other) && player.method_5858(other) < 100.0) {
+      for (AbstractClientPlayer other : mc.level.players()) {
+         if (other != player && other.isAlive() && MeleeAttacks.isFriend(other) && player.distanceToSqr(other) < 100.0) {
             friends.add(other);
          }
       }
@@ -72,63 +72,63 @@ public final class Combo {
       return friends;
    }
 
-   public static class_243 lead(class_1309 entity, int ticks) {
-      class_10584 handler = entity.method_66233();
-      class_243 server = handler == null ? entity.method_73189() : handler.method_66265();
-      class_243 lag = server.method_1020(entity.method_73189());
+   public static Vec3 lead(LivingEntity entity, int ticks) {
+      InterpolationHandler handler = entity.getInterpolation();
+      Vec3 server = handler == null ? entity.position() : handler.position();
+      Vec3 lag = server.subtract(entity.position());
       int ahead = ticks;
-      class_243 velocity;
-      if (entity instanceof class_746) {
-         velocity = entity.method_73189().method_1023(entity.field_6014, entity.field_6036, entity.field_5969);
+      Vec3 velocity;
+      if (entity instanceof LocalPlayer) {
+         velocity = entity.position().subtract(entity.xo, entity.yo, entity.zo);
       } else {
          Combo.Track track = TRACKS.computeIfAbsent(entity, ignored -> new Combo.Track());
          track.note(entity, server);
          velocity = track.velocity(entity);
-         ahead += Math.min(track.age(entity), entity.method_5864().method_18388());
+         ahead += Math.min(track.age(entity), entity.getType().updateInterval());
       }
 
-      return ticks > 0 && !(velocity.method_37268() > 1.0) ? lag.method_1019(travel(entity, server, velocity, ahead)) : lag;
+      return ticks > 0 && !(velocity.horizontalDistanceSqr() > 1.0) ? lag.add(travel(entity, server, velocity, ahead)) : lag;
    }
 
-   private static class_243 travel(class_1309 entity, class_243 from, class_243 velocity, int ticks) {
-      class_238 box = entity.method_5829().method_997(from.method_1020(entity.method_73189()));
-      boolean floating = entity.method_6128() || entity.method_52535() || entity.method_6101() || entity.method_5740() || entity.method_5765();
-      double x = velocity.field_1352;
-      double y = velocity.field_1351;
-      double z = velocity.field_1350;
-      class_243 moved = class_243.field_1353;
+   private static Vec3 travel(LivingEntity entity, Vec3 from, Vec3 velocity, int ticks) {
+      AABB box = entity.getBoundingBox().move(from.subtract(entity.position()));
+      boolean floating = entity.isFallFlying() || entity.isInLiquid() || entity.onClimbable() || entity.isNoGravity() || entity.isPassenger();
+      double x = velocity.x;
+      double y = velocity.y;
+      double z = velocity.z;
+      Vec3 moved = Vec3.ZERO;
 
       for (int tick = 0; tick < ticks; tick++) {
          if (!floating) {
             y = (y - 0.08) * 0.98;
          }
 
-         class_243 step = class_1297.method_20736(entity, new class_243(x, y, z), box, entity.method_73183(), List.of());
-         if (step.field_1352 != x) {
+         Vec3 step = Entity.collideBoundingBox(entity, new Vec3(x, y, z), box, entity.level(), List.of());
+         if (step.x != x) {
             x = 0.0;
          }
 
-         if (step.field_1351 != y) {
+         if (step.y != y) {
             y = 0.0;
          }
 
-         if (step.field_1350 != z) {
+         if (step.z != z) {
             z = 0.0;
          }
 
-         box = box.method_997(step);
-         moved = moved.method_1019(step);
+         box = box.move(step);
+         moved = moved.add(step);
       }
 
       return moved;
    }
 
-   public static boolean inHole(class_1309 target) {
-      class_2338 feet = target.method_24515();
+   public static boolean inHole(LivingEntity target) {
+      BlockPos feet = target.blockPosition();
 
-      for (class_2350 side : class_2353.field_11062) {
-         class_2680 state = target.method_73183().method_8320(feet.method_10093(side));
-         if (state.method_26204().method_9520() < 600.0F) {
+      for (Direction side : Plane.HORIZONTAL) {
+         BlockState state = target.level().getBlockState(feet.relative(side));
+         if (state.getBlock().getExplosionResistance() < 600.0F) {
             return false;
          }
       }
@@ -136,13 +136,13 @@ public final class Combo {
       return true;
    }
 
-   public static boolean kills(float effective, class_1309 target) {
+   public static boolean kills(float effective, LivingEntity target) {
       return effective >= CrystalDamage.health(target);
    }
 
-   public static float value(float effective, class_1309 target) {
+   public static float value(float effective, LivingEntity target) {
       float health = CrystalDamage.health(target);
-      float rank = effective < health ? 0.0F : (target.method_24518(class_1802.field_8288) ? 500.0F : 1000.0F);
+      float rank = effective < health ? 0.0F : (target.isHolding(Items.TOTEM_OF_UNDYING) ? 500.0F : 1000.0F);
       return Math.min(effective, health) + rank;
    }
 
@@ -187,18 +187,18 @@ public final class Combo {
    }
 
    @Environment(EnvType.CLIENT)
-   public record Shot(Combo.Kind kind, class_243 aim, int route, float value, boolean kills, int readyIn, Object plan) {
+   public record Shot(Combo.Kind kind, Vec3 aim, int route, float value, boolean kills, int readyIn, Object plan) {
    }
 
    @Environment(EnvType.CLIENT)
    private static final class Track {
-      private class_243 last;
+      private Vec3 last;
       private int lastAt;
       private int sampledAt;
-      private class_243 velocity = class_243.field_1353;
+      private Vec3 velocity = Vec3.ZERO;
 
-      void note(class_1309 entity, class_243 server) {
-         int now = entity.field_6012;
+      void note(LivingEntity entity, Vec3 server) {
+         int now = entity.tickCount;
          if (now < this.sampledAt) {
             this.last = null;
          }
@@ -206,20 +206,20 @@ public final class Combo {
          boolean watched = now - this.sampledAt <= 1;
          this.sampledAt = now;
          if (!server.equals(this.last)) {
-            int interval = entity.method_5864().method_18388();
+            int interval = entity.getType().updateInterval();
             int span = watched ? interval : Math.max(interval, now - this.lastAt);
-            this.velocity = this.last == null ? class_243.field_1353 : server.method_1020(this.last).method_1021(1.0 / span);
+            this.velocity = this.last == null ? Vec3.ZERO : server.subtract(this.last).scale(1.0 / span);
             this.last = server;
             this.lastAt = now;
          }
       }
 
-      int age(class_1309 entity) {
-         return entity.field_6012 - this.lastAt;
+      int age(LivingEntity entity) {
+         return entity.tickCount - this.lastAt;
       }
 
-      class_243 velocity(class_1309 entity) {
-         return this.age(entity) > entity.method_5864().method_18388() + 1 ? class_243.field_1353 : this.velocity;
+      Vec3 velocity(LivingEntity entity) {
+         return this.age(entity) > entity.getType().updateInterval() + 1 ? Vec3.ZERO : this.velocity;
       }
    }
 }

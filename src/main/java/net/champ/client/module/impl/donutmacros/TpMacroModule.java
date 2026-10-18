@@ -13,9 +13,9 @@ import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.module.setting.StringSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_7439;
-import net.minecraft.class_746;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class TpMacroModule extends ClientModule {
@@ -67,7 +67,7 @@ public final class TpMacroModule extends ClientModule {
 
    @EventHandler
    public void onPacket(PacketReceiveNettyEvent event) {
-      if (event.packet instanceof class_7439 chat && chat.comp_763() != null) {
+      if (event.packet instanceof ClientboundSystemChatPacket chat && chat.comp_763() != null) {
          Matcher wait = RATE_LIMIT.matcher(ServerText.normalize(chat.comp_763().getString()));
          if (wait.find()) {
             try {
@@ -80,13 +80,13 @@ public final class TpMacroModule extends ClientModule {
 
    @EventHandler
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      if (player != null && mc.method_1562() != null && !player.method_29504()) {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      if (player != null && mc.getConnection() != null && !player.isDeadOrDying()) {
          this.confirm.tick(mc);
          long now = System.currentTimeMillis();
          if (now >= this.nextAt && now >= this.holdUntil) {
-            player.field_3944.method_45730(this.command.get() + " " + this.target.get().trim());
+            player.connection.sendCommand(this.command.get() + " " + this.target.get().trim());
             this.sent++;
             this.nextAt = now + (long)(this.interval.get() * 1000.0F);
          }

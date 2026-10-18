@@ -3,30 +3,30 @@ package com.example.client.mixin;
 import net.champ.client.module.impl.render.NoRenderModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12077;
-import net.minecraft.class_243;
-import net.minecraft.class_4066;
-import net.minecraft.class_4184;
-import net.minecraft.class_4597;
-import net.minecraft.class_638;
-import net.minecraft.class_9976;
+import net.minecraft.client.renderer.state.WeatherRenderState;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.server.level.ParticleStatus;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.WeatherEffectRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_9976.class)
+@Mixin(WeatherEffectRenderer.class)
 public abstract class MixinNoRenderWeather {
-   @Inject(method = "method_62320", at = @At("HEAD"), cancellable = true)
-   private void champ$hideWeather(class_4597 bufferSource, class_243 camera, class_12077 state, CallbackInfo ci) {
+   @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+   private void champ$hideWeather(MultiBufferSource bufferSource, Vec3 camera, WeatherRenderState state, CallbackInfo ci) {
       if (NoRenderModule.hideWeather()) {
          ci.cancel();
       }
    }
 
-   @Inject(method = "method_62319", at = @At("HEAD"), cancellable = true)
-   private void champ$hideRainSplashes(class_638 level, class_4184 camera, int ticks, class_4066 particles, int radius, CallbackInfo ci) {
+   @Inject(method = "tickRainParticles", at = @At("HEAD"), cancellable = true)
+   private void champ$hideRainSplashes(ClientLevel level, Camera camera, int ticks, ParticleStatus particles, int radius, CallbackInfo ci) {
       if (NoRenderModule.hideWeather()) {
          ci.cancel();
       }

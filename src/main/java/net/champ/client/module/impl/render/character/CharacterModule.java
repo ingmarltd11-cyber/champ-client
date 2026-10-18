@@ -26,24 +26,24 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.util.MobilePerformance;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10017;
-import net.minecraft.class_10055;
-import net.minecraft.class_1297;
-import net.minecraft.class_1309;
-import net.minecraft.class_156;
-import net.minecraft.class_1657;
-import net.minecraft.class_310;
-import net.minecraft.class_3887;
-import net.minecraft.class_4507;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
-import net.minecraft.class_970;
-import net.minecraft.class_972;
-import net.minecraft.class_976;
-import net.minecraft.class_978;
-import net.minecraft.class_979;
-import net.minecraft.class_983;
-import net.minecraft.class_989;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.util.Util;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.client.renderer.entity.layers.StuckInBodyLayer;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
+import net.minecraft.client.renderer.entity.layers.CapeLayer;
+import net.minecraft.client.renderer.entity.layers.CustomHeadLayer;
+import net.minecraft.client.renderer.entity.layers.Deadmau5EarsLayer;
+import net.minecraft.client.renderer.entity.layers.WingsLayer;
+import net.minecraft.client.renderer.entity.layers.ParrotOnShoulderLayer;
+import net.minecraft.client.renderer.entity.layers.ItemInHandLayer;
 
 @Environment(EnvType.CLIENT)
 public final class CharacterModule extends ClientModule {
@@ -59,7 +59,7 @@ public final class CharacterModule extends ClientModule {
    private final Int2BooleanOpenHashMap friendCache = new Int2BooleanOpenHashMap();
    private long friendsCheckedAt;
    private int scanTicks;
-   private WeakReference<class_638> level = new WeakReference<>(null);
+   private WeakReference<ClientLevel> level = new WeakReference<>(null);
 
    public CharacterModule() {
       super("character-3d", "3D Character", "Replaces your player model with a 3D character.", ModuleCategory.VISUALS);
@@ -91,7 +91,7 @@ public final class CharacterModule extends ClientModule {
       }
 
       this.refreshCharacters();
-      class_156.method_668().method_60932(dir);
+      Util.getPlatform().openPath(dir);
    }
 
    private void prepare() {
@@ -137,30 +137,30 @@ public final class CharacterModule extends ClientModule {
    private void reset() {
       this.friendCache.clear();
       CharacterMotion.clear();
-      this.level = new WeakReference<>(class_310.method_1551().field_1687);
+      this.level = new WeakReference<>(Minecraft.getInstance().level);
    }
 
    private void watchLevel() {
-      class_638 current = class_310.method_1551().field_1687;
+      ClientLevel current = Minecraft.getInstance().level;
       if (this.level.get() != current) {
          this.reset();
          CharacterCache.releaseTextures();
       }
    }
 
-   public static void extract(class_1297 entity, class_10055 state) {
+   public static void extract(Entity entity, AvatarRenderState state) {
       CharacterModule module = active;
       WornCharacter worn = module == null ? null : module.resolve(state);
       CharacterHolder holder = (CharacterHolder)state;
       holder.champ$setCharacter(worn);
       if (worn != null) {
-         class_1297 vehicle = entity.method_5854();
-         holder.champ$setSeat(vehicle == null ? 0.0F : (vehicle instanceof class_1309 ? 1.35F : 0.3F));
-         if (state.field_53338 != null) {
+         Entity vehicle = entity.getVehicle();
+         holder.champ$setSeat(vehicle == null ? 0.0F : (vehicle instanceof LivingEntity ? 1.35F : 0.3F));
+         if (state.nameTagAttachment != null) {
             CharacterModel model = worn.model;
             float over = model.maxY * model.scale - 32.0F;
             if (over > 0.0F) {
-               state.field_53338 = state.field_53338.method_1031(0.0, over * 0.05859375F * state.field_53453, 0.0);
+               state.nameTagAttachment = state.nameTagAttachment.add(0.0, over * 0.05859375F * state.scale, 0.0);
             }
          }
       }
@@ -198,30 +198,30 @@ public final class CharacterModule extends ClientModule {
       }
    }
 
-   static WornCharacter worn(class_10017 state) {
+   static WornCharacter worn(EntityRenderState state) {
       return state instanceof CharacterHolder holder ? holder.champ$character() : null;
    }
 
-   static float seat(class_10017 state) {
+   static float seat(EntityRenderState state) {
       return state instanceof CharacterHolder holder ? holder.champ$seat() : 0.0F;
    }
 
-   public static boolean hidesModel(class_10017 state) {
+   public static boolean hidesModel(EntityRenderState state) {
       return worn(state) != null;
    }
 
-   public static boolean hidesLayer(class_3887<?, ?> layer, class_10017 state) {
+   public static boolean hidesLayer(RenderLayer<?, ?> layer, EntityRenderState state) {
       return worn(state) == null
          ? false
-         : layer instanceof class_970
-            || layer instanceof class_972
-            || layer instanceof class_979
-            || layer instanceof class_4507
-            || layer instanceof class_976
-            || layer instanceof class_983
-            || layer instanceof class_978
+         : layer instanceof HumanoidArmorLayer
+            || layer instanceof CapeLayer
+            || layer instanceof WingsLayer
+            || layer instanceof StuckInBodyLayer
+            || layer instanceof CustomHeadLayer
+            || layer instanceof ParrotOnShoulderLayer
+            || layer instanceof Deadmau5EarsLayer
             || layer instanceof PharaohHeaddressLayer
-            || layer instanceof class_989 && !showsHeldItems();
+            || layer instanceof ItemInHandLayer && !showsHeldItems();
    }
 
    private static boolean showsHeldItems() {
@@ -234,8 +234,8 @@ public final class CharacterModule extends ClientModule {
       if (module == null) {
          return null;
       } else {
-         class_746 self = class_310.method_1551().field_1724;
-         if (self != null && !self.method_7325()) {
+         LocalPlayer self = Minecraft.getInstance().player;
+         if (self != null && !self.isSpectator()) {
             WornCharacter worn = CharacterCache.ready(CharacterCatalog.byName(module.character.get()), module.effectiveDetail());
             return worn != null && worn.model.firstPersonArms ? worn : null;
          } else {
@@ -244,29 +244,29 @@ public final class CharacterModule extends ClientModule {
       }
    }
 
-   private WornCharacter resolve(class_10055 state) {
-      if (state.field_53542) {
+   private WornCharacter resolve(AvatarRenderState state) {
+      if (state.isSpectator) {
          return null;
       }
 
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       return !this.wears(mc, state) ? null : CharacterCache.ready(CharacterCatalog.byName(this.character.get()), this.effectiveDetail());
    }
 
-   private boolean wears(class_310 mc, class_10055 state) {
-      class_746 self = mc.field_1724;
-      if (self != null && mc.field_1687 != null) {
-         if (state.field_53528 != self.method_5628()) {
-            return this.friends.get() && this.isFriend(mc, state.field_53528);
+   private boolean wears(Minecraft mc, AvatarRenderState state) {
+      LocalPlayer self = mc.player;
+      if (self != null && mc.level != null) {
+         if (state.id != self.getId()) {
+            return this.friends.get() && this.isFriend(mc, state.id);
          } else {
-            return FreecamModule.active == null && mc.field_1690.method_31044().method_31034() ? mc.field_1755 != null && !self.method_6113() : true;
+            return FreecamModule.active == null && mc.options.getCameraType().isFirstPerson() ? mc.screen != null && !self.isSleeping() : true;
          }
       } else {
          return false;
       }
    }
 
-   private boolean isFriend(class_310 mc, int id) {
+   private boolean isFriend(Minecraft mc, int id) {
       long now = System.nanoTime();
       if (now - this.friendsCheckedAt > 1000000000L) {
          this.friendCache.clear();
@@ -277,7 +277,7 @@ public final class CharacterModule extends ClientModule {
          return this.friendCache.get(id);
       }
 
-      boolean friend = mc.field_1687.method_8469(id) instanceof class_1657 player && FriendStore.getInstance().isFriend(player.method_7334().name());
+      boolean friend = mc.level.getEntity(id) instanceof Player player && FriendStore.getInstance().isFriend(player.getGameProfile().name());
       this.friendCache.put(id, friend);
       return friend;
    }

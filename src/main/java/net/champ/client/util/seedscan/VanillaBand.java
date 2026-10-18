@@ -5,8 +5,8 @@ import java.util.Arrays;
 import java.util.List;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1923;
-import net.minecraft.class_2338;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.core.BlockPos;
 
 @Environment(EnvType.CLIENT)
 public final class VanillaBand {
@@ -54,13 +54,13 @@ public final class VanillaBand {
             for (int x = x0; x < x0 + 16; x++) {
                byte model = terrain.kind(x, y, z);
                sequences.clear();
-               long key = class_2338.method_10064(x, y, z);
+               long key = BlockPos.asLong(x, y, z);
 
                for (ChunkDecoration decoration : around) {
                   if (decoration != null) {
                      short[] sequence = sequence(decoration, key, x, y, z);
                      if (sequence != null) {
-                        writers[sequences.size()] = class_1923.method_8331(decoration.chunkX, decoration.chunkZ);
+                        writers[sequences.size()] = ChunkPos.asLong(decoration.chunkX, decoration.chunkZ);
                         sequences.add(sequence);
                      }
                   }

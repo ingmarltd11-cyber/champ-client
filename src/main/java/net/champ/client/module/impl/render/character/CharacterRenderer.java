@@ -8,19 +8,19 @@ import net.champ.client.module.impl.render.character.kit.Surface;
 import net.champ.client.util.MobilePerformance;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10055;
-import net.minecraft.class_11659;
-import net.minecraft.class_1306;
-import net.minecraft.class_3532;
-import net.minecraft.class_4587;
-import net.minecraft.class_4588;
-import net.minecraft.class_4608;
-import net.minecraft.class_5603;
-import net.minecraft.class_591;
-import net.minecraft.class_630;
-import net.minecraft.class_922;
-import net.minecraft.class_4587.class_4665;
-import net.minecraft.class_572.class_573;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.util.Mth;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.player.PlayerModel;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
+import net.minecraft.client.model.HumanoidModel.ArmPose;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -39,18 +39,18 @@ final class CharacterRenderer {
    private CharacterRenderer() {
    }
 
-   static void submit(WornCharacter worn, class_591 pm, class_4587 stack, class_11659 collector, int light, class_10055 state) {
+   static void submit(WornCharacter worn, PlayerModel pm, PoseStack stack, SubmitNodeCollector collector, int light, AvatarRenderState state) {
       CharacterModel model = worn.model;
       PartMesh[] parts = model.parts;
-      boolean ghost = state.field_53333;
-      int overlay = class_922.method_23622(state, 0.0F);
+      boolean ghost = state.isInvisible;
+      int overlay = LivingEntityRenderer.getOverlayCoords(state, 0.0F);
       float[] pitch = pitches(state, model, pm);
       float[] joint = joints(state, model);
-      float lookPitch = pm.field_3398.field_3654;
-      float lookYaw = -pm.field_3398.field_3675;
+      float lookPitch = pm.head.xRot;
+      float lookYaw = -pm.head.yRot;
       float[] angles = CharacterMotion.update(state, model, pm, pitch);
-      stack.method_22903();
-      pm.method_63512().method_22703(stack);
+      stack.pushPose();
+      pm.root().translateAndRotate(stack);
       lift(stack, state, model);
 
       for (int i = 0; i < parts.length; i++) {
@@ -69,37 +69,37 @@ final class CharacterRenderer {
                bent = joint[part.bone.ordinal()];
             }
 
-            stack.method_22903();
+            stack.pushPose();
             chain(stack, pm, model, i, angles, !bends, null, pitch);
             submitPart(worn, part, stack, collector, light, overlay, ghost, bends, bendPitch, yaw, roll, bent, turn);
-            stack.method_22909();
+            stack.popPose();
          }
       }
 
-      stack.method_22909();
+      stack.popPose();
    }
 
-   static boolean firstPersonHand(class_591 pm, class_4587 stack, class_11659 collector, int light, class_630 arm) {
+   static boolean firstPersonHand(PlayerModel pm, PoseStack stack, SubmitNodeCollector collector, int light, ModelPart arm) {
       WornCharacter worn = CharacterModule.firstPerson();
       if (worn == null) {
          return false;
       }
 
-      Bone bone = arm == pm.field_3401 ? Bone.RIGHT_ARM : Bone.LEFT_ARM;
+      Bone bone = arm == pm.rightArm ? Bone.RIGHT_ARM : Bone.LEFT_ARM;
       CharacterModel model = worn.model;
       PartMesh main = model.part(bone);
       if (main != null && main.base != null) {
-         arm.method_41923();
-         arm.field_3674 = bone == Bone.RIGHT_ARM ? 0.1F : -0.1F;
+         arm.resetPose();
+         arm.zRot = bone == Bone.RIGHT_ARM ? 0.1F : -0.1F;
          PartMesh[] parts = model.parts;
 
          for (int i = 0; i < parts.length; i++) {
             PartMesh part = parts[i];
             if (part.bone == bone && (part.base != null || part.outline != null || part.decals != null)) {
-               stack.method_22903();
+               stack.pushPose();
                chain(stack, pm, model, i, null, true, arm, null);
-               submitPart(worn, part, stack, collector, light, class_4608.field_21444, false, false, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F);
-               stack.method_22909();
+               submitPart(worn, part, stack, collector, light, OverlayTexture.NO_OVERLAY, false, false, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F);
+               stack.popPose();
             }
          }
 
@@ -112,8 +112,8 @@ final class CharacterRenderer {
    private static void submitPart(
       WornCharacter worn,
       PartMesh part,
-      class_4587 stack,
-      class_11659 collector,
+      PoseStack stack,
+      SubmitNodeCollector collector,
       int light,
       int overlay,
       boolean ghost,
@@ -126,12 +126,12 @@ final class CharacterRenderer {
    ) {
       if (ghost) {
          if (part.base != null) {
-            collector.method_73529(1)
-               .method_73483(stack, worn.ghost, (pose, out) -> emit(pose, out, part.base, light, overlay, 38, bends, pitch, yaw, roll, part, bent, turn));
+            collector.order(1)
+               .submitCustomGeometry(stack, worn.ghost, (pose, out) -> emit(pose, out, part.base, light, overlay, 38, bends, pitch, yaw, roll, part, bent, turn));
          }
       } else {
          if (part.base != null || part.outline != null) {
-            collector.method_73483(stack, worn.solid, (pose, out) -> {
+            collector.submitCustomGeometry(stack, worn.solid, (pose, out) -> {
                if (part.base != null) {
                   emit(pose, out, part.base, light, overlay, 255, bends, pitch, yaw, roll, part, bent, turn);
                }
@@ -143,50 +143,50 @@ final class CharacterRenderer {
          }
 
          if (part.decals != null) {
-            collector.method_73529(1)
-               .method_73483(stack, worn.decal, (pose, out) -> emit(pose, out, part.decals, light, overlay, 255, bends, pitch, yaw, roll, part, bent, turn));
+            collector.order(1)
+               .submitCustomGeometry(stack, worn.decal, (pose, out) -> emit(pose, out, part.decals, light, overlay, 255, bends, pitch, yaw, roll, part, bent, turn));
          }
       }
    }
 
-   static boolean translateToHand(class_591 pm, class_10055 state, class_1306 arm, class_4587 stack) {
+   static boolean translateToHand(PlayerModel pm, AvatarRenderState state, HumanoidArm arm, PoseStack stack) {
       WornCharacter worn = CharacterModule.worn(state);
       if (worn == null) {
          return false;
       }
 
       CharacterModel model = worn.model;
-      Bone bone = arm == class_1306.field_6183 ? Bone.RIGHT_ARM : Bone.LEFT_ARM;
+      Bone bone = arm == HumanoidArm.RIGHT ? Bone.RIGHT_ARM : Bone.LEFT_ARM;
       PartMesh part = model.part(bone);
       if (part == null) {
          return false;
       }
 
       float s = model.scale;
-      class_630 vp = vanilla(pm, bone);
-      pm.method_63512().method_22703(stack);
+      ModelPart vp = vanilla(pm, bone);
+      pm.root().translateAndRotate(stack);
       lift(stack, state, model);
-      pivot(stack, vp, part, s, pitch(state, part, vp.field_3654));
+      pivot(stack, vp, part, s, pitch(state, part, vp.xRot));
       float bent = part.jointed ? CharacterJoints.angle(state, bone, walk(state, bone) * weight(state, bone)) : 0.0F;
       if (bent != 0.0F) {
          float jy = part.jointY * s / 16.0F;
          float jz = part.jointZ * s / 16.0F;
-         stack.method_46416(0.0F, -jy, -jz);
-         stack.method_22907(ROTATION.rotationX(bent));
-         stack.method_46416(0.0F, jy, jz);
+         stack.translate(0.0F, -jy, -jz);
+         stack.mulPose(ROTATION.rotationX(bent));
+         stack.translate(0.0F, jy, jz);
       }
 
-      stack.method_46416((part.gripX - part.pivotX) * s / 16.0F, -(part.gripY - part.pivotY) * s / 16.0F, -(part.gripZ - part.pivotZ) * s / 16.0F);
-      stack.method_22905(s, s, s);
-      stack.method_46416((arm == class_1306.field_6183 ? 1.0F : -1.0F) / 16.0F, -0.625F, 0.125F);
+      stack.translate((part.gripX - part.pivotX) * s / 16.0F, -(part.gripY - part.pivotY) * s / 16.0F, -(part.gripZ - part.pivotZ) * s / 16.0F);
+      stack.scale(s, s, s);
+      stack.translate((arm == HumanoidArm.RIGHT ? 1.0F : -1.0F) / 16.0F, -0.625F, 0.125F);
       return true;
    }
 
-   private static float[] pitches(class_10055 state, CharacterModel model, class_591 pm) {
+   private static float[] pitches(AvatarRenderState state, CharacterModel model, PlayerModel pm) {
       float[] out = PITCH;
 
       for (Bone bone : BONES) {
-         float xRot = vanilla(pm, bone).field_3654;
+         float xRot = vanilla(pm, bone).xRot;
          PartMesh part = !bone.arm() && !bone.leg() ? null : model.part(bone);
          out[bone.ordinal()] = part == null ? xRot : pitch(state, part, xRot);
       }
@@ -194,16 +194,16 @@ final class CharacterRenderer {
       return out;
    }
 
-   private static float pitch(class_10055 state, PartMesh part, float xRot) {
+   private static float pitch(AvatarRenderState state, PartMesh part, float xRot) {
       float out = part.swingPitch(xRot, walk(state, part.bone), weight(state, part.bone));
-      if (part.jointed && part.bone.leg() && state.field_53410 && !state.field_53413) {
-         out -= 0.5F * (1.0F - state.field_53403);
+      if (part.jointed && part.bone.leg() && state.isCrouching && !state.isPassenger) {
+         out -= 0.5F * (1.0F - state.swimAmount);
       }
 
       return out;
    }
 
-   private static float[] joints(class_10055 state, CharacterModel model) {
+   private static float[] joints(AvatarRenderState state, CharacterModel model) {
       float[] out = JOINT;
 
       for (Bone bone : BONES) {
@@ -216,34 +216,34 @@ final class CharacterRenderer {
 
    private static float look(float angle, float limitDegrees) {
       float max = limitDegrees * (float) (Math.PI / 180.0);
-      return class_3532.method_15363(angle, -max, max);
+      return Mth.clamp(angle, -max, max);
    }
 
-   private static float walk(class_10055 state, Bone bone) {
-      float phase = state.field_53450 * 0.6662F;
-      float speed = state.field_53451 / state.field_53405;
+   private static float walk(AvatarRenderState state, Bone bone) {
+      float phase = state.walkAnimationPos * 0.6662F;
+      float speed = state.walkAnimationSpeed / state.speedValue;
 
       return switch (bone) {
-         case RIGHT_LEG -> class_3532.method_15362(phase) * 1.4F * speed;
-         case LEFT_LEG -> class_3532.method_15362(phase + (float) Math.PI) * 1.4F * speed;
-         case RIGHT_ARM -> class_3532.method_15362(phase + (float) Math.PI) * speed;
-         case LEFT_ARM -> class_3532.method_15362(phase) * speed;
+         case RIGHT_LEG -> Mth.cos(phase) * 1.4F * speed;
+         case LEFT_LEG -> Mth.cos(phase + (float) Math.PI) * 1.4F * speed;
+         case RIGHT_ARM -> Mth.cos(phase + (float) Math.PI) * speed;
+         case LEFT_ARM -> Mth.cos(phase) * speed;
          default -> 0.0F;
       };
    }
 
-   private static float weight(class_10055 state, Bone bone) {
+   private static float weight(AvatarRenderState state, Bone bone) {
       if (bone.leg()) {
-         return state.field_53413 ? 0.0F : 1.0F - state.field_53403;
+         return state.isPassenger ? 0.0F : 1.0F - state.swimAmount;
       }
 
       if (!bone.arm()) {
          return 0.0F;
       }
 
-      class_573 pose = bone == Bone.RIGHT_ARM ? state.field_55304 : state.field_55306;
-      class_573 other = bone == Bone.RIGHT_ARM ? state.field_55306 : state.field_55304;
-      if (other.method_30156()) {
+      ArmPose pose = bone == Bone.RIGHT_ARM ? state.rightArmPose : state.leftArmPose;
+      ArmPose other = bone == Bone.RIGHT_ARM ? state.leftArmPose : state.rightArmPose;
+      if (other.isTwoHanded()) {
          return 0.0F;
       }
 
@@ -252,30 +252,30 @@ final class CharacterRenderer {
          case field_3410, field_3406, field_42877, field_63542 -> 0.5F;
          default -> 0.0F;
       };
-      return state.field_53414 ? share : share * (1.0F - state.field_53403);
+      return state.isUsingItem ? share : share * (1.0F - state.swimAmount);
    }
 
-   private static void lift(class_4587 stack, class_10055 state, CharacterModel model) {
-      if (state.field_53413) {
+   private static void lift(PoseStack stack, AvatarRenderState state, CharacterModel model) {
+      if (state.isPassenger) {
          float rise = 12.0F - model.scale * model.hipY;
          if (rise != 0.0F) {
-            stack.method_46416(0.0F, -rise / 16.0F, 0.0F);
+            stack.translate(0.0F, -rise / 16.0F, 0.0F);
          }
       }
    }
 
-   private static void chain(class_4587 stack, class_591 pm, CharacterModel model, int index, float[] angles, boolean rotate, class_630 hand, float[] pitch) {
+   private static void chain(PoseStack stack, PlayerModel pm, CharacterModel model, int index, float[] angles, boolean rotate, ModelPart hand, float[] pitch) {
       PartMesh part = model.parts[index];
       float s = model.scale;
       if (!part.extra) {
          if (hand == null) {
-            class_630 vp = vanilla(pm, part.bone);
-            pivot(stack, vp, part, s, pitch == null ? vp.field_3654 : pitch[part.bone.ordinal()]);
+            ModelPart vp = vanilla(pm, part.bone);
+            pivot(stack, vp, part, s, pitch == null ? vp.xRot : pitch[part.bone.ordinal()]);
          } else {
-            stack.method_46416(hand.field_3657 / 16.0F, hand.field_3656 / 16.0F, hand.field_3655 / 16.0F);
-            stack.method_22907(ROTATION.rotationZYX(hand.field_3674, hand.field_3675, hand.field_3654));
+            stack.translate(hand.x / 16.0F, hand.y / 16.0F, hand.z / 16.0F);
+            stack.mulPose(ROTATION.rotationZYX(hand.zRot, hand.yRot, hand.xRot));
             float side = part.bone == Bone.RIGHT_ARM ? -1.0F : 1.0F;
-            stack.method_46416(
+            stack.translate(
                (side - (part.gripX - part.pivotX) * s) / 16.0F,
                (10.0F + (part.gripY - part.pivotY) * s) / 16.0F,
                (-2.0F + (part.gripZ - part.pivotZ) * s) / 16.0F
@@ -283,50 +283,50 @@ final class CharacterRenderer {
          }
 
          float k = s / 16.0F;
-         stack.method_22905(k, -k, -k);
+         stack.scale(k, -k, -k);
       } else {
          chain(stack, pm, model, part.parent, angles, true, hand, pitch);
          PartMesh parent = model.parts[part.parent];
-         stack.method_46416(part.pivotX - parent.pivotX, part.pivotY - parent.pivotY, part.pivotZ - parent.pivotZ);
+         stack.translate(part.pivotX - parent.pivotX, part.pivotY - parent.pivotY, part.pivotZ - parent.pivotZ);
          if (rotate && angles != null && part.motionSlot >= 0) {
             int o = part.motionSlot * 3;
             if (angles[o] != 0.0F || angles[o + 1] != 0.0F || angles[o + 2] != 0.0F) {
-               stack.method_22907(ROTATION.rotationZYX(angles[o + 2], angles[o + 1], angles[o]));
+               stack.mulPose(ROTATION.rotationZYX(angles[o + 2], angles[o + 1], angles[o]));
             }
          }
       }
    }
 
-   private static void pivot(class_4587 stack, class_630 vp, PartMesh part, float s, float xRot) {
-      class_5603 rest = vp.method_41921();
-      stack.method_46416(
-         (s * part.pivotX + (vp.field_3657 - rest.comp_2997()) * s) / 16.0F,
-         (24.0F - s * part.pivotY + (vp.field_3656 - rest.comp_2998()) * s) / 16.0F,
-         (-s * part.pivotZ + (vp.field_3655 - rest.comp_2999()) * s) / 16.0F
+   private static void pivot(PoseStack stack, ModelPart vp, PartMesh part, float s, float xRot) {
+      PartPose rest = vp.getInitialPose();
+      stack.translate(
+         (s * part.pivotX + (vp.x - rest.comp_2997()) * s) / 16.0F,
+         (24.0F - s * part.pivotY + (vp.y - rest.comp_2998()) * s) / 16.0F,
+         (-s * part.pivotZ + (vp.z - rest.comp_2999()) * s) / 16.0F
       );
-      if (xRot != 0.0F || vp.field_3675 != 0.0F || vp.field_3674 != 0.0F) {
-         stack.method_22907(ROTATION.rotationZYX(vp.field_3674, vp.field_3675, xRot));
+      if (xRot != 0.0F || vp.yRot != 0.0F || vp.zRot != 0.0F) {
+         stack.mulPose(ROTATION.rotationZYX(vp.zRot, vp.yRot, xRot));
       }
 
-      if (vp.field_37938 != 1.0F || vp.field_37939 != 1.0F || vp.field_37940 != 1.0F) {
-         stack.method_22905(vp.field_37938, vp.field_37939, vp.field_37940);
+      if (vp.xScale != 1.0F || vp.yScale != 1.0F || vp.zScale != 1.0F) {
+         stack.scale(vp.xScale, vp.yScale, vp.zScale);
       }
    }
 
-   private static class_630 vanilla(class_591 pm, Bone bone) {
+   private static ModelPart vanilla(PlayerModel pm, Bone bone) {
       return switch (bone) {
-         case RIGHT_LEG -> pm.field_3392;
-         case LEFT_LEG -> pm.field_3397;
-         case RIGHT_ARM -> pm.field_3401;
-         case LEFT_ARM -> pm.field_27433;
-         case HEAD -> pm.field_3398;
-         case BODY -> pm.field_3391;
+         case RIGHT_LEG -> pm.rightLeg;
+         case LEFT_LEG -> pm.leftLeg;
+         case RIGHT_ARM -> pm.rightArm;
+         case LEFT_ARM -> pm.leftArm;
+         case HEAD -> pm.head;
+         case BODY -> pm.body;
       };
    }
 
    private static void emit(
-      class_4665 pose,
-      class_4588 out,
+      Pose pose,
+      VertexConsumer out,
       Surface s,
       int light,
       int overlay,
@@ -345,8 +345,8 @@ final class CharacterRenderer {
       }
 
       float[] buf = scratch;
-      Matrix4f m = pose.method_23761();
-      Matrix3f nm = pose.method_23762();
+      Matrix4f m = pose.pose();
+      Matrix3f nm = pose.normal();
       float m00 = m.m00();
       float m01 = m.m10();
       float m02 = m.m20();
@@ -462,7 +462,7 @@ final class CharacterRenderer {
          int o = v * 6;
          int c = alpha == 255 ? color[v] : color[v] & 16777215 | alpha << 24;
          int l = glow != null && glow[v] != 0 ? 15728880 : light;
-         out.method_23919(buf[o], buf[o + 1], buf[o + 2], c, uv[v * 2], uv[v * 2 + 1], overlay, l, buf[o + 3], buf[o + 4], buf[o + 5]);
+         out.addVertex(buf[o], buf[o + 1], buf[o + 2], c, uv[v * 2], uv[v * 2 + 1], overlay, l, buf[o + 3], buf[o + 4], buf[o + 5]);
       }
    }
 }

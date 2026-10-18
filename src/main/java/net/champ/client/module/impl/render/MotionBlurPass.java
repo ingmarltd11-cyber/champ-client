@@ -12,18 +12,18 @@ import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTexture;
-import com.mojang.blaze3d.vertex.VertexFormat.class_5596;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10789;
-import net.minecraft.class_276;
-import net.minecraft.class_290;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_6367;
+import com.mojang.blaze3d.shaders.UniformType;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.pipeline.TextureTarget;
 import org.lwjgl.BufferUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,23 +32,23 @@ import org.slf4j.LoggerFactory;
 final class MotionBlurPass {
    private static final Logger LOGGER = LoggerFactory.getLogger("Champ Client");
    private static final RenderPipeline PIPELINE = RenderPipeline.builder(new Snippet[0])
-      .withLocation(class_2960.method_60655("champ", "pipeline/motion_blur"))
+      .withLocation(Identifier.fromNamespaceAndPath("champ", "pipeline/motion_blur"))
       .withVertexShader("core/screenquad")
-      .withFragmentShader(class_2960.method_60655("champ", "core/motion_blur"))
+      .withFragmentShader(Identifier.fromNamespaceAndPath("champ", "core/motion_blur"))
       .withSampler("InSampler")
-      .withUniform("MotionBlurConfig", class_10789.field_60031)
+      .withUniform("MotionBlurConfig", UniformType.UNIFORM_BUFFER)
       .withBlend(BlendFunction.TRANSLUCENT)
       .withColorWrite(true, false)
       .withDepthWrite(false)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
-      .withVertexFormat(class_290.field_60033, class_5596.field_27379)
+      .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
       .build();
    private static final Supplier<String> PASS_LABEL = () -> "Champ Client motion blur";
    private static final Supplier<String> CONFIG_LABEL = () -> "Champ Client motion blur config";
    private static final int CONFIG_SIZE = 16;
    private static final long STALE_NANOS = 1000000000L;
    private static final float MIN_RETENTION = 0.003921569F;
-   private static class_6367 history;
+   private static TextureTarget history;
    private static GpuBuffer config;
    private static GpuBufferSlice configSlice;
    private static ByteBuffer configData;
@@ -62,30 +62,30 @@ final class MotionBlurPass {
    }
 
    static void apply(boolean worldRendered, float retention60) {
-      class_310 mc = class_310.method_1551();
-      class_276 main = mc.method_1522();
-      GpuTexture mainColor = main.method_30277();
+      Minecraft mc = Minecraft.getInstance();
+      RenderTarget main = mc.getMainRenderTarget();
+      GpuTexture mainColor = main.getColorTexture();
       if (worldRendered
-         && mc.field_1687 != null
-         && mc.method_53466()
-         && !mc.field_1773.method_35765()
+         && mc.level != null
+         && mc.isGameLoadFinished()
+         && !mc.gameRenderer.isPanoramicMode()
          && mainColor != null
-         && main.field_1482 > 0
-         && main.field_1481 > 0) {
+         && main.width > 0
+         && main.height > 0) {
          long now = System.nanoTime();
          long gap = now - lastFrameNanos;
          lastFrameNanos = now;
-         int level = System.identityHashCode(mc.field_1687);
+         int level = System.identityHashCode(mc.level);
          if (level != levelKey) {
             levelKey = level;
             primed = false;
          }
 
          if (history == null) {
-            allocate(main.field_1482, main.field_1481);
+            allocate(main.width, main.height);
             primed = false;
-         } else if (history.field_1482 != main.field_1482 || history.field_1481 != main.field_1481) {
-            history.method_1234(main.field_1482, main.field_1481);
+         } else if (history.width != main.width || history.height != main.height) {
+            history.resize(main.width, main.height);
             primed = false;
          }
 
@@ -98,24 +98,24 @@ final class MotionBlurPass {
             }
          }
 
-         encoder.copyTextureToTexture(mainColor, history.method_30277(), 0, 0, 0, 0, 0, main.field_1482, main.field_1481);
+         encoder.copyTextureToTexture(mainColor, history.getColorTexture(), 0, 0, 0, 0, 0, main.width, main.height);
          primed = true;
       } else {
          primed = false;
       }
    }
 
-   private static void blend(CommandEncoder encoder, class_276 main, float retention) {
+   private static void blend(CommandEncoder encoder, RenderTarget main, float retention) {
       seed = seed + 1 & 63;
       configData.putFloat(0, retention);
       configData.putFloat(4, seed * 7.0F);
       encoder.writeToBuffer(configSlice, configData);
-      RenderPass pass = encoder.createRenderPass(PASS_LABEL, main.method_71639(), OptionalInt.empty());
+      RenderPass pass = encoder.createRenderPass(PASS_LABEL, main.getColorTextureView(), OptionalInt.empty());
 
       try {
          pass.setPipeline(PIPELINE);
          pass.setUniform("MotionBlurConfig", configSlice);
-         pass.bindTexture("InSampler", history.method_71639(), RenderSystem.getSamplerCache().method_75294(FilterMode.NEAREST));
+         pass.bindTexture("InSampler", history.getColorTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
          pass.draw(0, 3);
       } catch (Throwable var7) {
          if (pass != null) {
@@ -149,7 +149,7 @@ final class MotionBlurPass {
    }
 
    private static void allocate(int width, int height) {
-      history = new class_6367("Champ Client motion blur history", width, height, false);
+      history = new TextureTarget("Champ Client motion blur history", width, height, false);
       config = RenderSystem.getDevice().createBuffer(CONFIG_LABEL, 136, 16L);
       configSlice = config.slice();
       configData = BufferUtils.createByteBuffer(16);
@@ -157,7 +157,7 @@ final class MotionBlurPass {
 
    static void release() {
       if (history != null) {
-         history.method_1238();
+         history.destroyBuffers();
          history = null;
       }
 

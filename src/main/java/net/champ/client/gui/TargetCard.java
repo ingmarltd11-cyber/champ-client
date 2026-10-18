@@ -13,19 +13,19 @@ import net.champ.client.module.impl.misc.NameProtectModule;
 import net.champ.client.util.combat.CombatTarget;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10868;
-import net.minecraft.class_1304;
-import net.minecraft.class_1309;
-import net.minecraft.class_1531;
-import net.minecraft.class_156;
-import net.minecraft.class_1657;
-import net.minecraft.class_1799;
-import net.minecraft.class_1826;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_742;
-import net.minecraft.class_8685;
+import com.mojang.blaze3d.opengl.GlTexture;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.util.Util;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.SpawnEggItem;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.world.entity.player.PlayerSkin;
 import org.lwjgl.opengl.GL11;
 
 @Environment(EnvType.CLIENT)
@@ -61,10 +61,10 @@ final class TargetCard {
    private static final float SKIN_HAT_U = 0.625F;
    private static final float SKIN_TOP_V = 0.125F;
    private static final float SKIN_PART = 0.125F;
-   private static final class_1304[] GEAR_ORDER = new class_1304[]{
-      class_1304.field_6173, class_1304.field_6171, class_1304.field_6169, class_1304.field_6174, class_1304.field_6172, class_1304.field_6166
+   private static final EquipmentSlot[] GEAR_ORDER = new EquipmentSlot[]{
+      EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND, EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
    };
-   private class_1309 target;
+   private LivingEntity target;
    private float presence;
    private float lost;
    private float health;
@@ -75,7 +75,7 @@ final class TargetCard {
    private int lastHurt;
    private float strike;
    private float clock;
-   private class_1309 namedFor;
+   private LivingEntity namedFor;
    private int nameGeneration = Integer.MIN_VALUE;
    private long namedAt;
    private String rawName = "";
@@ -109,15 +109,15 @@ final class TargetCard {
       return Math.round(62.0F * s);
    }
 
-   void update(class_310 mc, HudModule hud, boolean active, boolean editMode, float dt) {
+   void update(Minecraft mc, HudModule hud, boolean active, boolean editMode, float dt) {
       this.clock += dt;
-      if (this.target != null && (this.target.method_73183() != mc.field_1687 || !editMode && this.target == mc.field_1724)) {
+      if (this.target != null && (this.target.level() != mc.level || !editMode && this.target == mc.player)) {
          this.reset();
       }
 
-      class_1309 next = active ? pick(mc, hud) : null;
+      LivingEntity next = active ? pick(mc, hud) : null;
       if (next == null && editMode) {
-         next = mc.field_1724;
+         next = mc.player;
       }
 
       if (next != null && next != this.target) {
@@ -129,7 +129,7 @@ final class TargetCard {
       if (editMode && wanted) {
          this.presence = 1.0F;
       } else {
-         this.presence = class_3532.method_15363(this.presence + (wanted ? dt / 0.2F : -dt / 0.34F), 0.0F, 1.0F);
+         this.presence = Mth.clamp(this.presence + (wanted ? dt / 0.2F : -dt / 0.34F), 0.0F, 1.0F);
       }
 
       if (this.presence <= 0.0F && !wanted) {
@@ -142,38 +142,38 @@ final class TargetCard {
       }
    }
 
-   private static class_1309 pick(class_310 mc, HudModule hud) {
-      class_1309 entity = hud.targetOnLook() ? CombatTarget.current(4000L) : CombatTarget.lastHit(4000L);
-      if (entity == null || entity == mc.field_1724 || entity instanceof class_1531) {
+   private static LivingEntity pick(Minecraft mc, HudModule hud) {
+      LivingEntity entity = hud.targetOnLook() ? CombatTarget.current(4000L) : CombatTarget.lastHit(4000L);
+      if (entity == null || entity == mc.player || entity instanceof ArmorStand) {
          return null;
       } else {
-         return hud.targetPlayersOnly() && !(entity instanceof class_1657) ? null : entity;
+         return hud.targetPlayersOnly() && !(entity instanceof Player) ? null : entity;
       }
    }
 
-   private void adopt(class_1309 next) {
+   private void adopt(LivingEntity next) {
       this.target = next;
-      float max = Math.max(1.0F, next.method_6063());
-      this.health = this.trail = this.lastHealth = class_3532.method_15363(next.method_6032(), 0.0F, max);
-      this.absorb = Math.max(0.0F, next.method_6067());
+      float max = Math.max(1.0F, next.getMaxHealth());
+      this.health = this.trail = this.lastHealth = Mth.clamp(next.getHealth(), 0.0F, max);
+      this.absorb = Math.max(0.0F, next.getAbsorptionAmount());
       this.trailHold = 0.0F;
       this.strike = 0.0F;
-      this.lastHurt = next.field_6235;
+      this.lastHurt = next.hurtTime;
    }
 
    private void follow(float dt) {
-      float max = Math.max(1.0F, this.target.method_6063());
-      float hp = class_3532.method_15363(this.target.method_6032(), 0.0F, max);
+      float max = Math.max(1.0F, this.target.getMaxHealth());
+      float hp = Mth.clamp(this.target.getHealth(), 0.0F, max);
       if (hp < this.lastHealth - 0.01F) {
          this.trailHold = 0.4F;
          this.strike = 1.0F;
       }
 
-      if (this.target.field_6235 > this.lastHurt) {
+      if (this.target.hurtTime > this.lastHurt) {
          this.strike = 1.0F;
       }
 
-      this.lastHurt = this.target.field_6235;
+      this.lastHurt = this.target.hurtTime;
       this.lastHealth = hp;
       this.health = HudGlyphs.approach(this.health, hp, 13.0F, dt);
       if (this.trailHold > 0.0F) {
@@ -186,7 +186,7 @@ final class TargetCard {
          this.trail = this.health;
       }
 
-      this.absorb = HudGlyphs.approach(this.absorb, Math.max(0.0F, this.target.method_6067()), 13.0F, dt);
+      this.absorb = HudGlyphs.approach(this.absorb, Math.max(0.0F, this.target.getAbsorptionAmount()), 13.0F, dt);
       this.strike = Math.max(0.0F, this.strike - dt / 0.45F);
    }
 
@@ -195,7 +195,7 @@ final class TargetCard {
          float shown = HudGlyphs.easeOutQuint(this.presence);
          float a = alpha * shown;
          if (!(a <= 0.004F)) {
-            class_310 mc = class_310.method_1551();
+            Minecraft mc = Minecraft.getInstance();
             float s = HudRenderer.scaleOf(state);
             y = Math.round(y + 7.0F * s * (1.0F - shown));
             float w = state.width;
@@ -214,8 +214,8 @@ final class TargetCard {
             this.drawPortrait(dl, mc, left, top + Math.round((46.0F * s - frame) * 0.5F), frame, s, a);
             float colLeft = left + frame + Math.round(10.0F * s);
             float colRight = x + w - Math.round(8.0F * s);
-            float max = Math.max(1.0F, this.target.method_6063());
-            float fraction = class_3532.method_15363(this.health / max, 0.0F, 1.0F);
+            float max = Math.max(1.0F, this.target.getMaxHealth());
+            float fraction = Mth.clamp(this.health / max, 0.0F, 1.0F);
             float textTop = top + (float)Math.floor((18.0F * s - textPx) * 0.5F);
             float labelTop = textTop + HudChrome.baselineOffset(textFont, textPx, labelFont, labelPx);
             this.refreshNumbers(mc);
@@ -259,7 +259,7 @@ final class TargetCard {
       }
    }
 
-   private void drawPortrait(ImDrawList dl, class_310 mc, float fx, float fy, float size, float s, float a) {
+   private void drawPortrait(ImDrawList dl, Minecraft mc, float fx, float fy, float size, float s, float a) {
       float r = Math.min(HudRenderer.hudRounding(), 6.0F) * s;
       dl.addRectFilled(fx, fy, fx + size, fy + size, HudChrome.scaleAlpha(1493172224, a), r);
       float face = Math.max(8.0F, Math.round(32.0F * s / 8.0F) * 8.0F);
@@ -270,7 +270,7 @@ final class TargetCard {
       float ix = Math.round(fx + (size - face) * 0.5F);
       float iy = Math.round(fy + (size - face) * 0.5F);
       boolean drawn = false;
-      if (this.target instanceof class_742 player) {
+      if (this.target instanceof AbstractClientPlayer player) {
          int texture = this.skinTexture(mc, player);
          if (texture != 0) {
             float fr = Math.max(1.0F, Math.round(2.0F * s));
@@ -280,7 +280,7 @@ final class TargetCard {
             drawn = true;
          }
       } else {
-         class_1826 egg = class_1826.method_8019(this.target.method_5864());
+         SpawnEggItem egg = SpawnEggItem.byId(this.target.getType());
          if (egg != null) {
             float shown = ItemIcons.pixels(face);
             float ex = Math.round(fx + (size - shown) * 0.5F);
@@ -310,8 +310,8 @@ final class TargetCard {
    private void drawBar(ImDrawList dl, float l, float t, float r, float bh, float max, float s, float a) {
       float bw = r - l;
       float round = bh * 0.5F;
-      float fraction = class_3532.method_15363(this.health / max, 0.0F, 1.0F);
-      float trailFraction = class_3532.method_15363(this.trail / max, 0.0F, 1.0F);
+      float fraction = Mth.clamp(this.health / max, 0.0F, 1.0F);
+      float trailFraction = Mth.clamp(this.trail / max, 0.0F, 1.0F);
       dl.addRectFilled(l, t, r, t + bh, HudChrome.scaleAlpha(452984831, a), round);
       if (trailFraction > fraction + 0.002F) {
          float tr = l + bw * trailFraction;
@@ -339,7 +339,7 @@ final class TargetCard {
          dl.addRectFilled(nx, t, nx + notch, t + bh, notchInk);
       }
 
-      float absorbFraction = class_3532.method_15363(this.absorb / max, 0.0F, 1.0F);
+      float absorbFraction = Mth.clamp(this.absorb / max, 0.0F, 1.0F);
       if (absorbFraction > 0.002F) {
          float ar = l + bw * absorbFraction;
          dl.addRectFilled(l, t, ar, t + Math.max(1.5F, bh * 0.45F), HudGlyphs.ink(-12750874, a * 0.95F), Math.min(round, (ar - l) * 0.5F), 48);
@@ -349,20 +349,20 @@ final class TargetCard {
    private void drawGear(ImDrawList dl, float gx, float gy, int gearPx, float limit, float s, float a) {
       float step = gearPx + Math.round(3.0F * s);
 
-      for (class_1304 slot : GEAR_ORDER) {
-         class_1799 stack = this.target.method_6118(slot);
-         if (!stack.method_7960()) {
+      for (EquipmentSlot slot : GEAR_ORDER) {
+         ItemStack stack = this.target.getItemBySlot(slot);
+         if (!stack.isEmpty()) {
             if (gx + gearPx > limit) {
                break;
             }
 
             ItemIcons.draw(dl, stack, gx, gy, gearPx, a);
-            if (stack.method_7958()) {
+            if (stack.hasFoil()) {
                HudGlyphs.sparkle(dl, gx + gearPx - 1.5F * s, gy + 1.5F * s, 2.6F * s, HudGlyphs.ink(-11654, a * 0.9F));
             }
 
-            if (stack.method_7963() && stack.method_7936() > 0) {
-               float left = 1.0F - (float)stack.method_7919() / stack.method_7936();
+            if (stack.isDamageableItem() && stack.getMaxDamage() > 0) {
+               float left = 1.0F - (float)stack.getDamageValue() / stack.getMaxDamage();
                if (left < 0.25F) {
                   float line = Math.max(1.0F, Math.round(1.5F * s));
                   dl.addRectFilled(gx + 1.0F, gy + gearPx + line * 0.5F, gx + gearPx - 1.0F, gy + gearPx + line * 1.5F, HudGlyphs.ink(-2537681, a), line * 0.5F);
@@ -374,21 +374,21 @@ final class TargetCard {
       }
    }
 
-   private void refreshNumbers(class_310 mc) {
-      float max = Math.max(1.0F, this.target.method_6063());
-      int tenths = Math.round(class_3532.method_15363(this.target.method_6032(), 0.0F, max) * 10.0F);
+   private void refreshNumbers(Minecraft mc) {
+      float max = Math.max(1.0F, this.target.getMaxHealth());
+      int tenths = Math.round(Mth.clamp(this.target.getHealth(), 0.0F, max) * 10.0F);
       if (tenths != this.healthTenths) {
          this.healthTenths = tenths;
          this.healthText = tenths % 10 == 0 ? Integer.toString(tenths / 10) : tenths / 10 + "." + tenths % 10;
       }
 
-      int whole = Math.round(Math.max(0.0F, this.target.method_6067()));
+      int whole = Math.round(Math.max(0.0F, this.target.getAbsorptionAmount()));
       if (whole != this.absorbWhole) {
          this.absorbWhole = whole;
          this.absorbText = whole > 0 ? "+" + whole : "";
       }
 
-      int distance = mc.field_1724 == null ? 0 : Math.round(mc.field_1724.method_5739(this.target) * 10.0F);
+      int distance = mc.player == null ? 0 : Math.round(mc.player.distanceTo(this.target) * 10.0F);
       if (distance != this.distanceTenths) {
          this.distanceTenths = distance;
          this.distanceText = distance / 10 + "." + distance % 10 + "m";
@@ -397,12 +397,12 @@ final class TargetCard {
 
    private String fittedName(ImFont font, int fontPx, float maxW) {
       int generation = NameProtectModule.generation();
-      long now = class_156.method_658();
+      long now = Util.getMillis();
       if (this.target != this.namedFor || generation != this.nameGeneration || now - this.namedAt > 1000L) {
          this.namedFor = this.target;
          this.nameGeneration = generation;
          this.namedAt = now;
-         String fresh = NameProtectModule.protect(this.target.method_5477()).getString();
+         String fresh = NameProtectModule.protect(this.target.getName()).getString();
          if (!fresh.equals(this.rawName)) {
             this.rawName = fresh;
             this.fittedWidth = -1;
@@ -441,31 +441,31 @@ final class TargetCard {
       return lo == 0 ? "" : name.substring(0, lo).stripTrailing() + "...";
    }
 
-   private int skinTexture(class_310 mc, class_742 player) {
-      class_8685 skin = player.method_52814();
-      if (NameProtectModule.hidesName(player.method_7334().name())) {
-         skin = NameProtectModule.hiddenHead(player.method_5667(), skin);
+   private int skinTexture(Minecraft mc, AbstractClientPlayer player) {
+      PlayerSkin skin = player.getSkin();
+      if (NameProtectModule.hidesName(player.getGameProfile().name())) {
+         skin = NameProtectModule.hiddenHead(player.getUUID(), skin);
       }
 
-      class_2960 path = skin.comp_1626().comp_3627();
+      Identifier path = skin.comp_1626().comp_3627();
 
       GpuTexture texture;
       try {
-         texture = mc.method_1531().method_4619(path).method_68004();
+         texture = mc.getTextureManager().getTexture(path).getTexture();
       } catch (IllegalStateException notUploaded) {
          return 0;
       }
 
-      if (texture instanceof class_10868 gl && !gl.isClosed()) {
+      if (texture instanceof GlTexture gl && !gl.isClosed()) {
          if (this.crispSkins.add(texture)) {
             int bound = GL11.glGetInteger(32873);
-            GL11.glBindTexture(3553, gl.method_68427());
+            GL11.glBindTexture(3553, gl.glId());
             GL11.glTexParameteri(3553, 10241, 9728);
             GL11.glTexParameteri(3553, 10240, 9728);
             GL11.glBindTexture(3553, bound);
          }
 
-         return gl.method_68427();
+         return gl.glId();
       } else {
          return 0;
       }

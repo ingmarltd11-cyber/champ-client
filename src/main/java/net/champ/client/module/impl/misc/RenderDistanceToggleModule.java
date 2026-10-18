@@ -8,7 +8,7 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class RenderDistanceToggleModule extends ClientModule {
@@ -36,15 +36,15 @@ public final class RenderDistanceToggleModule extends ClientModule {
    @Override
    protected void onDisable() {
       if (this.restoring) {
-         this.restore(class_310.method_1551());
+         this.restore(Minecraft.getInstance());
       }
    }
 
    @EventHandler(stage = Stage.POST)
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null && mc.field_1687 != null) {
-         int y = mc.field_1724.method_31478();
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.level != null) {
+         int y = mc.player.getBlockY();
          if (!this.restoring && y > this.resetY.getInt() + 2) {
             this.armed = true;
          }
@@ -53,7 +53,7 @@ public final class RenderDistanceToggleModule extends ClientModule {
             this.armed = false;
             this.restoring = true;
             this.timer = 0;
-            this.savedDistance = (Integer)mc.field_1690.method_42503().method_41753();
+            this.savedDistance = (Integer)mc.options.renderDistance().get();
             apply(mc, this.lowDistance.getInt());
          } else if (this.restoring && ++this.timer >= 10) {
             this.restore(mc);
@@ -65,7 +65,7 @@ public final class RenderDistanceToggleModule extends ClientModule {
       }
    }
 
-   private void restore(class_310 mc) {
+   private void restore(Minecraft mc) {
       if (this.savedDistance >= 0) {
          apply(mc, this.savedDistance);
       }
@@ -73,8 +73,8 @@ public final class RenderDistanceToggleModule extends ClientModule {
       this.restoring = false;
    }
 
-   private static void apply(class_310 mc, int chunks) {
-      mc.field_1690.method_42503().method_41748(chunks);
-      mc.field_1690.method_1643();
+   private static void apply(Minecraft mc, int chunks) {
+      mc.options.renderDistance().set(chunks);
+      mc.options.broadcastOptions();
    }
 }

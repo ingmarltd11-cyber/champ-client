@@ -4,20 +4,20 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import net.champ.client.module.impl.movement.entitycontrol.EntityControlVehicleHook;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10255;
+import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_10255.class)
+@Mixin(AbstractBoat.class)
 public abstract class MixinEntityControlAbstractBoat {
-   @ModifyExpressionValue(method = "method_64482", at = @At(value = "FIELD", target = "Lnet/minecraft/class_10255;field_54444:Z", opcode = 180))
+   @ModifyExpressionValue(method = "controlBoat", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/vehicle/boat/AbstractBoat;inputLeft:Z", opcode = 180))
    private boolean champ$entityControlInputLeft(boolean original) {
-      return original && !EntityControlVehicleHook.locksBoatTurning((class_10255)this);
+      return original && !EntityControlVehicleHook.locksBoatTurning((AbstractBoat)this);
    }
 
-   @ModifyExpressionValue(method = "method_64482", at = @At(value = "FIELD", target = "Lnet/minecraft/class_10255;field_54428:Z", opcode = 180))
+   @ModifyExpressionValue(method = "controlBoat", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/vehicle/boat/AbstractBoat;inputRight:Z", opcode = 180))
    private boolean champ$entityControlInputRight(boolean original) {
-      return original && !EntityControlVehicleHook.locksBoatTurning((class_10255)this);
+      return original && !EntityControlVehicleHook.locksBoatTurning((AbstractBoat)this);
    }
 }

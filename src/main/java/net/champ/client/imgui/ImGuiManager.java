@@ -24,11 +24,11 @@ import net.champ.client.gui.ThemeImages;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.class_1041;
-import net.minecraft.class_11875;
-import net.minecraft.class_11876;
-import net.minecraft.class_310;
-import net.minecraft.class_332;
+import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.platform.cursor.CursorType;
+import com.mojang.blaze3d.platform.cursor.CursorTypes;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWKeyCallback;
 import org.lwjgl.glfw.GLFWMonitorCallback;
@@ -82,7 +82,7 @@ public final class ImGuiManager {
 
       protected void updateMouseData() {
          super.updateMouseData();
-         long handle = class_310.method_1551().method_22683().method_4490();
+         long handle = Minecraft.getInstance().getWindow().handle();
          if (GLFW.glfwGetWindowAttrib(handle, 131073) != 0) {
             double[] cx = new double[1];
             double[] cy = new double[1];
@@ -137,13 +137,13 @@ public final class ImGuiManager {
    }
 
    private static float pixelsPerPointX() {
-      class_1041 window = class_310.method_1551().method_22683();
-      return window.method_4480() > 0 ? (float)window.method_4489() / window.method_4480() : 1.0F;
+      Window window = Minecraft.getInstance().getWindow();
+      return window.getScreenWidth() > 0 ? (float)window.getWidth() / window.getScreenWidth() : 1.0F;
    }
 
    private static float pixelsPerPointY() {
-      class_1041 window = class_310.method_1551().method_22683();
-      return window.method_4507() > 0 ? (float)window.method_4506() / window.method_4507() : 1.0F;
+      Window window = Minecraft.getInstance().getWindow();
+      return window.getScreenHeight() > 0 ? (float)window.getHeight() / window.getScreenHeight() : 1.0F;
    }
 
    private ImGuiManager() {
@@ -221,19 +221,19 @@ public final class ImGuiManager {
       return this.initialized && ImGui.getIO().getWantTextInput();
    }
 
-   public void requestCursor(class_332 graphics) {
+   public void requestCursor(GuiGraphics graphics) {
       if (this.initialized) {
-         class_11875 cursor = switch (ImGui.getMouseCursor()) {
-            case 1 -> class_11876.field_62453;
-            case 2 -> class_11876.field_62458;
-            case 3 -> class_11876.field_62456;
-            case 4 -> class_11876.field_62457;
+         CursorType cursor = switch (ImGui.getMouseCursor()) {
+            case 1 -> CursorTypes.IBEAM;
+            case 2 -> CursorTypes.RESIZE_ALL;
+            case 3 -> CursorTypes.RESIZE_NS;
+            case 4 -> CursorTypes.RESIZE_EW;
             default -> null;
-            case 7 -> class_11876.field_62455;
-            case 8 -> class_11876.field_62459;
+            case 7 -> CursorTypes.POINTING_HAND;
+            case 8 -> CursorTypes.NOT_ALLOWED;
          };
          if (cursor != null) {
-            graphics.method_74037(cursor);
+            graphics.requestCursor(cursor);
          }
       }
    }
@@ -299,9 +299,9 @@ public final class ImGuiManager {
             this.idleSkipped = false;
          }
 
-         class_310 mc = class_310.method_1551();
-         int w = mc.method_22683().method_4489();
-         int h = mc.method_22683().method_4506();
+         Minecraft mc = Minecraft.getInstance();
+         int w = mc.getWindow().getWidth();
+         int h = mc.getWindow().getHeight();
          GL30.glBindFramebuffer(36160, 0);
          GL11.glViewport(0, 0, w, h);
          GlStateManager._viewport(0, 0, w, h);
@@ -380,7 +380,7 @@ public final class ImGuiManager {
 
    private void initIfNeeded() {
       if (!this.initialized) {
-         long windowHandle = class_310.method_1551().method_22683().method_4490();
+         long windowHandle = Minecraft.getInstance().getWindow().handle();
          ImGui.createContext();
          ImGuiIO io = ImGui.getIO();
          io.setIniFilename(iniPath());
@@ -426,7 +426,7 @@ public final class ImGuiManager {
    }
 
    private float computeScale(float current) {
-      int height = class_310.method_1551().method_22683().method_4506();
+      int height = Minecraft.getInstance().getWindow().getHeight();
       if (height < 200) {
          return current;
       }
@@ -451,9 +451,9 @@ public final class ImGuiManager {
    }
 
    private void updateDisplayMetrics() {
-      class_310 client = class_310.method_1551();
-      int w = Math.max(1, client.method_22683().method_4489());
-      int h = Math.max(1, client.method_22683().method_4506());
+      Minecraft client = Minecraft.getInstance();
+      int w = Math.max(1, client.getWindow().getWidth());
+      int h = Math.max(1, client.getWindow().getHeight());
       ImGuiIO io = ImGui.getIO();
       io.setDisplaySize(w, h);
       io.setDisplayFramebufferScale(1.0F, 1.0F);

@@ -16,16 +16,16 @@ import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.StringSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1661;
-import net.minecraft.class_1713;
-import net.minecraft.class_1735;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1935;
-import net.minecraft.class_310;
-import net.minecraft.class_465;
-import net.minecraft.class_7439;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ItemLike;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.client.player.LocalPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,15 +76,15 @@ public final class PanicPayModule extends ClientModule {
 
    @Override
    protected void onEnable() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       String target = this.payTo.get().trim();
-      if (mc.field_1724 == null || mc.method_1562() == null) {
+      if (mc.player == null || mc.getConnection() == null) {
          this.say(ModuleChat.body().warn("Join a server first."));
          this.requestDisable();
       } else if (!VALID_NAME.matcher(target).matches()) {
          this.say(ModuleChat.body().warn("Set Pay To to a player name first."));
          this.requestDisable();
-      } else if (target.equalsIgnoreCase(mc.method_1548().method_1676())) {
+      } else if (target.equalsIgnoreCase(mc.getUser().getName())) {
          this.say(ModuleChat.body().warn("Pay To is your own name."));
          this.requestDisable();
       } else {
@@ -111,7 +111,7 @@ public final class PanicPayModule extends ClientModule {
       }
    }
 
-   private void finish(class_310 mc) {
+   private void finish(Minecraft mc) {
       mc.execute(() -> {
          if (this.running && this.isEnabled()) {
             this.setEnabled(false);
@@ -124,15 +124,15 @@ public final class PanicPayModule extends ClientModule {
       boolean wasRunning = this.running;
       this.running = false;
       this.worker.stop();
-      class_746 player = class_310.method_1551().field_1724;
-      if (wasRunning && player != null && player.field_7512 != player.field_7498) {
-         player.method_7346();
+      LocalPlayer player = Minecraft.getInstance().player;
+      if (wasRunning && player != null && player.containerMenu != player.inventoryMenu) {
+         player.closeContainer();
       }
    }
 
    @EventHandler
    public void onPacket(PacketReceiveNettyEvent event) {
-      if (this.running && event.packet instanceof class_7439 chat && chat.comp_763() != null) {
+      if (this.running && event.packet instanceof ClientboundSystemChatPacket chat && chat.comp_763() != null) {
          String raw = chat.comp_763().getString();
          String line = ServerText.normalize(raw);
          long now = System.currentTimeMillis();
@@ -175,7 +175,7 @@ public final class PanicPayModule extends ClientModule {
 
    private void run(Gui gui, String target, boolean armor, boolean offhand) {
       gui.closeAll();
-      Map<class_1792, Integer> strikes = new HashMap<>();
+      Map<Item, Integer> strikes = new HashMap<>();
       int sold = this.sellRounds(gui, strikes);
       if ((armor || offhand) && this.takeOff(gui, armor, offhand)) {
          sold += this.sellRounds(gui, strikes);
@@ -185,11 +185,11 @@ public final class PanicPayModule extends ClientModule {
       this.payBalance(gui, target);
    }
 
-   private int sellRounds(Gui gui, Map<class_1792, Integer> strikes) {
+   private int sellRounds(Gui gui, Map<Item, Integer> strikes) {
       int total = 0;
 
       for (int round = 0; round < 6; round++) {
-         Map<class_1792, Integer> before = this.worker.call(() -> inventoryCounts(strikes));
+         Map<Item, Integer> before = this.worker.call(() -> inventoryCounts(strikes));
          if (before.isEmpty()) {
             break;
          }
@@ -198,20 +198,20 @@ public final class PanicPayModule extends ClientModule {
          int moved = this.worker
             .call(
                () -> {
-                  class_746 player = Gui.player();
+                  LocalPlayer player = Gui.player();
                   List<Integer> slots = new ArrayList<>();
 
-                  for (class_1735 slot : player.field_7512.field_7761) {
-                     if (slot.field_7871 instanceof class_1661
-                        && slot.method_7681()
-                        && slot.method_34266() < 36
-                        && strikes.getOrDefault(slot.method_7677().method_7909(), 0) < 2) {
-                        slots.add(slot.field_7874);
+                  for (Slot slot : player.containerMenu.slots) {
+                     if (slot.container instanceof Inventory
+                        && slot.hasItem()
+                        && slot.getContainerSlot() < 36
+                        && strikes.getOrDefault(slot.getItem().getItem(), 0) < 2) {
+                        slots.add(slot.index);
                      }
                   }
 
                   for (int index : slots) {
-                     Gui.mc().field_1761.method_2906(player.field_7512.field_7763, index, 0, class_1713.field_7794, player);
+                     Gui.mc().gameMode.handleInventoryMouseClick(player.containerMenu.containerId, index, 0, ClickType.QUICK_MOVE, player);
                   }
 
                   return slots.size();
@@ -219,15 +219,15 @@ public final class PanicPayModule extends ClientModule {
             );
          this.worker.ticks(2);
          if (moved > 0 && this.worker.call(Gui::containerOpenNow)) {
-            gui.click(53, 0, class_1713.field_7790);
+            gui.click(53, 0, ClickType.PICKUP);
          }
 
          this.worker.sleep(700L);
          gui.closeAll();
          this.worker.sleep(400L);
-         Map<class_1792, Integer> after = this.worker.call(() -> inventoryCounts(strikes));
+         Map<Item, Integer> after = this.worker.call(() -> inventoryCounts(strikes));
 
-         for (Entry<class_1792, Integer> entry : before.entrySet()) {
+         for (Entry<Item, Integer> entry : before.entrySet()) {
             int left = after.getOrDefault(entry.getKey(), 0);
             if (left < entry.getValue()) {
                total += entry.getValue() - left;
@@ -237,7 +237,7 @@ public final class PanicPayModule extends ClientModule {
                   this.say(
                      ModuleChat.body()
                         .warn("Could not sell ")
-                        .name(new class_1799((class_1935)entry.getKey()).method_7964().getString())
+                        .name(new ItemStack((ItemLike)entry.getKey()).getHoverName().getString())
                         .text(", skipping it.")
                   );
                }
@@ -248,14 +248,14 @@ public final class PanicPayModule extends ClientModule {
       return total;
    }
 
-   private static Map<class_1792, Integer> inventoryCounts(Map<class_1792, Integer> strikes) {
-      Map<class_1792, Integer> counts = new HashMap<>();
-      class_1661 inventory = Gui.player().method_31548();
+   private static Map<Item, Integer> inventoryCounts(Map<Item, Integer> strikes) {
+      Map<Item, Integer> counts = new HashMap<>();
+      Inventory inventory = Gui.player().getInventory();
 
       for (int index = 0; index < 36; index++) {
-         class_1799 stack = inventory.method_5438(index);
-         if (!stack.method_7960() && strikes.getOrDefault(stack.method_7909(), 0) < 2) {
-            counts.merge(stack.method_7909(), stack.method_7947(), Integer::sum);
+         ItemStack stack = inventory.getItem(index);
+         if (!stack.isEmpty() && strikes.getOrDefault(stack.getItem(), 0) < 2) {
+            counts.merge(stack.getItem(), stack.getCount(), Integer::sum);
          }
       }
 
@@ -277,12 +277,12 @@ public final class PanicPayModule extends ClientModule {
    }
 
    private static boolean sellMenuOpen() {
-      class_746 player = Gui.mc().field_1724;
-      if (player != null && player.field_7512 != player.field_7498 && Gui.mc().field_1755 instanceof class_465) {
+      LocalPlayer player = Gui.mc().player;
+      if (player != null && player.containerMenu != player.inventoryMenu && Gui.mc().screen instanceof AbstractContainerScreen) {
          int container = 0;
 
-         for (class_1735 slot : player.field_7512.field_7761) {
-            if (!(slot.field_7871 instanceof class_1661)) {
+         for (Slot slot : player.containerMenu.slots) {
+            if (!(slot.container instanceof Inventory)) {
                container++;
             }
          }
@@ -295,17 +295,17 @@ public final class PanicPayModule extends ClientModule {
 
    private boolean takeOff(Gui gui, boolean armor, boolean offhand) {
       List<Integer> slots = this.worker.call(() -> {
-         class_746 player = Gui.player();
+         LocalPlayer player = Gui.player();
          List<Integer> out = new ArrayList<>();
          if (armor) {
             for (int slotx : ARMOR_MENU_SLOTS) {
-               if (player.field_7498.method_7611(slotx).method_7681()) {
+               if (player.inventoryMenu.getSlot(slotx).hasItem()) {
                   out.add(slotx);
                }
             }
          }
 
-         if (offhand && player.field_7498.method_7611(45).method_7681()) {
+         if (offhand && player.inventoryMenu.getSlot(45).hasItem()) {
             out.add(45);
          }
 
@@ -318,7 +318,7 @@ public final class PanicPayModule extends ClientModule {
       gui.closeAll();
 
       for (int slot : slots) {
-         gui.clickInventory(slot, 0, class_1713.field_7794);
+         gui.clickInventory(slot, 0, ClickType.QUICK_MOVE);
          this.worker.ticks(1);
       }
 

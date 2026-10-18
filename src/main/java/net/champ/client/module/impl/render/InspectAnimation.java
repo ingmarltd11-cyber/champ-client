@@ -2,8 +2,8 @@ package net.champ.client.module.impl.render;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_3532;
-import net.minecraft.class_4587;
+import net.minecraft.util.Mth;
+import com.mojang.blaze3d.vertex.PoseStack;
 import org.joml.Quaternionf;
 
 @Environment(EnvType.CLIENT)
@@ -66,22 +66,22 @@ final class InspectAnimation {
       return "Twirl".equals(style) ? TWIRL_CLIP : CLASSIC_CLIP;
    }
 
-   static void place(class_4587 pose, float[] at, float weight, int side, float centerX, float centerY, float centerZ) {
+   static void place(PoseStack pose, float[] at, float weight, int side, float centerX, float centerY, float centerZ) {
       float turn = (float) (Math.PI / 180.0) * weight;
-      float yaw = class_3532.method_15393(at[3]) * turn * side;
-      float pitch = class_3532.method_15393(at[4]) * turn;
-      float roll = class_3532.method_15393(at[5]) * turn * side;
-      float flip = class_3532.method_15393(at[6]) * turn * side;
-      float spin = class_3532.method_15393(at[7]) * turn;
-      pose.method_46416(at[0] * weight * side, at[1] * weight, at[2] * weight);
+      float yaw = Mth.wrapDegrees(at[3]) * turn * side;
+      float pitch = Mth.wrapDegrees(at[4]) * turn;
+      float roll = Mth.wrapDegrees(at[5]) * turn * side;
+      float flip = Mth.wrapDegrees(at[6]) * turn * side;
+      float spin = Mth.wrapDegrees(at[7]) * turn;
+      pose.translate(at[0] * weight * side, at[1] * weight, at[2] * weight);
       float gripX = 0.07F * side;
-      pose.method_49278(new Quaternionf().rotateX(pitch).rotateZ(roll).rotateY(yaw), gripX, -0.05F, -0.02F);
-      pose.method_49278(new Quaternionf().rotateX(spin), centerX * side, centerY, centerZ);
-      pose.method_49278(new Quaternionf().rotateAxis(flip, 0.0F, 0.94F, 0.342F), gripX, -0.05F, -0.02F);
+      pose.rotateAround(new Quaternionf().rotateX(pitch).rotateZ(roll).rotateY(yaw), gripX, -0.05F, -0.02F);
+      pose.rotateAround(new Quaternionf().rotateX(spin), centerX * side, centerY, centerZ);
+      pose.rotateAround(new Quaternionf().rotateAxis(flip, 0.0F, 0.94F, 0.342F), gripX, -0.05F, -0.02F);
    }
 
    static float[] sample(float[][] keys, float t, float[] out) {
-      t = class_3532.method_15363(t, 0.0F, 1.0F);
+      t = Mth.clamp(t, 0.0F, 1.0F);
       int i = 0;
 
       while (i < keys.length - 2 && t > keys[i + 1][0]) {

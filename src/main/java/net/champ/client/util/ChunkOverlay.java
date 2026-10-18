@@ -12,12 +12,12 @@ import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12175;
-import net.minecraft.class_12177;
-import net.minecraft.class_12180;
-import net.minecraft.class_1923;
-import net.minecraft.class_243;
-import net.minecraft.class_9848;
+import net.minecraft.gizmos.Gizmo;
+import net.minecraft.gizmos.GizmoPrimitives;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.ARGB;
 
 @Environment(EnvType.CLIENT)
 public final class ChunkOverlay {
@@ -63,7 +63,7 @@ public final class ChunkOverlay {
       if (this.shown.isEmpty()) {
          this.mobileTiles.clear();
       } else {
-         int edge = class_9848.method_61330(Math.min(255, class_9848.method_61320(fill) * 3 / 2), class_9848.method_61321(fill, 0.77F));
+         int edge = ARGB.color(Math.min(255, ARGB.alpha(fill) * 3 / 2), ARGB.scaleRGB(fill, 0.77F));
          FoglessLines lines = FoglessLines.forFrame(partialTick);
          this.done.clear();
          LongIterator keys = this.shown.keySet().iterator();
@@ -142,14 +142,14 @@ public final class ChunkOverlay {
       while (!this.queue.isEmpty()) {
          long key = this.queue.dequeueLong();
          this.group.add(key);
-         int cx = class_1923.method_8325(key);
-         int cz = class_1923.method_8332(key);
+         int cx = ChunkPos.getX(key);
+         int cz = ChunkPos.getZ(key);
          sumX += (cx << 4) + 8.0;
          sumZ += (cz << 4) + 8.0;
-         this.visit(chunks, class_1923.method_8331(cx, cz - 1), progress, present);
-         this.visit(chunks, class_1923.method_8331(cx, cz + 1), progress, present);
-         this.visit(chunks, class_1923.method_8331(cx - 1, cz), progress, present);
-         this.visit(chunks, class_1923.method_8331(cx + 1, cz), progress, present);
+         this.visit(chunks, ChunkPos.asLong(cx, cz - 1), progress, present);
+         this.visit(chunks, ChunkPos.asLong(cx, cz + 1), progress, present);
+         this.visit(chunks, ChunkPos.asLong(cx - 1, cz), progress, present);
+         this.visit(chunks, ChunkPos.asLong(cx + 1, cz), progress, present);
       }
 
       float size = easeOut(progress);
@@ -161,16 +161,16 @@ public final class ChunkOverlay {
 
          for (int i = 0; i < this.group.size(); i++) {
             long key = this.group.getLong(i);
-            int cx = class_1923.method_8325(key);
-            int cz = class_1923.method_8332(key);
+            int cx = ChunkPos.getX(key);
+            int cz = ChunkPos.getZ(key);
             double x0 = mx + ((cx << 4) - mx) * size;
             double z0 = mz + ((cz << 4) - mz) * size;
             double x1 = x0 + 16.0 * size;
             double z1 = z0 + 16.0 * size;
-            boolean north = !this.joined(chunks, class_1923.method_8331(cx, cz - 1), progress, present);
-            boolean south = !this.joined(chunks, class_1923.method_8331(cx, cz + 1), progress, present);
-            boolean west = !this.joined(chunks, class_1923.method_8331(cx - 1, cz), progress, present);
-            boolean east = !this.joined(chunks, class_1923.method_8331(cx + 1, cz), progress, present);
+            boolean north = !this.joined(chunks, ChunkPos.asLong(cx, cz - 1), progress, present);
+            boolean south = !this.joined(chunks, ChunkPos.asLong(cx, cz + 1), progress, present);
+            boolean west = !this.joined(chunks, ChunkPos.asLong(cx - 1, cz), progress, present);
+            boolean east = !this.joined(chunks, ChunkPos.asLong(cx + 1, cz), progress, present);
             if (MobilePerformance.active() && size >= 1.0F) {
                int mask = (north ? 1 : 0) | (south ? 2 : 0) | (west ? 4 : 0) | (east ? 8 : 0);
                ChunkTileGeometry geometry = this.mobileTiles.get(key, x0, z0, x1, z1, 2.0 * size, mask);
@@ -179,7 +179,7 @@ public final class ChunkOverlay {
                   lines.line(geometry.curves[edgeIndex], geometry.curves[edgeIndex + 1], groupEdge, 1.5F);
                }
 
-               class_12180.method_75553(new ChunkOverlay.Plane(geometry.outline, groupFill)).method_75533();
+               Gizmos.addGizmo(new ChunkOverlay.Plane(geometry.outline, groupFill)).setAlwaysOnTop();
 
                for (int edgeIndex = 0; edgeIndex < geometry.edges.length; edgeIndex += 2) {
                   lines.line(geometry.edges[edgeIndex], geometry.edges[edgeIndex + 1], groupEdge, 1.5F);
@@ -219,12 +219,12 @@ public final class ChunkOverlay {
       double ne = north && east ? radius : 0.0;
       double se = south && east ? radius : 0.0;
       double sw = south && west ? radius : 0.0;
-      List<class_243> outline = new ArrayList<>(20);
+      List<Vec3> outline = new ArrayList<>(20);
       corner(outline, lines, x0 + nw, z0 + nw, nw, 180.0, edge);
       corner(outline, lines, x1 - ne, z0 + ne, ne, 270.0, edge);
       corner(outline, lines, x1 - se, z1 - se, se, 0.0, edge);
       corner(outline, lines, x0 + sw, z1 - sw, sw, 90.0, edge);
-      class_12180.method_75553(new ChunkOverlay.Plane(outline.toArray(new class_243[0]), fill)).method_75533();
+      Gizmos.addGizmo(new ChunkOverlay.Plane(outline.toArray(new Vec3[0]), fill)).setAlwaysOnTop();
       if (north) {
          edge(lines, x0 + nw, z0, x1 - ne, z0, edge);
       }
@@ -242,15 +242,15 @@ public final class ChunkOverlay {
       }
    }
 
-   private static void corner(List<class_243> outline, FoglessLines lines, double cx, double cz, double radius, double startDegrees, int edge) {
+   private static void corner(List<Vec3> outline, FoglessLines lines, double cx, double cz, double radius, double startDegrees, int edge) {
       if (radius <= 0.0) {
-         outline.add(new class_243(cx, 63.0, cz));
+         outline.add(new Vec3(cx, 63.0, cz));
       } else {
-         class_243 previous = null;
+         Vec3 previous = null;
 
          for (int i = 0; i <= 4; i++) {
             double angle = Math.toRadians(startDegrees + 90.0 * i / 4.0);
-            class_243 point = new class_243(cx + Math.cos(angle) * radius, 63.0, cz + Math.sin(angle) * radius);
+            Vec3 point = new Vec3(cx + Math.cos(angle) * radius, 63.0, cz + Math.sin(angle) * radius);
             outline.add(point);
             if (previous != null) {
                lines.line(previous, point, edge, 1.5F);
@@ -267,17 +267,17 @@ public final class ChunkOverlay {
    }
 
    private static int fade(int color, float amount) {
-      return class_9848.method_61330(Math.round(class_9848.method_61320(color) * amount), color);
+      return ARGB.color(Math.round(ARGB.alpha(color) * amount), color);
    }
 
    private static void edge(FoglessLines lines, double ax, double az, double bx, double bz, int color) {
-      lines.line(new class_243(ax, 63.0, az), new class_243(bx, 63.0, bz), color, 1.5F);
+      lines.line(new Vec3(ax, 63.0, az), new Vec3(bx, 63.0, bz), color, 1.5F);
    }
 
    @Environment(EnvType.CLIENT)
-   private record Plane(class_243[] outline, int color) implements class_12175 {
-      public void method_75531(class_12177 primitives, float alpha) {
-         primitives.method_75478(this.outline, ChunkOverlay.fade(this.color, alpha));
+   private record Plane(Vec3[] outline, int color) implements Gizmo {
+      public void method_75531(GizmoPrimitives primitives, float alpha) {
+         primitives.addTriangleFan(this.outline, ChunkOverlay.fade(this.color, alpha));
       }
    }
 }

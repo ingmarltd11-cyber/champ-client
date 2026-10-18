@@ -4,21 +4,21 @@ import net.champ.client.module.impl.movement.BoatFlyModule;
 import net.champ.client.module.impl.movement.BoatNoclipModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2692;
-import net.minecraft.class_634;
+import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_634.class)
+@Mixin(ClientPacketListener.class)
 public abstract class MixinBoatFlyClientPacketListener {
    @Inject(
-      method = "method_11134",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/class_2833;method_65307(Lnet/minecraft/class_1297;)Lnet/minecraft/class_2833;")
+      method = "handleMoveVehicle",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/network/protocol/game/ServerboundMoveVehiclePacket;fromEntity(Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/network/protocol/game/ServerboundMoveVehiclePacket;")
    )
-   private void champ$boatFlyVehicleSetback(class_2692 packet, CallbackInfo ci) {
+   private void champ$boatFlyVehicleSetback(ClientboundMoveVehiclePacket packet, CallbackInfo ci) {
       BoatFlyModule fly = BoatFlyModule.active;
       if (fly != null) {
          fly.onVehicleSetback();

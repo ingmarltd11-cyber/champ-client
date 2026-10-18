@@ -25,27 +25,27 @@ import net.champ.client.util.MobilePerformance;
 import net.champ.client.util.SessionWorker;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12178;
-import net.minecraft.class_12179;
-import net.minecraft.class_12180;
-import net.minecraft.class_2338;
-import net.minecraft.class_2350;
-import net.minecraft.class_238;
-import net.minecraft.class_310;
-import net.minecraft.class_638;
+import net.minecraft.gizmos.GizmoProperties;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 
 @Environment(EnvType.CLIENT)
 public class LightEspModule extends ClientModule {
    private static final long SCAN_COOLDOWN_MS = 1000L;
    private static final int MAX_BOXES = 12000;
    private static final float LINE_WIDTH = 1.5F;
-   private final SessionWorker<Map<Integer, List<class_238>>> worker = new SessionWorker<>("Champ-Light");
-   private class_638 sessionLevel;
+   private final SessionWorker<Map<Integer, List<AABB>>> worker = new SessionWorker<>("Champ-Light");
+   private ClientLevel sessionLevel;
    private LightSnapshot collecting;
    private long lastScanTime;
-   private Map<Integer, List<class_238>> renderData = Map.of();
+   private Map<Integer, List<AABB>> renderData = Map.of();
    private final Long2BooleanOpenHashMap mobileLoadedChunks = new Long2BooleanOpenHashMap();
-   private final class_12179[] mobileStyles = new class_12179[16];
+   private final GizmoStyle[] mobileStyles = new GizmoStyle[16];
    private int mobileStyleColor;
    private boolean mobileStylesReady;
    private final NumberSetting sRadius = this.addSetting("render-radius", new NumberSetting("Render Radius", 8.0F, 1.0F, 16.0F).step(1.0F));
@@ -81,13 +81,13 @@ public class LightEspModule extends ClientModule {
 
    @EventHandler
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (this.sessionLevel != mc.field_1687) {
+      Minecraft mc = Minecraft.getInstance();
+      if (this.sessionLevel != mc.level) {
          this.resetScan();
-         this.sessionLevel = mc.field_1687;
+         this.sessionLevel = mc.level;
       }
 
-      if (mc.field_1687 != null && mc.field_1724 != null) {
+      if (mc.level != null && mc.player != null) {
          this.worker.poll(result -> this.renderData = result);
          if (!this.worker.busy()) {
             long now = System.currentTimeMillis();
@@ -96,11 +96,11 @@ public class LightEspModule extends ClientModule {
                   return;
                }
 
-               this.collecting = new LightSnapshot(mc.field_1724.method_31476(), clampInt(num(this.sRadius, 8), 1, 16), clampInt(num(this.sMinLight, 5), 1, 15));
+               this.collecting = new LightSnapshot(mc.player.chunkPosition(), clampInt(num(this.sRadius, 8), 1, 16), clampInt(num(this.sMinLight, 5), 1, 15));
             }
 
-            if (this.collecting.collect(mc.field_1687)) {
-               Map<class_2338, Integer> hits = this.collecting.hits();
+            if (this.collecting.collect(mc.level)) {
+               Map<BlockPos, Integer> hits = this.collecting.hits();
                boolean denoise = this.isDenoise();
                int minLight = clampInt(num(this.sMinLight, 5), 1, 15);
                this.collecting = null;
@@ -111,15 +111,15 @@ public class LightEspModule extends ClientModule {
       }
    }
 
-   static Map<Integer, List<class_238>> buildBoxes(Map<class_2338, Integer> hits, boolean denoise, int minLight) {
-      Set<class_2338> skip = new HashSet<>();
+   static Map<Integer, List<AABB>> buildBoxes(Map<BlockPos, Integer> hits, boolean denoise, int minLight) {
+      Set<BlockPos> skip = new HashSet<>();
       if (denoise) {
-         for (Entry<class_2338, Integer> entry : hits.entrySet()) {
+         for (Entry<BlockPos, Integer> entry : hits.entrySet()) {
             if (Thread.currentThread().isInterrupted()) {
                throw new CancellationException();
             }
 
-            class_2338 source = entry.getKey();
+            BlockPos source = entry.getKey();
             int light = entry.getValue();
             if (light >= minLight + 1 && light <= minLight + 2 && !skip.contains(source)) {
                boolean stronger = false;
@@ -127,7 +127,7 @@ public class LightEspModule extends ClientModule {
                for (int x = -1; x <= 1 && !stronger; x++) {
                   for (int y = -1; y <= 1 && !stronger; y++) {
                      for (int z = -1; z <= 1; z++) {
-                        if (hits.getOrDefault(source.method_10069(x, y, z), 0) > light) {
+                        if (hits.getOrDefault(source.offset(x, y, z), 0) > light) {
                            stronger = true;
                            break;
                         }
@@ -136,7 +136,7 @@ public class LightEspModule extends ClientModule {
                }
 
                if (!stronger) {
-                  ArrayDeque<class_2338> queue = new ArrayDeque<>();
+                  ArrayDeque<BlockPos> queue = new ArrayDeque<>();
                   queue.add(source);
                   skip.add(source);
 
@@ -145,10 +145,10 @@ public class LightEspModule extends ClientModule {
                         throw new CancellationException();
                      }
 
-                     class_2338 pos = queue.removeFirst();
+                     BlockPos pos = queue.removeFirst();
 
-                     for (class_2350 dir : class_2350.values()) {
-                        class_2338 next = pos.method_10093(dir);
+                     for (Direction dir : Direction.values()) {
+                        BlockPos next = pos.relative(dir);
                         int value = hits.getOrDefault(next, 0);
                         if (value >= minLight && value <= light && skip.add(next)) {
                            queue.addLast(next);
@@ -160,20 +160,20 @@ public class LightEspModule extends ClientModule {
          }
       }
 
-      Map<Integer, List<class_238>> built = new HashMap<>();
+      Map<Integer, List<AABB>> built = new HashMap<>();
       int count = 0;
 
-      for (Entry<class_2338, Integer> entry : hits.entrySet()) {
+      for (Entry<BlockPos, Integer> entry : hits.entrySet()) {
          if (Thread.currentThread().isInterrupted()) {
             throw new CancellationException();
          }
 
-         class_2338 pos = entry.getKey();
+         BlockPos pos = entry.getKey();
          if (!skip.contains(pos)) {
             boolean exposed = false;
 
-            for (class_2350 dir : class_2350.values()) {
-               class_2338 next = pos.method_10093(dir);
+            for (Direction dir : Direction.values()) {
+               BlockPos next = pos.relative(dir);
                if (!hits.containsKey(next) || skip.contains(next)) {
                   exposed = true;
                   break;
@@ -181,7 +181,7 @@ public class LightEspModule extends ClientModule {
             }
 
             if (exposed) {
-               built.computeIfAbsent(entry.getValue(), k -> new ArrayList<>()).add(new class_238(pos));
+               built.computeIfAbsent(entry.getValue(), k -> new ArrayList<>()).add(new AABB(pos));
                if (++count >= 12000) {
                   break;
                }
@@ -189,15 +189,15 @@ public class LightEspModule extends ClientModule {
          }
       }
 
-      built.replaceAll((light, boxes) -> List.copyOf((Collection<? extends class_238>)boxes));
+      built.replaceAll((light, boxes) -> List.copyOf((Collection<? extends AABB>)boxes));
       return Map.copyOf(built);
    }
 
    @EventHandler
    public void onRender3D(Render3DEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 != null && mc.field_1724 != null && mc.field_1687 == this.sessionLevel) {
-         Map<Integer, List<class_238>> data = this.renderData;
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level != null && mc.player != null && mc.level == this.sessionLevel) {
+         Map<Integer, List<AABB>> data = this.renderData;
          if (!data.isEmpty() && this.sColor != null) {
             int base = this.sColor.argb();
             int baseA = base >>> 24 & 0xFF;
@@ -214,9 +214,9 @@ public class LightEspModule extends ClientModule {
                }
             }
 
-            for (Entry<Integer, List<class_238>> entry : data.entrySet()) {
+            for (Entry<Integer, List<AABB>> entry : data.entrySet()) {
                int lightLevel = clampInt(entry.getKey(), 0, 15);
-               class_12179 style = mobile ? this.mobileStyles[lightLevel] : null;
+               GizmoStyle style = mobile ? this.mobileStyles[lightLevel] : null;
                if (style == null) {
                   float t = clamp01(entry.getKey().intValue() / 15.0F);
                   int r = lerp(baseR, 255, t);
@@ -225,31 +225,31 @@ public class LightEspModule extends ClientModule {
                   int fillA = clampByte(Math.round(baseA * (0.5F + 0.5F * t)));
                   int fill = fillA << 24 | r << 16 | g << 8 | b;
                   int stroke = 0xFF000000 | Math.round(r * 0.45F) << 16 | Math.round(g * 0.45F) << 8 | Math.round(b * 0.45F);
-                  style = class_12179.method_75537(stroke, 1.5F, fill);
+                  style = GizmoStyle.strokeAndFill(stroke, 1.5F, fill);
                   if (mobile) {
                      this.mobileStyles[lightLevel] = style;
                   }
                }
 
-               for (class_238 box : entry.getValue()) {
-                  int cx = (int)box.field_1323 >> 4;
-                  int cz = (int)box.field_1321 >> 4;
+               for (AABB box : entry.getValue()) {
+                  int cx = (int)box.minX >> 4;
+                  int cz = (int)box.minZ >> 4;
                   boolean loaded;
                   if (mobile) {
                      long key = cx & 4294967295L | (long)cz << 32;
                      if (this.mobileLoadedChunks.containsKey(key)) {
                         loaded = this.mobileLoadedChunks.get(key);
                      } else {
-                        loaded = mc.field_1687.method_2935().method_12123(cx, cz);
+                        loaded = mc.level.getChunkSource().hasChunk(cx, cz);
                         this.mobileLoadedChunks.put(key, loaded);
                      }
                   } else {
-                     loaded = mc.field_1687.method_2935().method_12123(cx, cz);
+                     loaded = mc.level.getChunkSource().hasChunk(cx, cz);
                   }
 
                   if (loaded) {
-                     class_12178 props = class_12180.method_75541(box, style);
-                     props.method_75533();
+                     GizmoProperties props = Gizmos.cuboid(box, style);
+                     props.setAlwaysOnTop();
                   }
                }
             }

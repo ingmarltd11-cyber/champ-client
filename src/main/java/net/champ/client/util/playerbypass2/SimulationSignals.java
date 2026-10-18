@@ -19,40 +19,40 @@ import java.util.Map;
 import java.util.function.Supplier;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10264;
-import net.minecraft.class_10583;
-import net.minecraft.class_1297;
-import net.minecraft.class_1299;
-import net.minecraft.class_1311;
-import net.minecraft.class_1314;
-import net.minecraft.class_1540;
-import net.minecraft.class_1542;
-import net.minecraft.class_1606;
-import net.minecraft.class_1657;
-import net.minecraft.class_1923;
-import net.minecraft.class_1937;
-import net.minecraft.class_2246;
-import net.minecraft.class_2338;
-import net.minecraft.class_2604;
-import net.minecraft.class_2626;
-import net.minecraft.class_2637;
-import net.minecraft.class_2663;
-import net.minecraft.class_2680;
-import net.minecraft.class_2684;
-import net.minecraft.class_2726;
-import net.minecraft.class_2739;
-import net.minecraft.class_2744;
-import net.minecraft.class_2775;
-import net.minecraft.class_310;
-import net.minecraft.class_5321;
-import net.minecraft.class_6025;
-import net.minecraft.class_638;
-import net.minecraft.class_6880;
-import net.minecraft.class_746;
-import net.minecraft.class_7923;
-import net.minecraft.class_8110;
-import net.minecraft.class_8111;
-import net.minecraft.class_8143;
+import net.minecraft.network.protocol.game.ClientboundEntityPositionSyncPacket;
+import net.minecraft.world.entity.EntityReference;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.item.FallingBlockEntity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.Shulker;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.network.protocol.game.ClientboundMoveEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundRotateHeadPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
+import net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.entity.OwnableEntity;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.Holder;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.damagesource.DamageType;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
 
 @Environment(EnvType.CLIENT)
 public final class SimulationSignals {
@@ -86,7 +86,7 @@ public final class SimulationSignals {
    private static long memoryNanos = 30000000000L;
    private static int ticks;
    private static int session;
-   private static class_5321<class_1937> dimension;
+   private static ResourceKey<Level> dimension;
    private static long quietUntil;
    private static long undergroundUntil;
    private static double lastX;
@@ -103,7 +103,7 @@ public final class SimulationSignals {
    private static final Long2LongOpenHashMap CHUNK_LOADED = new Long2LongOpenHashMap();
    private static final Int2LongOpenHashMap ENTITY_ADDED = new Int2LongOpenHashMap();
    private static final Int2LongOpenHashMap ENTITY_INSIDE = new Int2LongOpenHashMap();
-   private static final Map<class_5321<class_1937>, LongOpenHashSet> PASSED_BY_DIMENSION = new HashMap<>();
+   private static final Map<ResourceKey<Level>, LongOpenHashSet> PASSED_BY_DIMENSION = new HashMap<>();
    private static LongOpenHashSet passed = new LongOpenHashSet();
    private static final Int2DoubleOpenHashMap TRACKED_RANGE = new Int2DoubleOpenHashMap();
    private static final Int2ObjectOpenHashMap<long[]> LIGHTNING_PENDING = new Int2ObjectOpenHashMap();
@@ -173,7 +173,7 @@ public final class SimulationSignals {
    }
 
    public static int view() {
-      int option = class_310.method_1551().field_1690.method_38521();
+      int option = Minecraft.getInstance().options.getEffectiveRenderDistance();
       return serverView > 0 ? Math.min(serverView, option) : option;
    }
 
@@ -198,8 +198,8 @@ public final class SimulationSignals {
    }
 
    public static boolean holding() {
-      class_746 self = class_310.method_1551().field_1724;
-      return now() < undergroundUntil || self != null && self.method_23318() < 0.0;
+      LocalPlayer self = Minecraft.getInstance().player;
+      return now() < undergroundUntil || self != null && self.getY() < 0.0;
    }
 
    public static long now() {
@@ -244,7 +244,7 @@ public final class SimulationSignals {
       return farthest;
    }
 
-   public static void onLogin(int simulationDistance, int chunkRadius, class_5321<class_1937> level) {
+   public static void onLogin(int simulationDistance, int chunkRadius, ResourceKey<Level> level) {
       serverSim = simulationDistance;
       serverView = chunkRadius;
       session++;
@@ -254,7 +254,7 @@ public final class SimulationSignals {
       startQuiet();
    }
 
-   public static void onRespawn(class_5321<class_1937> level) {
+   public static void onRespawn(ResourceKey<Level> level) {
       startQuiet();
       if (!level.equals(dimension)) {
          dimension = level;
@@ -278,24 +278,24 @@ public final class SimulationSignals {
 
    public static void onChunk(int x, int z) {
       if (active) {
-         CHUNK_LOADED.put(class_1923.method_8331(x, z), now());
+         CHUNK_LOADED.put(ChunkPos.asLong(x, z), now());
       }
    }
 
-   public static void onMove(class_2684 packet) {
+   public static void onMove(ClientboundMoveEntityPacket packet) {
       if (active) {
-         class_638 level = class_310.method_1551().field_1687;
+         ClientLevel level = Minecraft.getInstance().level;
          if (level != null) {
-            class_1297 entity = packet.method_11645(level);
+            Entity entity = packet.getEntity(level);
             if (entity != null) {
-               boolean moved = packet.method_22826() && (packet.method_36150() != 0 || packet.method_36151() != 0 || packet.method_36152() != 0);
-               if (moved || packet.method_11652()) {
-                  LAST_ACTIVE.put(entity.method_5628(), now());
+               boolean moved = packet.hasPosition() && (packet.getXa() != 0 || packet.getYa() != 0 || packet.getZa() != 0);
+               if (moved || packet.hasRotation()) {
+                  LAST_ACTIVE.put(entity.getId(), now());
                }
 
                if (moved) {
                   entitySignal(entity, SimulationSignals.Kind.MOVE, 0);
-               } else if (packet.method_11652()) {
+               } else if (packet.hasRotation()) {
                   entitySignal(entity, SimulationSignals.Kind.HEAD, 0);
                }
             }
@@ -303,14 +303,14 @@ public final class SimulationSignals {
       }
    }
 
-   public static void onPositionSync(class_10264 packet) {
+   public static void onPositionSync(ClientboundEntityPositionSyncPacket packet) {
       if (active) {
-         class_638 level = class_310.method_1551().field_1687;
+         ClientLevel level = Minecraft.getInstance().level;
          if (level != null) {
-            class_1297 entity = level.method_8469(packet.comp_3223());
+            Entity entity = level.getEntity(packet.comp_3223());
             if (entity != null) {
-               if (!(entity.method_73189().method_1025(packet.comp_3224().comp_3148()) < 1.0E-4)) {
-                  LAST_ACTIVE.put(entity.method_5628(), now());
+               if (!(entity.position().distanceToSqr(packet.comp_3224().comp_3148()) < 1.0E-4)) {
+                  LAST_ACTIVE.put(entity.getId(), now());
                   entitySignal(entity, SimulationSignals.Kind.MOVE, 0);
                }
             }
@@ -318,27 +318,27 @@ public final class SimulationSignals {
       }
    }
 
-   public static void onHeadRotation(class_2726 packet) {
+   public static void onHeadRotation(ClientboundRotateHeadPacket packet) {
       if (active) {
-         class_638 level = class_310.method_1551().field_1687;
+         ClientLevel level = Minecraft.getInstance().level;
          if (level != null) {
-            class_1297 entity = packet.method_11786(level);
+            Entity entity = packet.getEntity(level);
             if (entity != null) {
-               LAST_ACTIVE.put(entity.method_5628(), now());
+               LAST_ACTIVE.put(entity.getId(), now());
                entitySignal(entity, SimulationSignals.Kind.HEAD, 0);
             }
          }
       }
    }
 
-   public static void onEntityData(class_2739 packet) {
+   public static void onEntityData(ClientboundSetEntityDataPacket packet) {
       if (active) {
-         class_638 level = class_310.method_1551().field_1687;
+         ClientLevel level = Minecraft.getInstance().level;
          if (level != null) {
             if (now() - ENTITY_ADDED.getOrDefault(packet.comp_1127(), -4611686018427387904L) >= 2000000000L) {
-               class_1297 entity = level.method_8469(packet.comp_1127());
+               Entity entity = level.getEntity(packet.comp_1127());
                if (entity != null) {
-                  LAST_ACTIVE.put(entity.method_5628(), now());
+                  LAST_ACTIVE.put(entity.getId(), now());
                   entitySignal(entity, SimulationSignals.Kind.STATE, 0);
                }
             }
@@ -346,27 +346,27 @@ public final class SimulationSignals {
       }
    }
 
-   public static void onEntityEvent(class_2663 packet) {
+   public static void onEntityEvent(ClientboundEntityEventPacket packet) {
       if (active) {
-         class_638 level = class_310.method_1551().field_1687;
+         ClientLevel level = Minecraft.getInstance().level;
          if (level != null) {
-            class_1297 entity = packet.method_11469(level);
+            Entity entity = packet.getEntity(level);
             if (entity != null) {
-               LAST_ACTIVE.put(entity.method_5628(), now());
+               LAST_ACTIVE.put(entity.getId(), now());
                entitySignal(entity, SimulationSignals.Kind.EVENT, 0);
             }
          }
       }
    }
 
-   public static void onEquipment(class_2744 packet) {
+   public static void onEquipment(ClientboundSetEquipmentPacket packet) {
       if (active) {
-         class_638 level = class_310.method_1551().field_1687;
+         ClientLevel level = Minecraft.getInstance().level;
          if (level != null) {
-            if (now() - ENTITY_ADDED.getOrDefault(packet.method_11820(), -4611686018427387904L) >= 2000000000L) {
-               class_1297 entity = level.method_8469(packet.method_11820());
+            if (now() - ENTITY_ADDED.getOrDefault(packet.getEntity(), -4611686018427387904L) >= 2000000000L) {
+               Entity entity = level.getEntity(packet.getEntity());
                if (entity != null) {
-                  LAST_ACTIVE.put(entity.method_5628(), now());
+                  LAST_ACTIVE.put(entity.getId(), now());
                   entitySignal(entity, SimulationSignals.Kind.EQUIP, 0);
                }
             }
@@ -374,22 +374,22 @@ public final class SimulationSignals {
       }
    }
 
-   public static void onDamage(class_8143 packet) {
+   public static void onDamage(ClientboundDamageEventPacket packet) {
       if (active) {
-         class_310 mc = class_310.method_1551();
-         class_638 level = mc.field_1687;
-         class_746 self = mc.field_1724;
+         Minecraft mc = Minecraft.getInstance();
+         ClientLevel level = mc.level;
+         LocalPlayer self = mc.player;
          if (level != null && self != null) {
-            class_6880<class_8110> type = packet.comp_1268();
-            if (!type.method_40225(class_8111.field_42353) && !type.method_40225(class_8111.field_42355) && !type.method_40225(class_8111.field_42358)) {
-               class_1297 victim = level.method_8469(packet.comp_1267());
+            Holder<DamageType> type = packet.comp_1268();
+            if (!type.is(DamageTypes.SWEET_BERRY_BUSH) && !type.is(DamageTypes.STALAGMITE) && !type.is(DamageTypes.FALLING_STALACTITE)) {
+               Entity victim = level.getEntity(packet.comp_1267());
                if (victim != null) {
                   int cause = packet.comp_1269();
-                  if (type.method_40225(class_8111.field_42320) && cause >= 0 && cause != self.method_5628() && level.method_8469(cause) == null) {
-                     pin(victim.method_24515(), "Hidden Attacker hit " + name(victim.method_5864()));
+                  if (type.is(DamageTypes.PLAYER_ATTACK) && cause >= 0 && cause != self.getId() && level.getEntity(cause) == null) {
+                     pin(victim.blockPosition(), "Hidden Attacker hit " + name(victim.getType()));
                   }
 
-                  LAST_ACTIVE.put(victim.method_5628(), now());
+                  LAST_ACTIVE.put(victim.getId(), now());
                   entitySignal(victim, SimulationSignals.Kind.HURT, 0);
                }
             }
@@ -397,24 +397,24 @@ public final class SimulationSignals {
       }
    }
 
-   public static void onTakeItem(class_2775 packet) {
+   public static void onTakeItem(ClientboundTakeItemEntityPacket packet) {
       if (active) {
-         class_310 mc = class_310.method_1551();
-         class_638 level = mc.field_1687;
-         class_746 self = mc.field_1724;
+         Minecraft mc = Minecraft.getInstance();
+         ClientLevel level = mc.level;
+         LocalPlayer self = mc.player;
          if (level != null && self != null) {
-            int collector = packet.method_11912();
-            if (collector != self.method_5628()) {
-               class_1297 item = level.method_8469(packet.method_11915());
+            int collector = packet.getPlayerId();
+            if (collector != self.getId()) {
+               Entity item = level.getEntity(packet.getItemId());
                if (item != null) {
-                  class_1297 taker = level.method_8469(collector);
+                  Entity taker = level.getEntity(collector);
                   if (taker == null) {
-                     String what = item instanceof class_1542 stack
-                        ? class_7923.field_41178.method_10221(stack.method_6983().method_7909()).method_12832()
-                        : name(item.method_5864());
-                     pin(item.method_24515(), "Hidden Pickup " + what);
-                  } else if (!(taker instanceof class_1657)) {
-                     LAST_ACTIVE.put(taker.method_5628(), now());
+                     String what = item instanceof ItemEntity stack
+                        ? BuiltInRegistries.ITEM.getKey(stack.getItem().getItem()).getPath()
+                        : name(item.getType());
+                     pin(item.blockPosition(), "Hidden Pickup " + what);
+                  } else if (!(taker instanceof Player)) {
+                     LAST_ACTIVE.put(taker.getId(), now());
                      entitySignal(taker, SimulationSignals.Kind.EVENT, 0);
                   }
                }
@@ -423,20 +423,20 @@ public final class SimulationSignals {
       }
    }
 
-   public static void onAddEntity(class_2604 packet) {
+   public static void onAddEntity(ClientboundAddEntityPacket packet) {
       if (active) {
          long now = now();
-         ENTITY_ADDED.put(packet.method_11167(), now);
-         LAST_ACTIVE.put(packet.method_11167(), now);
-         class_1299<?> type = packet.method_11169();
-         if (type != class_1299.field_6097) {
-            class_2338 pos = class_2338.method_49637(packet.method_11175(), packet.method_11174(), packet.method_11176());
-            if (type == class_1299.field_6112) {
-               LIGHTNING_PENDING.put(packet.method_11167(), new long[]{pos.method_10063(), now});
+         ENTITY_ADDED.put(packet.getId(), now);
+         LAST_ACTIVE.put(packet.getId(), now);
+         EntityType<?> type = packet.getType();
+         if (type != EntityType.PLAYER) {
+            BlockPos pos = BlockPos.containing(packet.getX(), packet.getY(), packet.getZ());
+            if (type == EntityType.LIGHTNING_BOLT) {
+               LIGHTNING_PENDING.put(packet.getId(), new long[]{pos.asLong(), now});
             } else if (spawnable(type) && !isQuiet()) {
-               if (wellInsideTracking(packet.method_11175(), packet.method_11176(), type)) {
+               if (wellInsideTracking(packet.getX(), packet.getZ(), type)) {
                   if (settled(pos)) {
-                     int id = packet.method_11167();
+                     int id = packet.getId();
                      signal(pos, SimulationSignals.Kind.SPAWN, spill(type), () -> entityShare(id), () -> name(type));
                   }
                }
@@ -447,7 +447,7 @@ public final class SimulationSignals {
 
    public static void onRemoveEntities(IntList ids) {
       if (active) {
-         class_638 level = class_310.method_1551().field_1687;
+         ClientLevel level = Minecraft.getInstance().level;
          if (level != null) {
             long now = now();
             boolean quiet = isQuiet();
@@ -457,17 +457,17 @@ public final class SimulationSignals {
                long[] bolt = (long[])LIGHTNING_PENDING.remove(id);
                if (bolt != null) {
                   if (!quiet && now - bolt[1] < 3000000000L) {
-                     signal(class_2338.method_10092(bolt[0]), SimulationSignals.Kind.LIGHTNING, 0, () -> entityShare(id), () -> "lightning_bolt");
+                     signal(BlockPos.of(bolt[0]), SimulationSignals.Kind.LIGHTNING, 0, () -> entityShare(id), () -> "lightning_bolt");
                   }
                } else if (!quiet) {
-                  class_1297 entity = level.method_8469(id);
+                  Entity entity = level.getEntity(id);
                   if (entity != null
-                     && !(entity instanceof class_1657)
+                     && !(entity instanceof Player)
                      && now - ENTITY_ADDED.getOrDefault(id, -4611686018427387904L) >= 2000000000L
-                     && spawnable(entity.method_5864())
-                     && wellInsideTracking(entity.method_23317(), entity.method_23321(), entity.method_5864())
-                     && settled(entity.method_24515())) {
-                     entitySignal(entity, SimulationSignals.Kind.REMOVE, spill(entity.method_5864()));
+                     && spawnable(entity.getType())
+                     && wellInsideTracking(entity.getX(), entity.getZ(), entity.getType())
+                     && settled(entity.blockPosition())) {
+                     entitySignal(entity, SimulationSignals.Kind.REMOVE, spill(entity.getType()));
                   }
                }
             }
@@ -475,22 +475,22 @@ public final class SimulationSignals {
       }
    }
 
-   public static void onBlockUpdate(class_2626 packet) {
+   public static void onBlockUpdate(ClientboundBlockUpdatePacket packet) {
       if (active) {
-         block(packet.method_11309(), packet.method_11308());
+         block(packet.getPos(), packet.getBlockState());
       }
    }
 
-   public static void onSectionUpdate(class_2637 packet) {
+   public static void onSectionUpdate(ClientboundSectionBlocksUpdatePacket packet) {
       if (active) {
-         packet.method_30621(SimulationSignals::block);
+         packet.runUpdates(SimulationSignals::block);
       }
    }
 
-   private static void block(class_2338 pos, class_2680 state) {
-      class_638 level = class_310.method_1551().field_1687;
+   private static void block(BlockPos pos, BlockState state) {
+      ClientLevel level = Minecraft.getInstance().level;
       if (level != null) {
-         class_2680 previous = level.method_8320(pos);
+         BlockState previous = level.getBlockState(pos);
          if (previous != state) {
             if (!ignored(previous) && !ignored(state)) {
                if (settled(pos)) {
@@ -501,32 +501,32 @@ public final class SimulationSignals {
       }
    }
 
-   private static boolean ignored(class_2680 state) {
-      return state.method_27852(class_2246.field_28048)
-         || state.method_27852(class_2246.field_28675)
-         || state.method_27852(class_2246.field_28676)
-         || state.method_27852(class_2246.field_16999)
-         || state.method_27852(class_2246.field_20422)
-         || state.method_27852(class_2246.field_20421)
-         || state.method_27852(class_2246.field_10597)
-         || state.method_27852(class_2246.field_22123)
-         || state.method_27852(class_2246.field_22124)
-         || state.method_27852(class_2246.field_23078)
-         || state.method_27852(class_2246.field_23079);
+   private static boolean ignored(BlockState state) {
+      return state.is(Blocks.POINTED_DRIPSTONE)
+         || state.is(Blocks.CAVE_VINES)
+         || state.is(Blocks.CAVE_VINES_PLANT)
+         || state.is(Blocks.SWEET_BERRY_BUSH)
+         || state.is(Blocks.BEEHIVE)
+         || state.is(Blocks.BEE_NEST)
+         || state.is(Blocks.VINE)
+         || state.is(Blocks.WEEPING_VINES)
+         || state.is(Blocks.WEEPING_VINES_PLANT)
+         || state.is(Blocks.TWISTING_VINES)
+         || state.is(Blocks.TWISTING_VINES_PLANT);
    }
 
    public static void tick() {
       if (active) {
-         class_310 mc = class_310.method_1551();
-         class_746 self = mc.field_1724;
-         if (mc.field_1687 != null && self != null) {
+         Minecraft mc = Minecraft.getInstance();
+         LocalPlayer self = mc.player;
+         if (mc.level != null && self != null) {
             long now = now();
-            if (self.method_23318() < 0.0) {
+            if (self.getY() < 0.0) {
                undergroundUntil = now + 3000000000L;
             }
 
-            double x = self.method_23317();
-            double z = self.method_23321();
+            double x = self.getX();
+            double z = self.getZ();
             if (hasLast && square(x - lastX, z - lastZ) > 64.0) {
                startQuiet();
             }
@@ -536,8 +536,8 @@ public final class SimulationSignals {
             hasLast = true;
             refreshPassed(self);
             if (++ticks % 10 == 0) {
-               int pcx = self.method_24515().method_10263() >> 4;
-               int pcz = self.method_24515().method_10260() >> 4;
+               int pcx = self.blockPosition().getX() >> 4;
+               int pcz = self.blockPosition().getZ() >> 4;
                int start = ringStart();
                boolean sample = !isQuiet() && (!hasSample || square(x - sampleX, z - sampleZ) <= 256.0);
                sampleX = x;
@@ -547,30 +547,30 @@ public final class SimulationSignals {
                int view = view();
                FROZEN.clear();
 
-               for (class_1297 entity : mc.field_1687.method_18112()) {
-                  if (!(entity instanceof class_1657)) {
-                     long seen = LAST_ACTIVE.get(entity.method_5628());
+               for (Entity entity : mc.level.entitiesForRendering()) {
+                  if (!(entity instanceof Player)) {
+                     long seen = LAST_ACTIVE.get(entity.getId());
                      if (seen == 0L) {
-                        LAST_ACTIVE.put(entity.method_5628(), now);
+                        LAST_ACTIVE.put(entity.getId(), now);
                      } else if (now - seen > 40000000000L && witness(entity)) {
-                        int ex = entity.method_24515().method_10263() >> 4;
-                        int ez = entity.method_24515().method_10260() >> 4;
+                        int ex = entity.blockPosition().getX() >> 4;
+                        int ez = entity.blockPosition().getZ() >> 4;
                         int d = distance(ex, ez, pcx, pcz);
                         if (d >= start && d <= view && !nearVisiblePlayer(ex, ez, self, 0)) {
-                           FROZEN.add(class_1923.method_8331(ex, ez));
+                           FROZEN.add(ChunkPos.asLong(ex, ez));
                         }
                      }
 
-                     if (sample && spawnable(entity.method_5864()) && !entity.method_5782() && !entity.method_5765()) {
-                        int key = entity.method_5864().method_18387();
-                        double distance = Math.hypot(entity.method_23317() - x, entity.method_23321() - z);
+                     if (sample && spawnable(entity.getType()) && !entity.isVehicle() && !entity.isPassenger()) {
+                        int key = entity.getType().clientTrackingRange();
+                        double distance = Math.hypot(entity.getX() - x, entity.getZ() - z);
                         if (distance > reach.get(key)) {
                            reach.put(key, distance);
                         }
                      }
 
-                     if (distance(entity.method_24515().method_10263() >> 4, entity.method_24515().method_10260() >> 4, pcx, pcz) < start) {
-                        ENTITY_INSIDE.put(entity.method_5628(), now);
+                     if (distance(entity.blockPosition().getX() >> 4, entity.blockPosition().getZ() >> 4, pcx, pcz) < start) {
+                        ENTITY_INSIDE.put(entity.getId(), now);
                      }
                   }
                }
@@ -603,41 +603,41 @@ public final class SimulationSignals {
                   BLOCK_SHARES.values().removeIf(share -> share.amount(now) < 0.05F);
                   int keep = view() + 4;
                   CHUNK_LOADED.long2LongEntrySet()
-                     .removeIf(e -> distance(class_1923.method_8325(e.getLongKey()), class_1923.method_8332(e.getLongKey()), pcx, pcz) > keep);
+                     .removeIf(e -> distance(ChunkPos.getX(e.getLongKey()), ChunkPos.getZ(e.getLongKey()), pcx, pcz) > keep);
                   ENTITY_ADDED.int2LongEntrySet().removeIf(e -> now - e.getLongValue() > 60000000000L);
                   ENTITY_INSIDE.int2LongEntrySet().removeIf(e -> now - e.getLongValue() > 60000000000L);
                   LIGHTNING_PENDING.values().removeIf(bolt -> now - bolt[1] > 3000000000L);
-                  LAST_ACTIVE.keySet().removeIf(id -> mc.field_1687.method_8469(id) == null);
+                  LAST_ACTIVE.keySet().removeIf(id -> mc.level.getEntity(id) == null);
                }
             }
          }
       }
    }
 
-   private static boolean witness(class_1297 entity) {
-      return entity instanceof class_1314 mob
-         && !(mob instanceof class_1606)
-         && !mob.method_5987()
-         && !mob.method_5765()
-         && !mob.method_5782()
-         && !mob.method_6113();
+   private static boolean witness(Entity entity) {
+      return entity instanceof PathfinderMob mob
+         && !(mob instanceof Shulker)
+         && !mob.isNoAi()
+         && !mob.isPassenger()
+         && !mob.isVehicle()
+         && !mob.isSleeping();
    }
 
-   private static void pin(class_2338 pos, String detail) {
-      class_746 self = class_310.method_1551().field_1724;
-      if (self != null && !holding() && pos.method_10264() >= 0) {
+   private static void pin(BlockPos pos, String detail) {
+      LocalPlayer self = Minecraft.getInstance().player;
+      if (self != null && !holding() && pos.getY() >= 0) {
          if (PINS.size() >= 32) {
             PINS.poll();
          }
 
-         PINS.add(new SimulationSignals.Pin(pos.method_10062(), detail + " @ " + pos.method_10263() + " " + pos.method_10264() + " " + pos.method_10260()));
+         PINS.add(new SimulationSignals.Pin(pos.immutable(), detail + " @ " + pos.getX() + " " + pos.getY() + " " + pos.getZ()));
       }
    }
 
-   private static void refreshPassed(class_746 self) {
-      int pcx = self.method_24515().method_10263() >> 4;
-      int pcz = self.method_24515().method_10260() >> 4;
-      long center = class_1923.method_8331(pcx, pcz);
+   private static void refreshPassed(LocalPlayer self) {
+      int pcx = self.blockPosition().getX() >> 4;
+      int pcz = self.blockPosition().getZ() >> 4;
+      long center = ChunkPos.asLong(pcx, pcz);
       int radius = ringStart() - 1;
       if (center != passedCenter || radius != passedRadius) {
          passedCenter = center;
@@ -645,7 +645,7 @@ public final class SimulationSignals {
 
          for (int dx = -radius; dx <= radius; dx++) {
             for (int dz = -radius; dz <= radius; dz++) {
-               long key = class_1923.method_8331(pcx + dx, pcz + dz);
+               long key = ChunkPos.asLong(pcx + dx, pcz + dz);
                if (passed.add(key)) {
                   CHUNKS.remove(key);
                }
@@ -654,15 +654,15 @@ public final class SimulationSignals {
       }
    }
 
-   private static void entitySignal(class_1297 entity, SimulationSignals.Kind kind, int spill) {
-      if (!(entity instanceof class_1657)) {
-         if (!(entity.method_31483() instanceof class_1657)) {
-            if (!(entity instanceof class_1540 falling && falling.method_6962().method_27852(class_2246.field_28048))) {
-               class_746 self = class_310.method_1551().field_1724;
+   private static void entitySignal(Entity entity, SimulationSignals.Kind kind, int spill) {
+      if (!(entity instanceof Player)) {
+         if (!(entity.getFirstPassenger() instanceof Player)) {
+            if (!(entity instanceof FallingBlockEntity falling && falling.getBlockState().is(Blocks.POINTED_DRIPSTONE))) {
+               LocalPlayer self = Minecraft.getInstance().player;
                if (self != null) {
-                  if (entity instanceof class_6025 ownable) {
-                     class_10583<?> owner = ownable.method_66287();
-                     if (owner != null && self.method_5667().equals(owner.method_66263())) {
+                  if (entity instanceof OwnableEntity ownable) {
+                     EntityReference<?> owner = ownable.getOwnerReference();
+                     if (owner != null && self.getUUID().equals(owner.getUUID())) {
                         return;
                      }
                   }
@@ -671,8 +671,8 @@ public final class SimulationSignals {
                      calibrate(entity, self);
                   }
 
-                  if (now() - ENTITY_INSIDE.getOrDefault(entity.method_5628(), -4611686018427387904L) >= 60000000000L) {
-                     signal(entity.method_24515(), kind, spill, () -> entityShare(entity.method_5628()), () -> name(entity.method_5864()));
+                  if (now() - ENTITY_INSIDE.getOrDefault(entity.getId(), -4611686018427387904L) >= 60000000000L) {
+                     signal(entity.blockPosition(), kind, spill, () -> entityShare(entity.getId()), () -> name(entity.getType()));
                   }
                }
             }
@@ -684,35 +684,35 @@ public final class SimulationSignals {
       return (SimulationSignals.Share)ENTITY_SHARES.computeIfAbsent(id, key -> new SimulationSignals.Share());
    }
 
-   private static SimulationSignals.Share blockShare(class_2338 pos) {
-      return (SimulationSignals.Share)BLOCK_SHARES.computeIfAbsent(pos.method_10063(), key -> new SimulationSignals.Share());
+   private static SimulationSignals.Share blockShare(BlockPos pos) {
+      return (SimulationSignals.Share)BLOCK_SHARES.computeIfAbsent(pos.asLong(), key -> new SimulationSignals.Share());
    }
 
-   private static String name(class_1299<?> type) {
-      return class_7923.field_41177.method_10221(type).method_12832();
+   private static String name(EntityType<?> type) {
+      return BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath();
    }
 
-   private static String describe(class_2680 state) {
+   private static String describe(BlockState state) {
       return state.toString().replace("Block{minecraft:", "").replace("}", "");
    }
 
-   private static void signal(class_2338 pos, SimulationSignals.Kind kind, int spill, Supplier<SimulationSignals.Share> source, Supplier<String> what) {
-      class_746 self = class_310.method_1551().field_1724;
+   private static void signal(BlockPos pos, SimulationSignals.Kind kind, int spill, Supplier<SimulationSignals.Share> source, Supplier<String> what) {
+      LocalPlayer self = Minecraft.getInstance().player;
       if (self != null) {
-         if (pos.method_10264() >= 0 && !holding()) {
-            int cx = pos.method_10263() >> 4;
-            int cz = pos.method_10260() >> 4;
-            int pcx = self.method_24515().method_10263() >> 4;
-            int pcz = self.method_24515().method_10260() >> 4;
+         if (pos.getY() >= 0 && !holding()) {
+            int cx = pos.getX() >> 4;
+            int cz = pos.getZ() >> 4;
+            int pcx = self.blockPosition().getX() >> 4;
+            int pcz = self.blockPosition().getZ() >> 4;
             int d = distance(cx, cz, pcx, pcz);
             if (d >= ringStart() + spill && d <= view()) {
-               long key = class_1923.method_8331(cx, cz);
+               long key = ChunkPos.asLong(cx, cz);
                if (!passed.contains(key)) {
                   if (!ignoreVisiblePlayers || !nearVisiblePlayer(cx, cz, self, spill)) {
                      long now = now();
                      float weight = source.get().take(kind.weight, now);
                      if (!(weight <= 0.0F)) {
-                        String detail = kind.title + " " + what.get() + " @ " + pos.method_10263() + " " + pos.method_10264() + " " + pos.method_10260();
+                        String detail = kind.title + " " + what.get() + " @ " + pos.getX() + " " + pos.getY() + " " + pos.getZ();
                         ((SimulationSignals.ChunkSignal)CHUNKS.computeIfAbsent(key, k -> new SimulationSignals.ChunkSignal())).add(kind, now, weight, detail);
                      }
                   }
@@ -722,10 +722,10 @@ public final class SimulationSignals {
       }
    }
 
-   private static void calibrate(class_1297 entity, class_746 self) {
-      int cx = entity.method_24515().method_10263() >> 4;
-      int cz = entity.method_24515().method_10260() >> 4;
-      int d = distance(cx, cz, self.method_24515().method_10263() >> 4, self.method_24515().method_10260() >> 4);
+   private static void calibrate(Entity entity, LocalPlayer self) {
+      int cx = entity.blockPosition().getX() >> 4;
+      int cz = entity.blockPosition().getZ() >> 4;
+      int d = distance(cx, cz, self.blockPosition().getX() >> 4, self.blockPosition().getZ() >> 4);
       if (d <= 64) {
          if (!nearVisiblePlayer(cx, cz, self, 0)) {
             long now = now();
@@ -741,16 +741,16 @@ public final class SimulationSignals {
       }
    }
 
-   private static boolean nearVisiblePlayer(int cx, int cz, class_746 self, int spill) {
-      class_638 level = class_310.method_1551().field_1687;
+   private static boolean nearVisiblePlayer(int cx, int cz, LocalPlayer self, int spill) {
+      ClientLevel level = Minecraft.getInstance().level;
       if (level == null) {
          return false;
       }
 
       int reach = simulation() + 1 + spill;
 
-      for (class_1657 player : level.method_18456()) {
-         if (player != self && distance(cx, cz, player.method_24515().method_10263() >> 4, player.method_24515().method_10260() >> 4) <= reach) {
+      for (Player player : level.players()) {
+         if (player != self && distance(cx, cz, player.blockPosition().getX() >> 4, player.blockPosition().getZ() >> 4) <= reach) {
             return true;
          }
       }
@@ -758,27 +758,27 @@ public final class SimulationSignals {
       return false;
    }
 
-   private static boolean settled(class_2338 pos) {
-      long loaded = CHUNK_LOADED.getOrDefault(class_1923.method_8331(pos.method_10263() >> 4, pos.method_10260() >> 4), Long.MIN_VALUE);
+   private static boolean settled(BlockPos pos) {
+      long loaded = CHUNK_LOADED.getOrDefault(ChunkPos.asLong(pos.getX() >> 4, pos.getZ() >> 4), Long.MIN_VALUE);
       return loaded == Long.MIN_VALUE || now() - loaded > 3000000000L;
    }
 
-   private static boolean wellInsideTracking(double x, double z, class_1299<?> type) {
-      class_746 self = class_310.method_1551().field_1724;
+   private static boolean wellInsideTracking(double x, double z, EntityType<?> type) {
+      LocalPlayer self = Minecraft.getInstance().player;
       if (self == null) {
          return false;
       }
 
-      double range = Math.min(TRACKED_RANGE.get(type.method_18387()), view() * 16.0);
-      return Math.hypot(x - self.method_23317(), z - self.method_23321()) < range - 24.0;
+      double range = Math.min(TRACKED_RANGE.get(type.clientTrackingRange()), view() * 16.0);
+      return Math.hypot(x - self.getX(), z - self.getZ()) < range - 24.0;
    }
 
-   private static boolean spawnable(class_1299<?> type) {
-      return type.method_5891() == class_1311.field_6302 || type == class_1299.field_6052 || type == class_1299.field_6044;
+   private static boolean spawnable(EntityType<?> type) {
+      return type.getCategory() == MobCategory.MONSTER || type == EntityType.ITEM || type == EntityType.EXPERIENCE_ORB;
    }
 
-   private static int spill(class_1299<?> type) {
-      return type != class_1299.field_6052 && type != class_1299.field_6044 ? 0 : 1;
+   private static int spill(EntityType<?> type) {
+      return type != EntityType.ITEM && type != EntityType.EXPERIENCE_ORB ? 0 : 1;
    }
 
    private static void startQuiet() {
@@ -857,7 +857,7 @@ public final class SimulationSignals {
    }
 
    @Environment(EnvType.CLIENT)
-   public record Pin(class_2338 pos, String detail) {
+   public record Pin(BlockPos pos, String detail) {
    }
 
    @Environment(EnvType.CLIENT)

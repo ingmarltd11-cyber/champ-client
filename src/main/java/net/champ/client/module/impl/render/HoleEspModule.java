@@ -26,21 +26,21 @@ import net.champ.client.util.MobilePerformance;
 import net.champ.client.util.PerformanceBudget;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12179;
-import net.minecraft.class_12180;
-import net.minecraft.class_1923;
-import net.minecraft.class_2338;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_259;
-import net.minecraft.class_265;
-import net.minecraft.class_2672;
-import net.minecraft.class_2680;
-import net.minecraft.class_2818;
-import net.minecraft.class_2826;
-import net.minecraft.class_310;
-import net.minecraft.class_638;
-import net.minecraft.class_2338.class_2339;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos.MutableBlockPos;
 
 @Environment(EnvType.CLIENT)
 public class HoleEspModule extends ClientModule {
@@ -63,17 +63,17 @@ public class HoleEspModule extends ClientModule {
    private static final float ELYTRA_SCAN_RADIUS = 12.0F;
    private static final float ELYTRA_SCAN_BUDGET_MS = 8.0F;
    private static final int[][] HORIZONTAL_DIRS = new int[][]{{1, 0}, {-1, 0}, {0, -1}, {0, 1}};
-   private static final ThreadLocal<class_2339> PASSABLE_POS = ThreadLocal.withInitial(class_2339::new);
+   private static final ThreadLocal<MutableBlockPos> PASSABLE_POS = ThreadLocal.withInitial(MutableBlockPos::new);
    private final ConcurrentHashMap<Long, List<HoleEspModule.Hit>> chunkCache = new ConcurrentHashMap<>();
    private final Queue<Long> scanQueue = new ConcurrentLinkedQueue<>();
    private final Set<Long> queued = ConcurrentHashMap.newKeySet();
    private long lastPlayerChunk = Long.MIN_VALUE;
    private int refreshTicks = 0;
-   private class_638 sessionLevel;
+   private ClientLevel sessionLevel;
    private boolean lastOptimized;
    private HoleEspModule.FastHoleScan activeScan;
    private boolean[] passableBuffer = new boolean[0];
-   private final class_12179[] mobileStyles = new class_12179[4];
+   private final GizmoStyle[] mobileStyles = new GizmoStyle[4];
    private final ModeSetting sMode = this.addSetting(
       "detection", new ModeSetting("Detection", "Holes", "Holes", "All", "Holes + Tunnels", "Holes + Stairs", "Tunnels + Stairs", "Tunnels", "Stairs")
    );
@@ -148,18 +148,18 @@ public class HoleEspModule extends ClientModule {
 
    @EventHandler
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       boolean optimized = PerformanceModule.optimizationsEnabled();
-      if (this.lastOptimized != optimized || optimized && this.sessionLevel != mc.field_1687) {
+      if (this.lastOptimized != optimized || optimized && this.sessionLevel != mc.level) {
          this.resetScan();
       }
 
       this.lastOptimized = optimized;
-      this.sessionLevel = mc.field_1687;
-      if (mc.field_1687 != null && mc.field_1724 != null) {
-         int cx = mc.field_1724.method_31477() >> 4;
-         int cz = mc.field_1724.method_31479() >> 4;
-         long curChunk = class_1923.method_8331(cx, cz);
+      this.sessionLevel = mc.level;
+      if (mc.level != null && mc.player != null) {
+         int cx = mc.player.getBlockX() >> 4;
+         int cz = mc.player.getBlockZ() >> 4;
+         long curChunk = ChunkPos.asLong(cx, cz);
          int radius = this.scanRadius(mc);
          boolean fastTravel = isFastTravel(mc);
          boolean periodicRefresh = ++this.refreshTicks >= (fastTravel ? 5 : 20);
@@ -172,9 +172,9 @@ public class HoleEspModule extends ClientModule {
                return Math.abs(kx - cx) > radius || Math.abs(kz - cz) > radius;
             });
             List<long[]> toQueue = new ArrayList<>();
-            class_243 velocity = mc.field_1724.method_18798();
-            double vx = velocity.field_1352;
-            double vz = velocity.field_1350;
+            Vec3 velocity = mc.player.getDeltaMovement();
+            double vx = velocity.x;
+            double vz = velocity.z;
             double horizontalSpeed = Math.sqrt(vx * vx + vz * vz);
             if (horizontalSpeed > 1.0E-4) {
                vx /= horizontalSpeed;
@@ -183,11 +183,11 @@ public class HoleEspModule extends ClientModule {
 
             for (int x = cx - radius; x <= cx + radius; x++) {
                for (int z = cz - radius; z <= cz + radius; z++) {
-                  long key = class_1923.method_8331(x, z);
+                  long key = ChunkPos.asLong(x, z);
                   if (!this.chunkCache.containsKey(key)
                      && !this.queued.contains(key)
                      && (this.activeScan == null || this.activeScan.key != key)
-                     && mc.field_1687.method_2935().method_12123(x, z)) {
+                     && mc.level.getChunkSource().hasChunk(x, z)) {
                      int dx = x - cx;
                      int dz = z - cz;
                      long distScore = (dx * dx + dz * dz) * 1024L;
@@ -216,14 +216,14 @@ public class HoleEspModule extends ClientModule {
 
                while (i < chunksPerTick && System.nanoTime() < deadline) {
                   if (this.activeScan != null) {
-                     if (!this.activeScan.validFor(mc.field_1687, cx, cz, radius)) {
-                        int sx = this.activeScan.chunk.method_12004().field_9181;
-                        int sz = this.activeScan.chunk.method_12004().field_9180;
+                     if (!this.activeScan.validFor(mc.level, cx, cz, radius)) {
+                        int sx = this.activeScan.chunk.getPos().x;
+                        int sz = this.activeScan.chunk.getPos().z;
                         long key = this.activeScan.key;
                         this.activeScan = null;
                         if (Math.abs((long)sx - cx) <= radius
                            && Math.abs((long)sz - cz) <= radius
-                           && mc.field_1687.method_2935().method_12123(sx, sz)
+                           && mc.level.getChunkSource().hasChunk(sx, sz)
                            && this.queued.add(key)) {
                            this.scanQueue.add(key);
                         }
@@ -241,8 +241,8 @@ public class HoleEspModule extends ClientModule {
                      this.queued.remove(key);
                      int sx = chunkX(key);
                      int sz = chunkZ(key);
-                     if (mc.field_1687.method_2935().method_12123(sx, sz)) {
-                        this.scanChunk(mc.field_1687, sx, sz, key);
+                     if (mc.level.getChunkSource().hasChunk(sx, sz)) {
+                        this.scanChunk(mc.level, sx, sz, key);
                      }
 
                      if (this.activeScan == null) {
@@ -262,20 +262,20 @@ public class HoleEspModule extends ClientModule {
    @EventHandler
    public void onPacketApplied(PacketAppliedEvent event) {
       if (PerformanceModule.optimizationsEnabled()) {
-         if (event.packet instanceof class_2672 chunk) {
-            this.invalidateAround(chunk.method_11523(), chunk.method_11524());
+         if (event.packet instanceof ClientboundLevelChunkWithLightPacket chunk) {
+            this.invalidateAround(chunk.getX(), chunk.getZ());
          }
       }
    }
 
    private void invalidateAround(int cx, int cz) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null) {
          int radius = this.scanRadius(mc) + 1;
-         if (Math.abs((long)cx - (mc.field_1724.method_31477() >> 4)) <= radius && Math.abs((long)cz - (mc.field_1724.method_31479() >> 4)) <= radius) {
+         if (Math.abs((long)cx - (mc.player.getBlockX() >> 4)) <= radius && Math.abs((long)cz - (mc.player.getBlockZ() >> 4)) <= radius) {
             for (int x = cx - 1; x <= cx + 1; x++) {
                for (int z = cz - 1; z <= cz + 1; z++) {
-                  long key = class_1923.method_8331(x, z);
+                  long key = ChunkPos.asLong(x, z);
                   boolean known = this.chunkCache.remove(key) != null;
                   if (this.activeScan != null && this.activeScan.key == key) {
                      this.activeScan = null;
@@ -297,9 +297,9 @@ public class HoleEspModule extends ClientModule {
    public void onBlockUpdate(BlockUpdateEvent event) {
       if (event.pos != null) {
          if (PerformanceModule.optimizationsEnabled()) {
-            this.invalidateAround(event.pos.method_10263() >> 4, event.pos.method_10260() >> 4);
+            this.invalidateAround(event.pos.getX() >> 4, event.pos.getZ() >> 4);
          } else {
-            long key = class_1923.method_8331(event.pos.method_10263() >> 4, event.pos.method_10260() >> 4);
+            long key = ChunkPos.asLong(event.pos.getX() >> 4, event.pos.getZ() >> 4);
             this.chunkCache.remove(key);
             if (this.queued.add(key)) {
                this.scanQueue.add(key);
@@ -310,13 +310,13 @@ public class HoleEspModule extends ClientModule {
 
    @EventHandler
    public void onRender3D(Render3DEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null) {
          boolean fill = this.sFill == null || this.sFill.value().get();
          boolean outline = this.sOutline == null || this.sOutline.value().get();
          if (fill || outline) {
-            int px = mc.field_1724.method_31477() >> 4;
-            int pz = mc.field_1724.method_31479() >> 4;
+            int px = mc.player.getBlockX() >> 4;
+            int pz = mc.player.getBlockZ() >> 4;
             int radius = this.scanRadius(mc);
             float lineWidth = value(this.sLineWidth, 1.5F);
             boolean mobile = MobilePerformance.active();
@@ -334,21 +334,21 @@ public class HoleEspModule extends ClientModule {
                         return;
                      }
 
-                     class_12179 style = mobile ? this.mobileStyles[hit.type()] : null;
+                     GizmoStyle style = mobile ? this.mobileStyles[hit.type()] : null;
                      if (style == null) {
                         style = !fill
-                           ? class_12179.method_75536(this.lineColor(hit.type()), lineWidth)
+                           ? GizmoStyle.stroke(this.lineColor(hit.type()), lineWidth)
                            : (
                               !outline
-                                 ? class_12179.method_75539(this.fillColor(hit.type()))
-                                 : class_12179.method_75537(this.lineColor(hit.type()), lineWidth, this.fillColor(hit.type()))
+                                 ? GizmoStyle.fill(this.fillColor(hit.type()))
+                                 : GizmoStyle.strokeAndFill(this.lineColor(hit.type()), lineWidth, this.fillColor(hit.type()))
                            );
                         if (mobile) {
                            this.mobileStyles[hit.type()] = style;
                         }
                      }
 
-                     class_12180.method_75541(hit.box(), style).method_75533();
+                     Gizmos.cuboid(hit.box(), style).setAlwaysOnTop();
                   }
                }
             }
@@ -356,13 +356,13 @@ public class HoleEspModule extends ClientModule {
       }
    }
 
-   private void scanChunk(class_638 level, int chunkX, int chunkZ, long chunkKey) {
-      class_2818 chunk = level.method_2935().method_21730(chunkX, chunkZ);
+   private void scanChunk(ClientLevel level, int chunkX, int chunkZ, long chunkKey) {
+      LevelChunk chunk = level.getChunkSource().getChunkNow(chunkX, chunkZ);
       if (chunk != null) {
          int baseX = chunkX << 4;
          int baseZ = chunkZ << 4;
-         int minBuildY = level.method_8597().comp_651();
-         int maxBuildY = minBuildY + chunk.method_12006().length * 16;
+         int minBuildY = level.dimensionType().comp_651();
+         int maxBuildY = minBuildY + chunk.getSections().length * 16;
          int minY = Math.min(maxBuildY - 1, minBuildY + Math.round(value(this.sMinYOffset, 0.0F)));
          int maxY = Math.max(minY + 1, maxBuildY - Math.round(value(this.sMaxYOffset, 0.0F)));
          HoleEspModule.Mode mode = this.currentMode();
@@ -376,12 +376,12 @@ public class HoleEspModule extends ClientModule {
          } else {
             List<HoleEspModule.Hit> hits = new ArrayList<>();
             Set<String> seen = new HashSet<>();
-            class_2339 pos = new class_2339();
-            class_2826[] sections = chunk.method_12006();
+            MutableBlockPos pos = new MutableBlockPos();
+            LevelChunkSection[] sections = chunk.getSections();
 
             for (int si = 0; si < sections.length; si++) {
-               class_2826 section = sections[si];
-               if (section != null && !section.method_38292()) {
+               LevelChunkSection section = sections[si];
+               if (section != null && !section.hasOnlyAir()) {
                   int sectionBaseY = minBuildY + si * 16;
 
                   for (int ly = 0; ly < 16; ly++) {
@@ -391,7 +391,7 @@ public class HoleEspModule extends ClientModule {
                            for (int x = 0; x < 16; x++) {
                               int wx = baseX + x;
                               int wz = baseZ + z;
-                              pos.method_10103(wx, y, wz);
+                              pos.set(wx, y, wz);
                               if (isPassable(level, pos, airOnly)) {
                                  if (mode.holes() && !isPassable(level, wx, y - 1, wz, airOnly)) {
                                     this.checkHole(level, pos, airOnly, hits, seen);
@@ -433,7 +433,7 @@ public class HoleEspModule extends ClientModule {
       }
    }
 
-   private void scanHolesFast(class_638 level, long chunkKey, int baseX, int baseZ, int minY, int maxY, boolean airOnly) {
+   private void scanHolesFast(ClientLevel level, long chunkKey, int baseX, int baseZ, int minY, int maxY, boolean airOnly) {
       int gridMinY = minY - 1;
       int gridMaxY = maxY;
       int yCount = gridMaxY - gridMinY + 1;
@@ -441,7 +441,7 @@ public class HoleEspModule extends ClientModule {
          this.chunkCache.remove(chunkKey);
       } else {
          boolean[] passable = new boolean[yCount * 20 * 20];
-         class_2339 pos = new class_2339();
+         MutableBlockPos pos = new MutableBlockPos();
 
          for (int yi = 0; yi < yCount; yi++) {
             int y = gridMinY + yi;
@@ -451,7 +451,7 @@ public class HoleEspModule extends ClientModule {
                int zBase = yBase + (lz + 1) * 20;
 
                for (int lx = -1; lx <= 18; lx++) {
-                  pos.method_10103(baseX + lx, y, baseZ + lz);
+                  pos.set(baseX + lx, y, baseZ + lz);
                   passable[zBase + lx + 1] = isPassable(level, pos, airOnly);
                }
             }
@@ -469,7 +469,7 @@ public class HoleEspModule extends ClientModule {
                   if (grid(passable, y, lx, lz, gridMinY) && !grid(passable, y - 1, lx, lz, gridMinY)) {
                      int depth = count1x1Depth(passable, y, lx, lz, gridMinY, maxY);
                      if (depth >= minDepth) {
-                        addHit(hits, seen, new class_238(baseX + lx, y, baseZ + lz, baseX + lx + 1, y + depth, baseZ + lz + 1), 0);
+                        addHit(hits, seen, new AABB(baseX + lx, y, baseZ + lz, baseX + lx + 1, y + depth, baseZ + lz + 1), 0);
                         if (hits.size() >= 1024) {
                            this.chunkCache.put(chunkKey, List.copyOf(hits));
                            return;
@@ -478,7 +478,7 @@ public class HoleEspModule extends ClientModule {
 
                      int depthX = count3x1DepthX(passable, y, lx, lz, gridMinY, maxY);
                      if (depthX >= minDepth) {
-                        addHit(hits, seen, new class_238(baseX + lx, y, baseZ + lz, baseX + lx + 3, y + depthX, baseZ + lz + 1), 1);
+                        addHit(hits, seen, new AABB(baseX + lx, y, baseZ + lz, baseX + lx + 3, y + depthX, baseZ + lz + 1), 1);
                         if (hits.size() >= 1024) {
                            this.chunkCache.put(chunkKey, List.copyOf(hits));
                            return;
@@ -487,7 +487,7 @@ public class HoleEspModule extends ClientModule {
 
                      int depthZ = count3x1DepthZ(passable, y, lx, lz, gridMinY, maxY);
                      if (depthZ >= minDepth) {
-                        addHit(hits, seen, new class_238(baseX + lx, y, baseZ + lz, baseX + lx + 1, y + depthZ, baseZ + lz + 3), 1);
+                        addHit(hits, seen, new AABB(baseX + lx, y, baseZ + lz, baseX + lx + 1, y + depthZ, baseZ + lz + 3), 1);
                         if (hits.size() >= 1024) {
                            this.chunkCache.put(chunkKey, List.copyOf(hits));
                            return;
@@ -578,83 +578,83 @@ public class HoleEspModule extends ClientModule {
       return grid[yi * 20 * 20 + (lz + 1) * 20 + lx + 1];
    }
 
-   private void checkHole(class_638 level, class_2338 pos, boolean airOnly, List<HoleEspModule.Hit> hits, Set<String> seen) {
+   private void checkHole(ClientLevel level, BlockPos pos, boolean airOnly, List<HoleEspModule.Hit> hits, Set<String> seen) {
       if (this.isValidHoleSection(level, pos, airOnly)) {
-         class_2339 current = new class_2339(pos.method_10263(), pos.method_10264(), pos.method_10260());
+         MutableBlockPos current = new MutableBlockPos(pos.getX(), pos.getY(), pos.getZ());
 
          while (this.isValidHoleSection(level, current, airOnly)) {
-            current.method_10100(0, 1, 0);
+            current.move(0, 1, 0);
          }
 
-         int depth = current.method_10264() - pos.method_10264();
+         int depth = current.getY() - pos.getY();
          if (depth >= Math.round(value(this.sMinHoleDepth, 4.0F))) {
             addHit(
                hits,
                seen,
-               new class_238(pos.method_10263(), pos.method_10264(), pos.method_10260(), pos.method_10263() + 1, current.method_10264(), pos.method_10260() + 1),
+               new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1, current.getY(), pos.getZ() + 1),
                0
             );
          }
       }
    }
 
-   private void check3x1Hole(class_638 level, class_2338 pos, boolean airOnly, List<HoleEspModule.Hit> hits, Set<String> seen) {
+   private void check3x1Hole(ClientLevel level, BlockPos pos, boolean airOnly, List<HoleEspModule.Hit> hits, Set<String> seen) {
       if (this.isValid3x1HoleSectionX(level, pos, airOnly)) {
-         class_2339 current = new class_2339(pos.method_10263(), pos.method_10264(), pos.method_10260());
+         MutableBlockPos current = new MutableBlockPos(pos.getX(), pos.getY(), pos.getZ());
 
          while (this.isValid3x1HoleSectionX(level, current, airOnly)) {
-            current.method_10100(0, 1, 0);
+            current.move(0, 1, 0);
          }
 
-         int depth = current.method_10264() - pos.method_10264();
+         int depth = current.getY() - pos.getY();
          if (depth >= Math.round(value(this.sMinHoleDepth, 4.0F))) {
             addHit(
                hits,
                seen,
-               new class_238(pos.method_10263(), pos.method_10264(), pos.method_10260(), pos.method_10263() + 3, current.method_10264(), pos.method_10260() + 1),
+               new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 3, current.getY(), pos.getZ() + 1),
                1
             );
          }
       }
 
       if (this.isValid3x1HoleSectionZ(level, pos, airOnly)) {
-         class_2339 current = new class_2339(pos.method_10263(), pos.method_10264(), pos.method_10260());
+         MutableBlockPos current = new MutableBlockPos(pos.getX(), pos.getY(), pos.getZ());
 
          while (this.isValid3x1HoleSectionZ(level, current, airOnly)) {
-            current.method_10100(0, 1, 0);
+            current.move(0, 1, 0);
          }
 
-         int depth = current.method_10264() - pos.method_10264();
+         int depth = current.getY() - pos.getY();
          if (depth >= Math.round(value(this.sMinHoleDepth, 4.0F))) {
             addHit(
                hits,
                seen,
-               new class_238(pos.method_10263(), pos.method_10264(), pos.method_10260(), pos.method_10263() + 1, current.method_10264(), pos.method_10260() + 3),
+               new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1, current.getY(), pos.getZ() + 3),
                1
             );
          }
       }
    }
 
-   private void checkTunnelStarts(class_638 level, class_2338 pos, boolean airOnly, List<HoleEspModule.Hit> hits, Set<String> seen) {
+   private void checkTunnelStarts(ClientLevel level, BlockPos pos, boolean airOnly, List<HoleEspModule.Hit> hits, Set<String> seen) {
       int minLength = Math.round(value(this.sMinTunnelLength, 3.0F));
 
       for (int[] dir : HORIZONTAL_DIRS) {
-         class_2339 previous = new class_2339(pos.method_10263() - dir[0], pos.method_10264(), pos.method_10260() - dir[1]);
+         MutableBlockPos previous = new MutableBlockPos(pos.getX() - dir[0], pos.getY(), pos.getZ() - dir[1]);
          if (!this.isTunnelSection(level, previous, dir, airOnly)) {
-            class_2339 current = new class_2339(pos.method_10263(), pos.method_10264(), pos.method_10260());
-            class_2338 start = null;
-            class_2338 end = null;
+            MutableBlockPos current = new MutableBlockPos(pos.getX(), pos.getY(), pos.getZ());
+            BlockPos start = null;
+            BlockPos end = null;
             int steps = 0;
             int maxHeight = 0;
             if (this.isTunnelSection(level, current, dir, airOnly)) {
-               start = current.method_10062();
+               start = current.immutable();
             }
 
             while (this.isTunnelSection(level, current, dir, airOnly)) {
                maxHeight = Math.max(maxHeight, this.getTunnelHeight(level, current, airOnly));
-               end = current.method_10062();
-               current.method_10100(dir[0], 0, dir[1]);
+               end = current.immutable();
+               current.move(dir[0], 0, dir[1]);
                steps++;
             }
 
@@ -662,13 +662,13 @@ public class HoleEspModule extends ClientModule {
                addHit(
                   hits,
                   seen,
-                  new class_238(
-                     Math.min(start.method_10263(), end.method_10263()),
-                     start.method_10264(),
-                     Math.min(start.method_10260(), end.method_10260()),
-                     Math.max(start.method_10263(), end.method_10263()) + 1,
-                     start.method_10264() + maxHeight,
-                     Math.max(start.method_10260(), end.method_10260()) + 1
+                  new AABB(
+                     Math.min(start.getX(), end.getX()),
+                     start.getY(),
+                     Math.min(start.getZ(), end.getZ()),
+                     Math.max(start.getX(), end.getX()) + 1,
+                     start.getY() + maxHeight,
+                     Math.max(start.getZ(), end.getZ()) + 1
                   ),
                   2
                );
@@ -677,34 +677,34 @@ public class HoleEspModule extends ClientModule {
       }
    }
 
-   private void checkStaircaseStarts(class_638 level, class_2338 pos, boolean airOnly, List<HoleEspModule.Hit> hits, Set<String> seen) {
+   private void checkStaircaseStarts(ClientLevel level, BlockPos pos, boolean airOnly, List<HoleEspModule.Hit> hits, Set<String> seen) {
       int minLength = Math.round(value(this.sMinStairLength, 3.0F));
 
       for (int[] dir : HORIZONTAL_DIRS) {
-         class_2339 previous = new class_2339(pos.method_10263() - dir[0], pos.method_10264() - 1, pos.method_10260() - dir[1]);
+         MutableBlockPos previous = new MutableBlockPos(pos.getX() - dir[0], pos.getY() - 1, pos.getZ() - dir[1]);
          if (!this.isStaircaseSection(level, previous, dir, airOnly)) {
-            class_2339 current = new class_2339(pos.method_10263(), pos.method_10264(), pos.method_10260());
+            MutableBlockPos current = new MutableBlockPos(pos.getX(), pos.getY(), pos.getZ());
             int steps = 0;
-            List<class_238> boxes = new ArrayList<>();
+            List<AABB> boxes = new ArrayList<>();
 
             while (this.isStaircaseSection(level, current, dir, airOnly)) {
                int height = this.getStaircaseHeight(level, current, airOnly);
                boxes.add(
-                  new class_238(
-                     current.method_10263(),
-                     current.method_10264(),
-                     current.method_10260(),
-                     current.method_10263() + 1,
-                     current.method_10264() + height,
-                     current.method_10260() + 1
+                  new AABB(
+                     current.getX(),
+                     current.getY(),
+                     current.getZ(),
+                     current.getX() + 1,
+                     current.getY() + height,
+                     current.getZ() + 1
                   )
                );
-               current.method_10100(dir[0], 1, dir[1]);
+               current.move(dir[0], 1, dir[1]);
                steps++;
             }
 
             if (steps >= minLength) {
-               for (class_238 box : boxes) {
+               for (AABB box : boxes) {
                   addHit(hits, seen, box, 3);
                }
             }
@@ -712,18 +712,18 @@ public class HoleEspModule extends ClientModule {
       }
    }
 
-   private boolean isValidHoleSection(class_638 level, class_2338 pos, boolean airOnly) {
+   private boolean isValidHoleSection(ClientLevel level, BlockPos pos, boolean airOnly) {
       return isPassable(level, pos, airOnly)
-         && !isPassable(level, pos.method_10263(), pos.method_10264(), pos.method_10260() - 1, airOnly)
-         && !isPassable(level, pos.method_10263(), pos.method_10264(), pos.method_10260() + 1, airOnly)
-         && !isPassable(level, pos.method_10263() + 1, pos.method_10264(), pos.method_10260(), airOnly)
-         && !isPassable(level, pos.method_10263() - 1, pos.method_10264(), pos.method_10260(), airOnly);
+         && !isPassable(level, pos.getX(), pos.getY(), pos.getZ() - 1, airOnly)
+         && !isPassable(level, pos.getX(), pos.getY(), pos.getZ() + 1, airOnly)
+         && !isPassable(level, pos.getX() + 1, pos.getY(), pos.getZ(), airOnly)
+         && !isPassable(level, pos.getX() - 1, pos.getY(), pos.getZ(), airOnly);
    }
 
-   private boolean isValid3x1HoleSectionX(class_638 level, class_2338 pos, boolean airOnly) {
-      int x = pos.method_10263();
-      int y = pos.method_10264();
-      int z = pos.method_10260();
+   private boolean isValid3x1HoleSectionX(ClientLevel level, BlockPos pos, boolean airOnly) {
+      int x = pos.getX();
+      int y = pos.getY();
+      int z = pos.getZ();
       return isPassable(level, x, y, z, airOnly)
          && isPassable(level, x + 1, y, z, airOnly)
          && isPassable(level, x + 2, y, z, airOnly)
@@ -737,10 +737,10 @@ public class HoleEspModule extends ClientModule {
          && !isPassable(level, x + 3, y, z, airOnly);
    }
 
-   private boolean isValid3x1HoleSectionZ(class_638 level, class_2338 pos, boolean airOnly) {
-      int x = pos.method_10263();
-      int y = pos.method_10264();
-      int z = pos.method_10260();
+   private boolean isValid3x1HoleSectionZ(ClientLevel level, BlockPos pos, boolean airOnly) {
+      int x = pos.getX();
+      int y = pos.getY();
+      int z = pos.getZ();
       return isPassable(level, x, y, z, airOnly)
          && isPassable(level, x, y, z + 1, airOnly)
          && isPassable(level, x, y, z + 2, airOnly)
@@ -754,22 +754,22 @@ public class HoleEspModule extends ClientModule {
          && !isPassable(level, x, y, z + 3, airOnly);
    }
 
-   private boolean isTunnelSection(class_638 level, class_2338 pos, int[] dir, boolean airOnly) {
+   private boolean isTunnelSection(ClientLevel level, BlockPos pos, int[] dir, boolean airOnly) {
       int height = this.getTunnelHeight(level, pos, airOnly);
       if (height >= Math.round(value(this.sMinTunnelHeight, 2.0F)) && height <= Math.round(value(this.sMaxTunnelHeight, 3.0F))) {
-         if (!isPassable(level, pos.method_10263(), pos.method_10264() - 1, pos.method_10260(), airOnly)
-            && !isPassable(level, pos.method_10263(), pos.method_10264() + height, pos.method_10260(), airOnly)) {
+         if (!isPassable(level, pos.getX(), pos.getY() - 1, pos.getZ(), airOnly)
+            && !isPassable(level, pos.getX(), pos.getY() + height, pos.getZ(), airOnly)) {
             boolean alongX = dir[0] != 0;
 
             for (int i = 0; i < height; i++) {
-               int y = pos.method_10264() + i;
+               int y = pos.getY() + i;
                if (alongX) {
-                  if (isPassable(level, pos.method_10263(), y, pos.method_10260() - 1, airOnly)
-                     || isPassable(level, pos.method_10263(), y, pos.method_10260() + 1, airOnly)) {
+                  if (isPassable(level, pos.getX(), y, pos.getZ() - 1, airOnly)
+                     || isPassable(level, pos.getX(), y, pos.getZ() + 1, airOnly)) {
                      return false;
                   }
-               } else if (isPassable(level, pos.method_10263() - 1, y, pos.method_10260(), airOnly)
-                  || isPassable(level, pos.method_10263() + 1, y, pos.method_10260(), airOnly)) {
+               } else if (isPassable(level, pos.getX() - 1, y, pos.getZ(), airOnly)
+                  || isPassable(level, pos.getX() + 1, y, pos.getZ(), airOnly)) {
                   return false;
                }
             }
@@ -783,22 +783,22 @@ public class HoleEspModule extends ClientModule {
       }
    }
 
-   private boolean isStaircaseSection(class_638 level, class_2338 pos, int[] dir, boolean airOnly) {
+   private boolean isStaircaseSection(ClientLevel level, BlockPos pos, int[] dir, boolean airOnly) {
       int height = this.getStaircaseHeight(level, pos, airOnly);
       if (height >= Math.round(value(this.sMinStairHeight, 3.0F)) && height <= Math.round(value(this.sMaxStairHeight, 5.0F))) {
-         if (!isPassable(level, pos.method_10263(), pos.method_10264() - 1, pos.method_10260(), airOnly)
-            && !isPassable(level, pos.method_10263(), pos.method_10264() + height, pos.method_10260(), airOnly)) {
+         if (!isPassable(level, pos.getX(), pos.getY() - 1, pos.getZ(), airOnly)
+            && !isPassable(level, pos.getX(), pos.getY() + height, pos.getZ(), airOnly)) {
             boolean alongX = dir[0] != 0;
 
             for (int i = 0; i < height; i++) {
-               int y = pos.method_10264() + i;
+               int y = pos.getY() + i;
                if (alongX) {
-                  if (isPassable(level, pos.method_10263(), y, pos.method_10260() - 1, airOnly)
-                     || isPassable(level, pos.method_10263(), y, pos.method_10260() + 1, airOnly)) {
+                  if (isPassable(level, pos.getX(), y, pos.getZ() - 1, airOnly)
+                     || isPassable(level, pos.getX(), y, pos.getZ() + 1, airOnly)) {
                      return false;
                   }
-               } else if (isPassable(level, pos.method_10263() - 1, y, pos.method_10260(), airOnly)
-                  || isPassable(level, pos.method_10263() + 1, y, pos.method_10260(), airOnly)) {
+               } else if (isPassable(level, pos.getX() - 1, y, pos.getZ(), airOnly)
+                  || isPassable(level, pos.getX() + 1, y, pos.getZ(), airOnly)) {
                   return false;
                }
             }
@@ -812,35 +812,35 @@ public class HoleEspModule extends ClientModule {
       }
    }
 
-   private int getTunnelHeight(class_638 level, class_2338 pos, boolean airOnly) {
+   private int getTunnelHeight(ClientLevel level, BlockPos pos, boolean airOnly) {
       int height = 0;
       int max = Math.round(value(this.sMaxTunnelHeight, 3.0F));
 
-      while (height < max && isPassable(level, pos.method_10263(), pos.method_10264() + height, pos.method_10260(), airOnly)) {
+      while (height < max && isPassable(level, pos.getX(), pos.getY() + height, pos.getZ(), airOnly)) {
          height++;
       }
 
       return height;
    }
 
-   private int getStaircaseHeight(class_638 level, class_2338 pos, boolean airOnly) {
+   private int getStaircaseHeight(ClientLevel level, BlockPos pos, boolean airOnly) {
       int height = 0;
       int max = Math.round(value(this.sMaxStairHeight, 5.0F));
 
-      while (height < max && isPassable(level, pos.method_10263(), pos.method_10264() + height, pos.method_10260(), airOnly)) {
+      while (height < max && isPassable(level, pos.getX(), pos.getY() + height, pos.getZ(), airOnly)) {
          height++;
       }
 
       return height;
    }
 
-   private static boolean isPassable(class_638 level, int x, int y, int z, boolean airOnly) {
-      return isPassable(level, PASSABLE_POS.get().method_10103(x, y, z), airOnly);
+   private static boolean isPassable(ClientLevel level, int x, int y, int z, boolean airOnly) {
+      return isPassable(level, PASSABLE_POS.get().set(x, y, z), airOnly);
    }
 
-   private static boolean isPassable(class_638 level, class_2338 pos, boolean airOnly) {
-      class_2680 state = level.method_8320(pos);
-      if (state.method_26215()) {
+   private static boolean isPassable(ClientLevel level, BlockPos pos, boolean airOnly) {
+      BlockState state = level.getBlockState(pos);
+      if (state.isAir()) {
          return true;
       }
 
@@ -848,27 +848,27 @@ public class HoleEspModule extends ClientModule {
          return false;
       }
 
-      class_265 shape = state.method_26220(level, pos);
-      return shape.method_1110() || !class_259.method_1077().equals(shape);
+      VoxelShape shape = state.getCollisionShape(level, pos);
+      return shape.isEmpty() || !Shapes.block().equals(shape);
    }
 
-   private static void addHit(List<HoleEspModule.Hit> hits, Set<String> seen, class_238 box, int type) {
+   private static void addHit(List<HoleEspModule.Hit> hits, Set<String> seen, AABB box, int type) {
       String key = type
          + ":"
-         + box.field_1323
+         + box.minX
          + ","
-         + box.field_1322
+         + box.minY
          + ","
-         + box.field_1321
+         + box.minZ
          + ","
-         + box.field_1320
+         + box.maxX
          + ","
-         + box.field_1325
+         + box.maxY
          + ","
-         + box.field_1324;
+         + box.maxZ;
       if (seen.add(key)) {
          for (HoleEspModule.Hit hit : hits) {
-            if (hit.type() == type && hit.box().method_994(box)) {
+            if (hit.type() == type && hit.box().intersects(box)) {
                return;
             }
          }
@@ -917,8 +917,8 @@ public class HoleEspModule extends ClientModule {
       return (int)(key >> 32);
    }
 
-   private int scanRadius(class_310 mc) {
-      int renderDistance = (Integer)mc.field_1690.method_42503().method_41753();
+   private int scanRadius(Minecraft mc) {
+      int renderDistance = (Integer)mc.options.renderDistance().get();
       float configuredValue = value(this.sScanRadius, 4.0F);
       if (isFastTravel(mc)) {
          configuredValue = Math.max(configuredValue, 12.0F);
@@ -928,14 +928,14 @@ public class HoleEspModule extends ClientModule {
       return Math.min(renderDistance, configured);
    }
 
-   private static boolean isFastTravel(class_310 mc) {
-      if (mc.field_1724 == null) {
+   private static boolean isFastTravel(Minecraft mc) {
+      if (mc.player == null) {
          return false;
       }
 
-      class_243 velocity = mc.field_1724.method_18798();
-      double horizontalSpeedSq = velocity.field_1352 * velocity.field_1352 + velocity.field_1350 * velocity.field_1350;
-      return mc.field_1724.method_6128() || horizontalSpeedSq > 0.18;
+      Vec3 velocity = mc.player.getDeltaMovement();
+      double horizontalSpeedSq = velocity.x * velocity.x + velocity.z * velocity.z;
+      return mc.player.isFallFlying() || horizontalSpeedSq > 0.18;
    }
 
    private static float value(NumberSetting setting, float fallback) {
@@ -948,9 +948,9 @@ public class HoleEspModule extends ClientModule {
 
    @Environment(EnvType.CLIENT)
    private final class FastHoleScan {
-      final class_2818 chunk;
-      final class_638 level;
-      final class_2818[] neighbors = new class_2818[9];
+      final LevelChunk chunk;
+      final ClientLevel level;
+      final LevelChunk[] neighbors = new LevelChunk[9];
       final long key;
       final int baseX;
       final int baseZ;
@@ -963,11 +963,11 @@ public class HoleEspModule extends ClientModule {
       final boolean[] passable;
       final List<HoleEspModule.Hit> hits = new ArrayList<>();
       final Set<String> seen = new HashSet<>();
-      final class_2339 pos = new class_2339();
+      final MutableBlockPos pos = new MutableBlockPos();
       int row;
       int column;
 
-      FastHoleScan(class_2818 chunk, long key, int baseX, int baseZ, int minY, int maxY, boolean airOnly) {
+      FastHoleScan(LevelChunk chunk, long key, int baseX, int baseZ, int minY, int maxY, boolean airOnly) {
          this.chunk = chunk;
          this.level = HoleEspModule.this.sessionLevel;
          this.key = key;
@@ -988,18 +988,18 @@ public class HoleEspModule extends ClientModule {
 
          for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
-               this.neighbors[(dx + 1) * 3 + dz + 1] = this.level.method_2935().method_21730((baseX >> 4) + dx, (baseZ >> 4) + dz);
+               this.neighbors[(dx + 1) * 3 + dz + 1] = this.level.getChunkSource().getChunkNow((baseX >> 4) + dx, (baseZ >> 4) + dz);
             }
          }
       }
 
-      boolean validFor(class_638 currentLevel, int centerX, int centerZ, int radius) {
+      boolean validFor(ClientLevel currentLevel, int centerX, int centerZ, int radius) {
          if (currentLevel == this.level
-            && Math.abs((long)this.chunk.method_12004().field_9181 - centerX) <= radius
-            && Math.abs((long)this.chunk.method_12004().field_9180 - centerZ) <= radius) {
+            && Math.abs((long)this.chunk.getPos().x - centerX) <= radius
+            && Math.abs((long)this.chunk.getPos().z - centerZ) <= radius) {
             for (int dx = -1; dx <= 1; dx++) {
                for (int dz = -1; dz <= 1; dz++) {
-                  if (this.neighbors[(dx + 1) * 3 + dz + 1] != this.level.method_2935().method_21730((this.baseX >> 4) + dx, (this.baseZ >> 4) + dz)) {
+                  if (this.neighbors[(dx + 1) * 3 + dz + 1] != this.level.getChunkSource().getChunkNow((this.baseX >> 4) + dx, (this.baseZ >> 4) + dz)) {
                      return false;
                   }
                }
@@ -1024,7 +1024,7 @@ public class HoleEspModule extends ClientModule {
                int zBase = yBase + (lz + 1) * 20;
 
                for (int lx = -1; lx <= 18; lx++) {
-                  this.pos.method_10103(this.baseX + lx, y, this.baseZ + lz);
+                  this.pos.set(this.baseX + lx, y, this.baseZ + lz);
                   this.passable[zBase + lx + 1] = HoleEspModule.isPassable(this.level, this.pos, this.airOnly);
                }
             }
@@ -1044,7 +1044,7 @@ public class HoleEspModule extends ClientModule {
                   int depth = HoleEspModule.count1x1Depth(this.passable, y, lx, lz, this.gridMinY, this.maxY);
                   if (depth >= this.minDepth) {
                      HoleEspModule.addHit(
-                        this.hits, this.seen, new class_238(this.baseX + lx, y, this.baseZ + lz, this.baseX + lx + 1, y + depth, this.baseZ + lz + 1), 0
+                        this.hits, this.seen, new AABB(this.baseX + lx, y, this.baseZ + lz, this.baseX + lx + 1, y + depth, this.baseZ + lz + 1), 0
                      );
                   }
 
@@ -1055,7 +1055,7 @@ public class HoleEspModule extends ClientModule {
                   int depthX = HoleEspModule.count3x1DepthX(this.passable, y, lx, lz, this.gridMinY, this.maxY);
                   if (depthX >= this.minDepth) {
                      HoleEspModule.addHit(
-                        this.hits, this.seen, new class_238(this.baseX + lx, y, this.baseZ + lz, this.baseX + lx + 3, y + depthX, this.baseZ + lz + 1), 1
+                        this.hits, this.seen, new AABB(this.baseX + lx, y, this.baseZ + lz, this.baseX + lx + 3, y + depthX, this.baseZ + lz + 1), 1
                      );
                   }
 
@@ -1066,7 +1066,7 @@ public class HoleEspModule extends ClientModule {
                   int depthZ = HoleEspModule.count3x1DepthZ(this.passable, y, lx, lz, this.gridMinY, this.maxY);
                   if (depthZ >= this.minDepth) {
                      HoleEspModule.addHit(
-                        this.hits, this.seen, new class_238(this.baseX + lx, y, this.baseZ + lz, this.baseX + lx + 1, y + depthZ, this.baseZ + lz + 3), 1
+                        this.hits, this.seen, new AABB(this.baseX + lx, y, this.baseZ + lz, this.baseX + lx + 1, y + depthZ, this.baseZ + lz + 3), 1
                      );
                   }
 
@@ -1086,7 +1086,7 @@ public class HoleEspModule extends ClientModule {
    }
 
    @Environment(EnvType.CLIENT)
-   private record Hit(class_238 box, int type) {
+   private record Hit(AABB box, int type) {
    }
 
    @Environment(EnvType.CLIENT)

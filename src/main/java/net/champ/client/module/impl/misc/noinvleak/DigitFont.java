@@ -2,7 +2,7 @@ package net.champ.client.module.impl.misc.noinvleak;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1799;
+import net.minecraft.world.item.ItemStack;
 
 @Environment(EnvType.CLIENT)
 final class DigitFont {
@@ -24,14 +24,14 @@ final class DigitFont {
    private DigitFont() {
    }
 
-   static void decorations(DigitFont.Sink sink, class_1799 item, int ox, int oy, int scale) {
-      if (item.method_31578()) {
+   static void decorations(DigitFont.Sink sink, ItemStack item, int ox, int oy, int scale) {
+      if (item.isBarVisible()) {
          sink.rect(ox + 2 * scale, oy + 13 * scale, 13 * scale, 2 * scale, -16777216);
-         sink.rect(ox + 2 * scale, oy + 13 * scale, item.method_31579() * scale, scale, 0xFF000000 | item.method_31580());
+         sink.rect(ox + 2 * scale, oy + 13 * scale, item.getBarWidth() * scale, scale, 0xFF000000 | item.getBarColor());
       }
 
-      if (item.method_7947() != 1) {
-         count(sink, item.method_7947(), ox, oy, scale);
+      if (item.getCount() != 1) {
+         count(sink, item.getCount(), ox, oy, scale);
       }
    }
 

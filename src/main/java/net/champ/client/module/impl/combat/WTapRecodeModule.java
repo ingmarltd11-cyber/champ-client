@@ -11,12 +11,12 @@ import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.util.pvp.InputControl;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12125;
-import net.minecraft.class_1297;
-import net.minecraft.class_1309;
-import net.minecraft.class_1657;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.world.item.component.PiercingWeapon;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class WTapRecodeModule extends ClientModule {
@@ -37,25 +37,25 @@ public final class WTapRecodeModule extends ClientModule {
       this.taps = 0;
    }
 
-   public void beforeAttack(class_1657 player, class_1297 target) {
-      class_746 self = class_310.method_1551().field_1724;
+   public void beforeAttack(Player player, Entity target) {
+      LocalPlayer self = Minecraft.getInstance().player;
       this.sprintHit = player == self
-         && self.method_5624()
+         && self.isSprinting()
          && MeleeAttacks.charge(self) > 0.9F
-         && target instanceof class_1309
-         && self.field_3913.field_54155.comp_3159();
+         && target instanceof LivingEntity
+         && self.input.keyPresses.comp_3159();
    }
 
    public void afterAttack() {
       if (this.sprintHit) {
-         this.start(class_310.method_1551().field_1724);
+         this.start(Minecraft.getInstance().player);
       }
    }
 
    public void afterStab() {
-      class_746 player = class_310.method_1551().field_1724;
-      if (player.method_5624() && player.field_3913.field_54155.comp_3159()) {
-         if (MeleeAttacks.stabTarget(player, entity -> class_12125.method_75244(player, entity)) != null) {
+      LocalPlayer player = Minecraft.getInstance().player;
+      if (player.isSprinting() && player.input.keyPresses.comp_3159()) {
+         if (MeleeAttacks.stabTarget(player, entity -> PiercingWeapon.canHitEntity(player, entity)) != null) {
             this.start(player);
          }
       }
@@ -63,19 +63,19 @@ public final class WTapRecodeModule extends ClientModule {
 
    @EventHandler(priority = EventPriority.HIGH)
    public void onTick(TickEvent event) {
-      class_746 player = class_310.method_1551().field_1724;
+      LocalPlayer player = Minecraft.getInstance().player;
       if (player == null) {
          this.taps = 0;
       } else {
-         if (this.taps > 0 && player.field_6012 != this.tapTick) {
+         if (this.taps > 0 && player.tickCount != this.tapTick) {
             this.apply();
          }
       }
    }
 
-   private void start(class_746 player) {
+   private void start(LocalPlayer player) {
       this.taps = this.hold.getInt();
-      this.tapTick = player.field_6012;
+      this.tapTick = player.tickCount;
       this.apply();
    }
 

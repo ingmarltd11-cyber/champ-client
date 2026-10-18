@@ -11,25 +11,25 @@ import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.systems.RenderSystem.class_5590;
+import com.mojang.blaze3d.systems.RenderSystem.AutoStorageIndexBuffer;
 import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.vertex.VertexFormat.class_5596;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10789;
-import net.minecraft.class_10799;
-import net.minecraft.class_276;
-import net.minecraft.class_287;
-import net.minecraft.class_290;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_6367;
-import net.minecraft.class_9799;
-import net.minecraft.class_9801;
+import com.mojang.blaze3d.shaders.UniformType;
+import net.minecraft.client.renderer.RenderPipelines;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.pipeline.TextureTarget;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.MeshData;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
@@ -49,15 +49,15 @@ final class AtmosphereShaderSky {
    private static final RenderPipeline PIPELINE = skyPipeline(-1);
    private static final RenderPipeline[] MOBILE_PIPELINES = new RenderPipeline[]{skyPipeline(0), skyPipeline(1), skyPipeline(2), skyPipeline(3)};
    private static final RenderPipeline COMPOSITE = RenderPipeline.builder(new Snippet[0])
-      .withLocation(class_2960.method_60655("champ", "pipeline/sky_theme_composite"))
+      .withLocation(Identifier.fromNamespaceAndPath("champ", "pipeline/sky_theme_composite"))
       .withVertexShader("core/screenquad")
-      .withFragmentShader(class_2960.method_60655("champ", "core/sky_theme_composite"))
+      .withFragmentShader(Identifier.fromNamespaceAndPath("champ", "core/sky_theme_composite"))
       .withSampler("InSampler")
       .withBlend(BlendFunction.TRANSLUCENT)
       .withDepthWrite(false)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
       .withCull(false)
-      .withVertexFormat(class_290.field_60033, class_5596.field_27379)
+      .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
       .build();
    private static final int UNIFORM_SIZE = 112;
    private static final float CUBE = 10.0F;
@@ -67,7 +67,7 @@ final class AtmosphereShaderSky {
    private GpuBuffer cube;
    private GpuBuffer uniforms;
    private ByteBuffer uniformData;
-   private class_6367 mobileTarget;
+   private TextureTarget mobileTarget;
    private boolean mobileTargetFailed;
    private boolean invalidLogged;
    private float time;
@@ -75,14 +75,14 @@ final class AtmosphereShaderSky {
 
    private static RenderPipeline skyPipeline(int mobileMode) {
       boolean offscreen = mobileMode >= 0;
-      Builder builder = RenderPipeline.builder(new Snippet[]{class_10799.field_60125})
-         .withLocation(class_2960.method_60655("champ", offscreen ? "pipeline/sky_theme_mobile_" + mobileMode : "pipeline/sky_theme"))
-         .withVertexShader(class_2960.method_60655("champ", "core/sky_theme"))
-         .withFragmentShader(class_2960.method_60655("champ", "core/sky_theme"))
-         .withUniform("ChampSky", class_10789.field_60031)
+      Builder builder = RenderPipeline.builder(new Snippet[]{RenderPipelines.MATRICES_PROJECTION_SNIPPET})
+         .withLocation(Identifier.fromNamespaceAndPath("champ", offscreen ? "pipeline/sky_theme_mobile_" + mobileMode : "pipeline/sky_theme"))
+         .withVertexShader(Identifier.fromNamespaceAndPath("champ", "core/sky_theme"))
+         .withFragmentShader(Identifier.fromNamespaceAndPath("champ", "core/sky_theme"))
+         .withUniform("ChampSky", UniformType.UNIFORM_BUFFER)
          .withDepthWrite(false)
          .withCull(false)
-         .withVertexFormat(class_290.field_1592, class_5596.field_27382);
+         .withVertexFormat(DefaultVertexFormat.POSITION, Mode.QUADS);
       if (offscreen) {
          builder.withShaderDefine("CHAMP_SKY_MODE", mobileMode);
       }
@@ -118,10 +118,10 @@ final class AtmosphereShaderSky {
 
          RenderPipeline pipeline = mobile ? MOBILE_PIPELINES[mode] : PIPELINE;
          if (device.precompilePipeline(pipeline).isValid() && (!mobile || device.precompilePipeline(COMPOSITE).isValid())) {
-            class_276 target = class_310.method_1551().method_1522();
-            if (target.field_1482 > 0 && target.field_1481 > 0) {
-               int width = mobile ? AtmosphereQuality.skyWidth(target.field_1482, target.field_1481) : target.field_1482;
-               int height = mobile ? AtmosphereQuality.skyHeight(target.field_1482, target.field_1481) : target.field_1481;
+            RenderTarget target = Minecraft.getInstance().getMainRenderTarget();
+            if (target.width > 0 && target.height > 0) {
+               int width = mobile ? AtmosphereQuality.skyWidth(target.width, target.height) : target.width;
+               int height = mobile ? AtmosphereQuality.skyHeight(target.width, target.height) : target.height;
                if (this.cube == null) {
                   this.cube = buildCube(device);
                }
@@ -132,7 +132,7 @@ final class AtmosphereShaderSky {
                }
 
                this.putVec(0, mode, visibility, this.time, brightness);
-               this.putVec(16, stars, effect, band, (float)width / target.field_1482);
+               this.putVec(16, stars, effect, band, (float)width / target.width);
                this.putColor(32, low);
                this.putColor(48, high);
                this.putColor(64, bandColor);
@@ -141,11 +141,11 @@ final class AtmosphereShaderSky {
                CommandEncoder encoder = device.createCommandEncoder();
                encoder.writeToBuffer(this.uniforms.slice(), this.uniformData);
                GpuBufferSlice transforms = RenderSystem.getDynamicUniforms()
-                  .method_71106(RenderSystem.getModelViewStack(), new Vector4f(1.0F, 1.0F, 1.0F, 1.0F), new Vector3f(), new Matrix4f());
-               class_5590 indices = RenderSystem.getSequentialBuffer(class_5596.field_27382);
+                  .writeTransform(RenderSystem.getModelViewStack(), new Vector4f(1.0F, 1.0F, 1.0F, 1.0F), new Vector3f(), new Matrix4f());
+               AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(Mode.QUADS);
                if (!mobile) {
                   RenderPass pass = encoder.createRenderPass(
-                     () -> "Champ Client sky theme", target.method_71639(), OptionalInt.empty(), target.method_71640(), OptionalDouble.empty()
+                     () -> "Champ Client sky theme", target.getColorTextureView(), OptionalInt.empty(), target.getDepthTextureView(), OptionalDouble.empty()
                   );
 
                   try {
@@ -170,12 +170,12 @@ final class AtmosphereShaderSky {
                } else {
                   try {
                      if (this.mobileTarget == null) {
-                        this.mobileTarget = new class_6367("Champ Client mobile sky", width, height, false);
-                     } else if (this.mobileTarget.field_1482 != width || this.mobileTarget.field_1481 != height) {
-                        this.mobileTarget.method_1234(width, height);
+                        this.mobileTarget = new TextureTarget("Champ Client mobile sky", width, height, false);
+                     } else if (this.mobileTarget.width != width || this.mobileTarget.height != height) {
+                        this.mobileTarget.resize(width, height);
                      }
 
-                     RenderPass pass = encoder.createRenderPass(() -> "Champ Client mobile sky", this.mobileTarget.method_71639(), OptionalInt.of(0));
+                     RenderPass pass = encoder.createRenderPass(() -> "Champ Client mobile sky", this.mobileTarget.getColorTextureView(), OptionalInt.of(0));
 
                      try {
                         this.drawSky(pass, pipeline, transforms, indices);
@@ -195,11 +195,11 @@ final class AtmosphereShaderSky {
                         pass.close();
                      }
 
-                     pass = encoder.createRenderPass(() -> "Champ Client mobile sky composite", target.method_71639(), OptionalInt.empty());
+                     pass = encoder.createRenderPass(() -> "Champ Client mobile sky composite", target.getColorTextureView(), OptionalInt.empty());
 
                      try {
                         pass.setPipeline(COMPOSITE);
-                        pass.bindTexture("InSampler", this.mobileTarget.method_71639(), RenderSystem.getSamplerCache().method_75294(FilterMode.LINEAR));
+                        pass.bindTexture("InSampler", this.mobileTarget.getColorTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
                         pass.draw(0, 3);
                      } catch (Throwable var33) {
                         if (pass != null) {
@@ -241,7 +241,7 @@ final class AtmosphereShaderSky {
       }
    }
 
-   private void drawSky(RenderPass pass, RenderPipeline pipeline, GpuBufferSlice transforms, class_5590 indices) {
+   private void drawSky(RenderPass pass, RenderPipeline pipeline, GpuBufferSlice transforms, AutoStorageIndexBuffer indices) {
       pass.setPipeline(pipeline);
       RenderSystem.bindDefaultUniforms(pass);
       pass.setUniform("DynamicTransforms", transforms);
@@ -271,7 +271,7 @@ final class AtmosphereShaderSky {
 
    private void releaseMobileTarget() {
       if (this.mobileTarget != null) {
-         this.mobileTarget.method_1238();
+         this.mobileTarget.destroyBuffers();
          this.mobileTarget = null;
       }
    }
@@ -288,11 +288,11 @@ final class AtmosphereShaderSky {
    }
 
    private static GpuBuffer buildCube(GpuDevice device) {
-      class_9799 bytes = new class_9799(24 * class_290.field_1592.getVertexSize());
+      ByteBufferBuilder bytes = new ByteBufferBuilder(24 * DefaultVertexFormat.POSITION.getVertexSize());
 
       GpuBuffer var5;
       try {
-         class_287 builder = new class_287(bytes, class_5596.field_27382, class_290.field_1592);
+         BufferBuilder builder = new BufferBuilder(bytes, Mode.QUADS, DefaultVertexFormat.POSITION);
          float s = 10.0F;
          face(builder, s, -s, -s, s, s, -s, s, s, s, s, -s, s);
          face(builder, -s, -s, s, -s, s, s, -s, s, -s, -s, -s, -s);
@@ -300,10 +300,10 @@ final class AtmosphereShaderSky {
          face(builder, -s, -s, s, -s, -s, -s, s, -s, -s, s, -s, s);
          face(builder, s, -s, s, s, s, s, -s, s, s, -s, -s, s);
          face(builder, -s, -s, -s, -s, s, -s, s, s, -s, s, -s, -s);
-         class_9801 mesh = builder.method_60800();
+         MeshData mesh = builder.buildOrThrow();
 
          try {
-            var5 = device.createBuffer(() -> "Champ Client sky theme cube", 32, mesh.method_60818());
+            var5 = device.createBuffer(() -> "Champ Client sky theme cube", 32, mesh.vertexBuffer());
          } catch (Throwable var9) {
             if (mesh != null) {
                try {
@@ -334,11 +334,11 @@ final class AtmosphereShaderSky {
    }
 
    private static void face(
-      class_287 builder, float ax, float ay, float az, float bx, float by, float bz, float cx, float cy, float cz, float dx, float dy, float dz
+      BufferBuilder builder, float ax, float ay, float az, float bx, float by, float bz, float cx, float cy, float cz, float dx, float dy, float dz
    ) {
-      builder.method_22912(ax, ay, az);
-      builder.method_22912(bx, by, bz);
-      builder.method_22912(cx, cy, cz);
-      builder.method_22912(dx, dy, dz);
+      builder.addVertex(ax, ay, az);
+      builder.addVertex(bx, by, bz);
+      builder.addVertex(cx, cy, cz);
+      builder.addVertex(dx, dy, dz);
    }
 }

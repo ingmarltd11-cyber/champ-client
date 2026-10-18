@@ -15,20 +15,20 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_11659;
-import net.minecraft.class_12249;
-import net.minecraft.class_1309;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_1921;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_3489;
-import net.minecraft.class_4587;
-import net.minecraft.class_746;
-import net.minecraft.class_7923;
-import net.minecraft.class_811;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.tags.ItemTags;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.ItemDisplayContext;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -41,7 +41,7 @@ public final class WeaponInspectModule extends ClientModule {
    private static final String SWORDS = "Swords";
    private static final String WEAPONS = "Weapons";
    private static final String ANY_ITEM = "Any Item";
-   private static final class_2960 KNIFE_TEXTURE = class_2960.method_60655("champ", "textures/misc/knife_base.png");
+   private static final Identifier KNIFE_TEXTURE = Identifier.fromNamespaceAndPath("champ", "textures/misc/knife_base.png");
    private static final float EASE_OUT_SECONDS = 0.15F;
    private static final int IDLE = 0;
    private static final int INSPECT = 1;
@@ -69,9 +69,9 @@ public final class WeaponInspectModule extends ClientModule {
    private long easeStartedAt;
    private float easeFrom;
    private int slot;
-   private class_1792 item;
+   private Item item;
    private int heldSlot = -1;
-   private class_1792 heldItem;
+   private Item heldItem;
    private final float[] state = new float[16];
    private final float[] trailSample = new float[12];
    private final SlashTrail[] trails = new SlashTrail[2];
@@ -116,17 +116,17 @@ public final class WeaponInspectModule extends ClientModule {
       this.clearTrails();
    }
 
-   public static void handsBegin(class_4587 pose) {
+   public static void handsBegin(PoseStack pose) {
       WeaponInspectModule module = active;
       if (module != null) {
-         module.base.set(pose.method_23760().method_23761());
+         module.base.set(pose.last().pose());
          module.base.invert(module.baseInverse);
-         module.baseNormal.set(pose.method_23760().method_23762());
+         module.baseNormal.set(pose.last().normal());
          module.baseKnown = true;
       }
    }
 
-   public static boolean renderItem(class_4587 pose, class_1309 holder, class_1799 stack, class_811 context, class_11659 collector, int light, boolean mainHand) {
+   public static boolean renderItem(PoseStack pose, LivingEntity holder, ItemStack stack, ItemDisplayContext context, SubmitNodeCollector collector, int light, boolean mainHand) {
       WeaponInspectModule module = active;
       return module != null && module.render(pose, holder, stack, context, collector, light, mainHand);
    }
@@ -146,23 +146,23 @@ public final class WeaponInspectModule extends ClientModule {
    private boolean pressed(int pressed, boolean repeat) {
       int bound = this.key.value();
       if (ModuleKeybinds.isBindable(bound) && pressed == bound) {
-         class_310 mc = class_310.method_1551();
-         class_746 player = mc.field_1724;
-         if (mc.field_1755 != null || player == null || player.method_7325()) {
+         Minecraft mc = Minecraft.getInstance();
+         LocalPlayer player = mc.player;
+         if (mc.screen != null || player == null || player.isSpectator()) {
             return false;
          }
 
-         if (this.sneakSkips.get() && player.method_5715()) {
+         if (this.sneakSkips.get() && player.isShiftKeyDown()) {
             return false;
          }
 
-         class_1799 held = player.method_6047();
+         ItemStack held = player.getMainHandItem();
          if (!this.inspectable(held)) {
             return false;
          }
 
-         if (!repeat && !player.method_6115()) {
-            this.start(1, player.method_31548().method_67532(), held);
+         if (!repeat && !player.isUsingItem()) {
+            this.start(1, player.getInventory().getSelectedSlot(), held);
          }
 
          return true;
@@ -173,46 +173,46 @@ public final class WeaponInspectModule extends ClientModule {
 
    private boolean held() {
       int bound = this.key.value();
-      class_310 mc = class_310.method_1551();
-      if (ModuleKeybinds.isBindable(bound) && mc.field_1755 == null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (ModuleKeybinds.isBindable(bound) && mc.screen == null) {
          return bound >= 1000
-            ? GLFW.glfwGetMouseButton(mc.method_22683().method_4490(), bound - 1000) == 1
-            : ChampKeyPolling.isKeyDown(mc.method_22683(), bound);
+            ? GLFW.glfwGetMouseButton(mc.getWindow().handle(), bound - 1000) == 1
+            : ChampKeyPolling.isKeyDown(mc.getWindow(), bound);
       } else {
          return false;
       }
    }
 
-   private boolean inspectable(class_1799 stack) {
-      if (stack.method_7960()) {
+   private boolean inspectable(ItemStack stack) {
+      if (stack.isEmpty()) {
          return false;
       } else {
          return !this.items.is("Any Item") && !isSword(stack)
             ? this.items.is("Weapons")
                && (
-                  stack.method_31573(class_3489.field_42612)
-                     || stack.method_31573(class_3489.field_63257)
-                     || stack.method_31574(class_1802.field_49814)
-                     || stack.method_31574(class_1802.field_8547)
+                  stack.is(ItemTags.AXES)
+                     || stack.is(ItemTags.SPEARS)
+                     || stack.is(Items.MACE)
+                     || stack.is(Items.TRIDENT)
                )
             : true;
       }
    }
 
-   private static boolean isSword(class_1799 stack) {
-      return !stack.method_7960()
-         && (stack.method_31573(class_3489.field_42611) || class_7923.field_41178.method_10221(stack.method_7909()).method_12832().endsWith("_sword"));
+   private static boolean isSword(ItemStack stack) {
+      return !stack.isEmpty()
+         && (stack.is(ItemTags.SWORDS) || BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath().endsWith("_sword"));
    }
 
-   private static boolean handheld(class_1799 stack) {
+   private static boolean handheld(ItemStack stack) {
       return isSword(stack)
-         || stack.method_31573(class_3489.field_42612)
-         || stack.method_31573(class_3489.field_42614)
-         || stack.method_31573(class_3489.field_42615)
-         || stack.method_31573(class_3489.field_42613);
+         || stack.is(ItemTags.AXES)
+         || stack.is(ItemTags.PICKAXES)
+         || stack.is(ItemTags.SHOVELS)
+         || stack.is(ItemTags.HOES);
    }
 
-   private void start(int next, int selected, class_1799 held) {
+   private void start(int next, int selected, ItemStack held) {
       KnifeSkin knife = isSword(held) ? KnifeSkin.of(this.skin.get()) : null;
       this.clip = next == 2 ? knife.deploy : (knife != null ? knife.inspect : InspectAnimation.clip(this.style.get()));
       this.clipKnife = knife;
@@ -221,7 +221,7 @@ public final class WeaponInspectModule extends ClientModule {
       this.easingOut = false;
       this.startedAt = System.nanoTime();
       this.slot = selected;
-      this.item = held.method_7909();
+      this.item = held.getItem();
    }
 
    private void easeOut() {
@@ -232,25 +232,25 @@ public final class WeaponInspectModule extends ClientModule {
    }
 
    private void onTick(TickEvent event) {
-      class_746 player = class_310.method_1551().field_1724;
+      LocalPlayer player = Minecraft.getInstance().player;
       if (player == null) {
          this.mode = 0;
          this.heldItem = null;
       } else {
-         class_1799 held = player.method_6047();
-         int selected = player.method_31548().method_67532();
-         if (selected != this.heldSlot || !held.method_31574(this.heldItem)) {
+         ItemStack held = player.getMainHandItem();
+         int selected = player.getInventory().getSelectedSlot();
+         if (selected != this.heldSlot || !held.is(this.heldItem)) {
             this.heldSlot = selected;
-            this.heldItem = held.method_7909();
+            this.heldItem = held.getItem();
             if (this.deploy.get() && isSword(held) && KnifeSkin.of(this.skin.get()) != null) {
                this.start(2, selected, held);
             } else if (this.mode != 0 && !this.easingOut) {
                this.easeOut();
             }
          } else if (this.mode != 0 && !this.easingOut) {
-            if (player.field_6252) {
+            if (player.swinging) {
                this.mode = 0;
-            } else if (player.method_6115()) {
+            } else if (player.isUsingItem()) {
                this.easeOut();
             } else if (this.loopedProgress(System.nanoTime()) >= 1.0F) {
                this.mode = 0;
@@ -280,8 +280,8 @@ public final class WeaponInspectModule extends ClientModule {
       }
    }
 
-   private float animate(class_1799 stack, KnifeSkin knife, long now) {
-      if (this.mode == 0 || !stack.method_31574(this.item)) {
+   private float animate(ItemStack stack, KnifeSkin knife, long now) {
+      if (this.mode == 0 || !stack.is(this.item)) {
          return 0.0F;
       }
 
@@ -313,8 +313,8 @@ public final class WeaponInspectModule extends ClientModule {
       return weight;
    }
 
-   private boolean render(class_4587 pose, class_1309 holder, class_1799 stack, class_811 context, class_11659 collector, int light, boolean mainHand) {
-      int side = context == class_811.field_4321 ? -1 : 1;
+   private boolean render(PoseStack pose, LivingEntity holder, ItemStack stack, ItemDisplayContext context, SubmitNodeCollector collector, int light, boolean mainHand) {
+      int side = context == ItemDisplayContext.FIRST_PERSON_LEFT_HAND ? -1 : 1;
       boolean sword = isSword(stack);
       KnifeSkin knife = sword ? KnifeSkin.of(this.skin.get()) : null;
       long now = System.nanoTime();
@@ -338,7 +338,7 @@ public final class WeaponInspectModule extends ClientModule {
          }
 
          if (trailing) {
-            this.swordTrail(pose.method_23760().method_23761(), side);
+            this.swordTrail(pose.last().pose(), side);
             this.record(now, 1);
             this.submitGlow(collector, now, KnifeMaterial.of(stack).glow, 0.0F, null);
          }
@@ -348,9 +348,9 @@ public final class WeaponInspectModule extends ClientModule {
          KnifeMaterial material = KnifeMaterial.of(stack);
          FirstPersonArm.Arm arm = !this.showArm.get() && !HandModelModule.wants(mainHand) ? null : FirstPersonArm.arm();
          boolean slim = arm != null && arm.slim();
-         pose.method_22903();
+         pose.pushPose();
          if (side < 0) {
-            pose.method_22905(-1.0F, 1.0F, 1.0F);
+            pose.scale(-1.0F, 1.0F, 1.0F);
          }
 
          knife.draw(
@@ -359,10 +359,10 @@ public final class WeaponInspectModule extends ClientModule {
             weight,
             slim,
             this.knifeSize.get(),
-            sink(collector, light, side, arm, mainHand && offHandFree(), material, stack.method_7958()),
+            sink(collector, light, side, arm, mainHand && offHandFree(), material, stack.hasFoil()),
             trailing ? this.trailSample : null
          );
-         pose.method_22909();
+         pose.popPose();
          if (trailing) {
             this.record(now, knife.streakCount());
             float flash = this.sparkles.get() && weight > 0.0F ? knife.sparkle(at, weight) : 0.0F;
@@ -374,27 +374,27 @@ public final class WeaponInspectModule extends ClientModule {
    }
 
    private static KnifeSkin.Sink sink(
-      class_11659 collector, int light, int side, FirstPersonArm.Arm arm, boolean otherFree, KnifeMaterial material, boolean foil
+      SubmitNodeCollector collector, int light, int side, FirstPersonArm.Arm arm, boolean otherFree, KnifeMaterial material, boolean foil
    ) {
-      final class_1921 solid = class_12249.method_75994(KNIFE_TEXTURE);
+      final RenderType solid = RenderTypes.entityCutoutNoCull(KNIFE_TEXTURE);
       final int[] palette = material.palette;
       return new KnifeSkin.Sink() {
          @Override
-         public void part(class_4587 part, KnifeMesh mesh, KnifeMesh.Shine shine) {
-            collector.method_73483(part, solid, (p, out) -> mesh.emit(p, out, palette, light, shine));
+         public void part(PoseStack part, KnifeMesh mesh, KnifeMesh.Shine shine) {
+            collector.submitCustomGeometry(part, solid, (p, out) -> mesh.emit(p, out, palette, light, shine));
             if (foil) {
-               collector.method_73529(1).method_73483(part, class_12249.method_75997(), (p, out) -> mesh.emit(p, out, palette, light, KnifeMesh.Shine.NONE));
+               collector.order(1).submitCustomGeometry(part, RenderTypes.entityGlint(), (p, out) -> mesh.emit(p, out, palette, light, KnifeMesh.Shine.NONE));
             }
          }
 
          @Override
-         public void glow(class_4587 part, KnifeMesh mesh, KnifeMesh.Shine shine) {
-            collector.method_73529(1)
-               .method_73483(part, class_12249.method_76014(WeaponInspectModule.KNIFE_TEXTURE), (p, out) -> mesh.emitGlow(p, out, material.glow, shine));
+         public void glow(PoseStack part, KnifeMesh mesh, KnifeMesh.Shine shine) {
+            collector.order(1)
+               .submitCustomGeometry(part, RenderTypes.eyes(WeaponInspectModule.KNIFE_TEXTURE), (p, out) -> mesh.emitGlow(p, out, material.glow, shine));
          }
 
          @Override
-         public void arm(class_4587 hand, boolean other) {
+         public void arm(PoseStack hand, boolean other) {
             if (arm != null && (!other || otherFree)) {
                arm.draw(hand, side < 0 != other, collector, light);
             }
@@ -403,8 +403,8 @@ public final class WeaponInspectModule extends ClientModule {
    }
 
    private static boolean offHandFree() {
-      class_746 player = class_310.method_1551().field_1724;
-      return player != null && player.method_6079().method_7960();
+      LocalPlayer player = Minecraft.getInstance().player;
+      return player != null && player.getOffhandItem().isEmpty();
    }
 
    private void swordTrail(Matrix4f pose, int side) {
@@ -448,7 +448,7 @@ public final class WeaponInspectModule extends ClientModule {
       }
    }
 
-   private void submitGlow(class_11659 collector, long now, int glow, float flash, KnifeSkin knife) {
+   private void submitGlow(SubmitNodeCollector collector, long now, int glow, float flash, KnifeSkin knife) {
       long lifetime = (long)(this.trailLength.get() * 1.0E9F);
       int streaks = knife != null ? knife.streakCount() : 1;
       boolean showing = flash > 0.0F;
@@ -462,10 +462,10 @@ public final class WeaponInspectModule extends ClientModule {
          float tipY = this.trailSample[4];
          float tipZ = this.trailSample[5];
          float turn = (float)(now % 6283185307L) / 1.0E9F * 1.5F;
-         class_4587 hand = new class_4587();
-         hand.method_23760().method_23761().set(this.base);
-         hand.method_23760().method_23762().set(this.baseNormal);
-         collector.method_73529(1).method_73483(hand, class_12249.method_76014(KNIFE_TEXTURE), (p, out) -> {
+         PoseStack hand = new PoseStack();
+         hand.last().pose().set(this.base);
+         hand.last().normal().set(this.baseNormal);
+         collector.order(1).submitCustomGeometry(hand, RenderTypes.eyes(KNIFE_TEXTURE), (p, out) -> {
             for (int s = 0; s < streaks; s++) {
                this.trails[s].emit(p, out, now, lifetime, glow, knife != null ? knife.streakStrength(s) : 1.0F);
             }

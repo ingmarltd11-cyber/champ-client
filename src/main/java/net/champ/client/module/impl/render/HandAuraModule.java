@@ -9,8 +9,8 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_9848;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.ARGB;
 
 @Environment(EnvType.CLIENT)
 public final class HandAuraModule extends ClientModule {
@@ -48,7 +48,7 @@ public final class HandAuraModule extends ClientModule {
       if (RenderSystem.isOnRenderThread()) {
          HandAuraPass.release();
       } else {
-         class_310.method_1551().execute(HandAuraModule::releaseIfOff);
+         Minecraft.getInstance().execute(HandAuraModule::releaseIfOff);
       }
    }
 
@@ -66,7 +66,7 @@ public final class HandAuraModule extends ClientModule {
    public static void endCapture(boolean drawn) {
       if (HandAuraPass.end() && drawn) {
          HandAuraModule module = active;
-         float scale = Math.max(1.0F, class_310.method_1551().method_1522().field_1481 / 1080.0F);
+         float scale = Math.max(1.0F, Minecraft.getInstance().getMainRenderTarget().height / 1080.0F);
          if (module == null) {
             HandAuraPass.compose(-1, 0.0F, 2.0F, 0.0F, 2.0F * scale, -1, 0.0F, 0.0F);
          } else {
@@ -96,7 +96,7 @@ public final class HandAuraModule extends ClientModule {
    }
 
    private int sheenArgb(int glow) {
-      return this.manual() ? this.sheenColor.argb() : class_9848.method_61319(0.55F, glow, -1);
+      return this.manual() ? this.sheenColor.argb() : ARGB.srgbLerp(0.55F, glow, -1);
    }
 
    private boolean shows() {

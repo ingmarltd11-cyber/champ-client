@@ -7,17 +7,17 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.nio.file.Path;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1132;
-import net.minecraft.class_1923;
-import net.minecraft.class_2596;
-import net.minecraft.class_2672;
-import net.minecraft.class_2676;
-import net.minecraft.class_310;
-import net.minecraft.class_5218;
-import net.minecraft.class_638;
-import net.minecraft.class_642;
-import net.minecraft.class_6606;
-import net.minecraft.class_746;
+import net.minecraft.client.server.IntegratedServer;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
+import net.minecraft.network.protocol.game.ClientboundLightUpdatePacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.storage.LevelResource;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.network.protocol.game.ClientboundLightUpdatePacketData;
+import net.minecraft.client.player.LocalPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +35,7 @@ public final class PlayerBypassLightTracker {
    private static final Long2ObjectOpenHashMap<ChunkLightSnapshot> HELD = new Long2ObjectOpenHashMap();
    private static final ChunkEntryGuard ENTRY_GUARD = new ChunkEntryGuard();
    private static final ProtectedChunkStore PROTECTED_CHUNKS = ProtectedChunkStore.get();
-   private static class_638 lastLevel;
+   private static ClientLevel lastLevel;
    private static PlayerBypassLightTracker.SpottedListener spottedListener;
    private static long visibilityRevision;
 
@@ -43,65 +43,65 @@ public final class PlayerBypassLightTracker {
    }
 
    public static void onTick() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       syncLevel(mc);
-      class_746 player = mc.field_1724;
+      LocalPlayer player = mc.player;
       if (lastLevel != null && player != null) {
          ENTRY_GUARD.update(
-            player.method_31476().method_8324(), PlayerBypassLightTracker::isLoaded, PlayerBypassLightTracker::isFlaggedOrHeld, PROTECTED_CHUNKS
+            player.chunkPosition().toLong(), PlayerBypassLightTracker::isLoaded, PlayerBypassLightTracker::isFlaggedOrHeld, PROTECTED_CHUNKS
          );
       }
 
       PROTECTED_CHUNKS.tickAutosave();
    }
 
-   public static void onPacketApplied(class_2596<?> packet) {
+   public static void onPacketApplied(Packet<?> packet) {
       int chunkX;
       int chunkZ;
-      class_6606 data;
-      if (packet instanceof class_2672 chunk) {
-         chunkX = chunk.method_11523();
-         chunkZ = chunk.method_11524();
-         data = chunk.method_38599();
+      ClientboundLightUpdatePacketData data;
+      if (packet instanceof ClientboundLevelChunkWithLightPacket chunk) {
+         chunkX = chunk.getX();
+         chunkZ = chunk.getZ();
+         data = chunk.getLightData();
       } else {
-         if (!(packet instanceof class_2676 light)) {
+         if (!(packet instanceof ClientboundLightUpdatePacket light)) {
             return;
          }
 
-         chunkX = light.method_11558();
-         chunkZ = light.method_11554();
-         data = light.method_38600();
+         chunkX = light.getX();
+         chunkZ = light.getZ();
+         data = light.getLightData();
       }
 
-      class_310 mc = class_310.method_1551();
-      class_638 level = mc.field_1687;
+      Minecraft mc = Minecraft.getInstance();
+      ClientLevel level = mc.level;
       syncLevel(mc);
       if (level != null && data != null) {
-         if (mc.field_1724 != null && mc.field_1724.method_23318() < 0.0) {
-            hold(chunkX, chunkZ, data, level.method_32890(), level.method_32891());
+         if (mc.player != null && mc.player.getY() < 0.0) {
+            hold(chunkX, chunkZ, data, level.getSectionsCount(), level.getMinSectionY());
          } else {
-            ingest(chunkX, chunkZ, data, level.method_32890(), level.method_32891());
+            ingest(chunkX, chunkZ, data, level.getSectionsCount(), level.getMinSectionY());
          }
 
-         rememberNotDark(chunkX, chunkZ, data, level.method_32890(), level.method_32891());
+         rememberNotDark(chunkX, chunkZ, data, level.getSectionsCount(), level.getMinSectionY());
          visibilityRevision++;
       }
    }
 
-   private static void rememberNotDark(int chunkX, int chunkZ, class_6606 data, int sectionCount, int bottomSectionY) {
+   private static void rememberNotDark(int chunkX, int chunkZ, ClientboundLightUpdatePacketData data, int sectionCount, int bottomSectionY) {
       int bits = LightDataClassifier.sentNotDark(data, sectionCount, bottomSectionY);
       if (bits != 0) {
          if (SENT_NOT_DARK.size() >= 250000) {
             SENT_NOT_DARK.clear();
          }
 
-         long key = class_1923.method_8331(chunkX, chunkZ);
+         long key = ChunkPos.asLong(chunkX, chunkZ);
          SENT_NOT_DARK.put(key, SENT_NOT_DARK.get(key) | bits);
       }
    }
 
-   private static void syncLevel(class_310 mc) {
-      class_638 level = mc.field_1687;
+   private static void syncLevel(Minecraft mc) {
+      ClientLevel level = mc.level;
       if (level != lastLevel) {
          visibilityRevision++;
          SNAPSHOTS.clear();
@@ -115,7 +115,7 @@ public final class PlayerBypassLightTracker {
             PROTECTED_CHUNKS.select(null, null);
          } else {
             String world = worldKey(mc);
-            String dimension = level.method_27983().method_29177().toString();
+            String dimension = level.dimension().identifier().toString();
             String place = world + "\n" + dimension;
             if (!place.equals(sentPlace)) {
                SENT_NOT_DARK.clear();
@@ -127,19 +127,19 @@ public final class PlayerBypassLightTracker {
       }
    }
 
-   private static String worldKey(class_310 mc) {
-      class_1132 local = mc.method_1576();
+   private static String worldKey(Minecraft mc) {
+      IntegratedServer local = mc.getSingleplayerServer();
       if (local != null) {
-         Path folder = local.method_27050(class_5218.field_24188).normalize().getFileName();
+         Path folder = local.method_27050(LevelResource.ROOT).normalize().getFileName();
          return ProtectedChunkStore.singleplayerKey(folder == null ? "world" : folder.toString());
       } else {
-         class_642 server = mc.method_1558();
-         return ProtectedChunkStore.serverKey(server == null ? null : server.field_3761);
+         ServerData server = mc.getCurrentServer();
+         return ProtectedChunkStore.serverKey(server == null ? null : server.ip);
       }
    }
 
-   private static void ingest(int chunkX, int chunkZ, class_6606 data, int sectionCount, int bottomSectionY) {
-      long key = class_1923.method_8331(chunkX, chunkZ);
+   private static void ingest(int chunkX, int chunkZ, ClientboundLightUpdatePacketData data, int sectionCount, int bottomSectionY) {
+      long key = ChunkPos.asLong(chunkX, chunkZ);
       if (HELD.containsKey(key)) {
          hold(chunkX, chunkZ, data, sectionCount, bottomSectionY);
       }
@@ -198,8 +198,8 @@ public final class PlayerBypassLightTracker {
       return why;
    }
 
-   private static void hold(int chunkX, int chunkZ, class_6606 data, int sectionCount, int bottomSectionY) {
-      long key = class_1923.method_8331(chunkX, chunkZ);
+   private static void hold(int chunkX, int chunkZ, ClientboundLightUpdatePacketData data, int sectionCount, int bottomSectionY) {
+      long key = ChunkPos.asLong(chunkX, chunkZ);
       ChunkLightSnapshot snapshot = (ChunkLightSnapshot)HELD.get(key);
       if (snapshot == null || snapshot.sectionCount != sectionCount || snapshot.bottomSectionY != bottomSectionY) {
          snapshot = new ChunkLightSnapshot(sectionCount, bottomSectionY);
@@ -249,7 +249,7 @@ public final class PlayerBypassLightTracker {
    }
 
    private static boolean isLoaded(long chunkKey) {
-      return lastLevel != null && lastLevel.method_2935().method_12123(class_1923.method_8325(chunkKey), class_1923.method_8332(chunkKey));
+      return lastLevel != null && lastLevel.getChunkSource().hasChunk(ChunkPos.getX(chunkKey), ChunkPos.getZ(chunkKey));
    }
 
    @FunctionalInterface

@@ -8,28 +8,28 @@ import java.util.Locale;
 import java.util.Map;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_1887;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_5455;
-import net.minecraft.class_6880;
-import net.minecraft.class_7923;
-import net.minecraft.class_7924;
-import net.minecraft.class_9334;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.core.component.DataComponents;
 
 @Environment(EnvType.CLIENT)
 public final class ItemEnchants {
    private static final String[] ROMAN = new String[]{"i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"};
-   private static class_5455 cachedFor;
-   private static List<class_6880<class_1887>> cached = List.of();
+   private static RegistryAccess cachedFor;
+   private static List<Holder<Enchantment>> cached = List.of();
 
    private ItemEnchants() {
    }
 
-   public static class_1792 resolve(String raw) {
+   public static Item resolve(String raw) {
       String text = raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
       if (text.isEmpty()) {
          return null;
@@ -39,37 +39,37 @@ public final class ItemEnchants {
          text = "minecraft:" + text;
       }
 
-      class_2960 id = class_2960.method_12829(text);
-      if (id != null && class_7923.field_41178.method_10250(id)) {
-         class_1792 item = (class_1792)class_7923.field_41178.method_63535(id);
-         return item == class_1802.field_8162 ? null : item;
+      Identifier id = Identifier.tryParse(text);
+      if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
+         Item item = (Item)BuiltInRegistries.ITEM.getValue(id);
+         return item == Items.AIR ? null : item;
       } else {
          return null;
       }
    }
 
-   public static String stored(class_1792 item) {
-      class_2960 key = class_7923.field_41178.method_10221(item);
-      return "minecraft".equals(key.method_12836()) ? key.method_12832() : key.toString();
+   public static String stored(Item item) {
+      Identifier key = BuiltInRegistries.ITEM.getKey(item);
+      return "minecraft".equals(key.getNamespace()) ? key.getPath() : key.toString();
    }
 
-   public static boolean supports(class_1792 item) {
+   public static boolean supports(Item item) {
       if (item == null) {
          return false;
       }
 
-      if (item == class_1802.field_8598) {
+      if (item == Items.ENCHANTED_BOOK) {
          return true;
       }
 
-      List<class_6880<class_1887>> all = all();
-      class_1799 stack = item.method_7854();
+      List<Holder<Enchantment>> all = all();
+      ItemStack stack = item.getDefaultInstance();
       if (all.isEmpty()) {
-         return stack.method_57826(class_9334.field_53695);
+         return stack.has(DataComponents.ENCHANTABLE);
       }
 
-      for (class_6880<class_1887> holder : all) {
-         if (((class_1887)holder.comp_349()).method_60046(stack)) {
+      for (Holder<Enchantment> holder : all) {
+         if (((Enchantment)holder.comp_349()).isSupportedItem(stack)) {
             return true;
          }
       }
@@ -77,35 +77,35 @@ public final class ItemEnchants {
       return false;
    }
 
-   public static List<class_6880<class_1887>> applicable(class_1792 item) {
-      List<class_6880<class_1887>> out = new ArrayList<>();
+   public static List<Holder<Enchantment>> applicable(Item item) {
+      List<Holder<Enchantment>> out = new ArrayList<>();
       if (item == null) {
          return out;
       }
 
-      class_1799 stack = item.method_7854();
-      boolean book = item == class_1802.field_8598;
+      ItemStack stack = item.getDefaultInstance();
+      boolean book = item == Items.ENCHANTED_BOOK;
 
-      for (class_6880<class_1887> holder : all()) {
-         if (book || ((class_1887)holder.comp_349()).method_60046(stack)) {
+      for (Holder<Enchantment> holder : all()) {
+         if (book || ((Enchantment)holder.comp_349()).isSupportedItem(stack)) {
             out.add(holder);
          }
       }
 
-      out.sort(Comparator.comparing(holderx -> ((class_1887)holderx.comp_349()).comp_2686().getString(), String.CASE_INSENSITIVE_ORDER));
+      out.sort(Comparator.comparing(holderx -> ((Enchantment)holderx.comp_349()).comp_2686().getString(), String.CASE_INSENSITIVE_ORDER));
       return out;
    }
 
-   public static List<class_6880<class_1887>> all() {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 == null) {
+   public static List<Holder<Enchantment>> all() {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level == null) {
          return List.of();
       }
 
-      class_5455 access = mc.field_1687.method_30349();
+      RegistryAccess access = mc.level.registryAccess();
       if (access != cachedFor) {
-         List<class_6880<class_1887>> found = new ArrayList<>();
-         access.method_30530(class_7924.field_41265).method_42017().forEach(found::add);
+         List<Holder<Enchantment>> found = new ArrayList<>();
+         access.lookupOrThrow(Registries.ENCHANTMENT).listElements().forEach(found::add);
          cached = List.copyOf(found);
          cachedFor = access;
       }
@@ -113,8 +113,8 @@ public final class ItemEnchants {
       return cached;
    }
 
-   public static String path(class_6880<class_1887> holder) {
-      return holder.method_40230().map(key -> key.method_29177().method_12832()).orElse("");
+   public static String path(Holder<Enchantment> holder) {
+      return holder.unwrapKey().map(key -> key.identifier().getPath()).orElse("");
    }
 
    public static String key(String raw) {

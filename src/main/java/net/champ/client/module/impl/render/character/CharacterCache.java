@@ -14,10 +14,10 @@ import net.champ.client.module.impl.render.character.kit.Detail;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_3264;
-import net.minecraft.class_4013;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,8 +42,8 @@ final class CharacterCache {
    static void listen() {
       if (!listening) {
          listening = true;
-         ResourceLoader.get(class_3264.field_14188)
-            .registerReloader(class_2960.method_60655("champ", "character_textures"), (class_4013)manager -> releaseTextures());
+         ResourceLoader.get(PackType.CLIENT_RESOURCES)
+            .registerReloader(Identifier.fromNamespaceAndPath("champ", "character_textures"), (ResourceManagerReloadListener)manager -> releaseTextures());
       }
    }
 
@@ -82,9 +82,9 @@ final class CharacterCache {
          return previous();
       }
 
-      class_310.method_1551()
-         .method_1531()
-         .method_4616(entry.texture, new CharacterTexture(entry.texture.toString(), model.atlasWidth, model.atlasHeight, model.atlasMips));
+      Minecraft.getInstance()
+         .getTextureManager()
+         .register(entry.texture, new CharacterTexture(entry.texture.toString(), model.atlasWidth, model.atlasHeight, model.atlasMips));
       entry.worn = new WornCharacter(model, entry.texture);
       shown = entry;
       return entry.worn;
@@ -135,7 +135,7 @@ final class CharacterCache {
    private static void release(CharacterCache.Entry entry) {
       if (entry.worn != null) {
          entry.worn = null;
-         class_310.method_1551().method_1531().method_4615(entry.texture);
+         Minecraft.getInstance().getTextureManager().release(entry.texture);
       }
    }
 
@@ -143,7 +143,7 @@ final class CharacterCache {
    private static final class Entry {
       final CharacterDesign design;
       final Detail detail;
-      final class_2960 texture;
+      final Identifier texture;
       volatile CharacterModel model;
       volatile boolean failed;
       WornCharacter worn;
@@ -151,7 +151,7 @@ final class CharacterCache {
       Entry(CharacterDesign design, Detail detail) {
          this.design = design;
          this.detail = detail;
-         this.texture = class_2960.method_60655("champ", "character/" + design.id() + "_" + detail.name().toLowerCase(Locale.ROOT));
+         this.texture = Identifier.fromNamespaceAndPath("champ", "character/" + design.id() + "_" + detail.name().toLowerCase(Locale.ROOT));
       }
    }
 }

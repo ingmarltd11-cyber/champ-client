@@ -7,20 +7,20 @@ import net.champ.client.util.pvp.Rotation;
 import net.champ.client.util.pvp.ServerRotation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12392;
-import net.minecraft.class_1268;
-import net.minecraft.class_1269;
-import net.minecraft.class_1297;
-import net.minecraft.class_1657;
-import net.minecraft.class_2338;
-import net.minecraft.class_2350;
-import net.minecraft.class_238;
-import net.minecraft.class_310;
-import net.minecraft.class_3965;
-import net.minecraft.class_3966;
-import net.minecraft.class_636;
-import net.minecraft.class_746;
-import net.minecraft.class_9334;
+import net.minecraft.world.item.component.AttackRange;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.component.DataComponents;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -30,92 +30,92 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_636.class)
+@Mixin(MultiPlayerGameMode.class)
 public abstract class MixinRotationMultiPlayerGameMode {
    @Shadow
    @Final
-   private class_310 field_3712;
+   private Minecraft field_3712;
 
-   @WrapMethod(method = "method_2919")
-   private class_1269 champ$useItemRotation(class_1657 player, class_1268 hand, Operation<class_1269> original) {
-      return this.champ$asSent(player, () -> (class_1269)original.call(new Object[]{player, hand}));
+   @WrapMethod(method = "useItem")
+   private InteractionResult champ$useItemRotation(Player player, InteractionHand hand, Operation<InteractionResult> original) {
+      return this.champ$asSent(player, () -> (InteractionResult)original.call(new Object[]{player, hand}));
    }
 
-   @WrapMethod(method = "method_2897")
-   private void champ$releaseRotation(class_1657 player, Operation<Void> original) {
+   @WrapMethod(method = "releaseUsingItem")
+   private void champ$releaseRotation(Player player, Operation<Void> original) {
       this.champ$asSent(player, () -> (Void)original.call(new Object[]{player}));
    }
 
-   private <T> T champ$asSent(class_1657 player, Supplier<T> call) {
-      class_746 self = this.field_3712.field_1724;
+   private <T> T champ$asSent(Player player, Supplier<T> call) {
+      LocalPlayer self = this.minecraft.player;
       if (player == self && !ServerRotation.isSwapped()) {
          Rotation rotation = ServerRotation.commit(self);
-         float yaw = self.method_36454();
-         float pitch = self.method_36455();
+         float yaw = self.getYRot();
+         float pitch = self.getXRot();
          if (rotation.yaw() == yaw && rotation.pitch() == pitch) {
             return call.get();
          }
 
-         self.method_36456(rotation.yaw());
-         self.method_36457(rotation.pitch());
+         self.setYRot(rotation.yaw());
+         self.setXRot(rotation.pitch());
 
          try {
             return call.get();
          } finally {
-            self.method_36456(yaw);
-            self.method_36457(pitch);
+            self.setYRot(yaw);
+            self.setXRot(pitch);
          }
       } else {
          return call.get();
       }
    }
 
-   @Inject(method = "method_2918", at = @At("HEAD"), cancellable = true, order = 950)
-   private void champ$attackRotationGate(class_1657 player, class_1297 target, CallbackInfo ci) {
-      class_746 self = this.field_3712.field_1724;
+   @Inject(method = "attack", at = @At("HEAD"), cancellable = true, order = 950)
+   private void champ$attackRotationGate(Player player, Entity target, CallbackInfo ci) {
+      LocalPlayer self = this.minecraft.player;
       if (player == self) {
-         class_238 box = target.method_5829();
-         double reach = self.method_55755();
-         class_12392 range = (class_12392)self.method_6047().method_58694(class_9334.field_64680);
+         AABB box = target.getBoundingBox();
+         double reach = self.entityInteractionRange();
+         AttackRange range = (AttackRange)self.getMainHandItem().get(DataComponents.ATTACK_RANGE);
          if (range != null) {
-            box = box.method_1014(range.comp_5262());
-            reach = range.method_76739(self);
+            box = box.inflate(range.comp_5262());
+            reach = range.effectiveMaxRange(self);
          }
 
          if (ServerRotation.misses(self, box, reach)) {
-            player.method_7350();
+            player.resetAttackStrengthTicker();
             ci.cancel();
          }
       }
    }
 
-   @Inject(method = "method_2905", at = @At("HEAD"), cancellable = true, order = 950)
-   private void champ$interactRotationGate(class_1657 player, class_1297 target, class_1268 hand, CallbackInfoReturnable<class_1269> cir) {
-      class_746 self = this.field_3712.field_1724;
-      if (player == self && ServerRotation.misses(self, target.method_5829(), self.method_55755())) {
-         cir.setReturnValue(class_1269.field_5811);
+   @Inject(method = "interact", at = @At("HEAD"), cancellable = true, order = 950)
+   private void champ$interactRotationGate(Player player, Entity target, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
+      LocalPlayer self = this.minecraft.player;
+      if (player == self && ServerRotation.misses(self, target.getBoundingBox(), self.entityInteractionRange())) {
+         cir.setReturnValue(InteractionResult.PASS);
       }
    }
 
-   @Inject(method = "method_2917", at = @At("HEAD"), cancellable = true, order = 950)
-   private void champ$interactAtRotationGate(class_1657 player, class_1297 target, class_3966 hit, class_1268 hand, CallbackInfoReturnable<class_1269> cir) {
-      class_746 self = this.field_3712.field_1724;
-      if (player == self && ServerRotation.misses(self, target.method_5829(), self.method_55755())) {
-         cir.setReturnValue(class_1269.field_5811);
+   @Inject(method = "interactAt", at = @At("HEAD"), cancellable = true, order = 950)
+   private void champ$interactAtRotationGate(Player player, Entity target, EntityHitResult hit, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
+      LocalPlayer self = this.minecraft.player;
+      if (player == self && ServerRotation.misses(self, target.getBoundingBox(), self.entityInteractionRange())) {
+         cir.setReturnValue(InteractionResult.PASS);
       }
    }
 
-   @Inject(method = "method_2896", at = @At("HEAD"), cancellable = true, order = 950)
-   private void champ$useItemOnRotationGate(class_746 player, class_1268 hand, class_3965 hit, CallbackInfoReturnable<class_1269> cir) {
-      if (player == this.field_3712.field_1724 && ServerRotation.missesBlock(player, new class_238(hit.method_17777()), player.method_55754())) {
-         cir.setReturnValue(class_1269.field_5814);
+   @Inject(method = "useItemOn", at = @At("HEAD"), cancellable = true, order = 950)
+   private void champ$useItemOnRotationGate(LocalPlayer player, InteractionHand hand, BlockHitResult hit, CallbackInfoReturnable<InteractionResult> cir) {
+      if (player == this.minecraft.player && ServerRotation.missesBlock(player, new AABB(hit.getBlockPos()), player.blockInteractionRange())) {
+         cir.setReturnValue(InteractionResult.FAIL);
       }
    }
 
-   @Inject(method = "method_2910", at = @At("HEAD"), cancellable = true, order = 950)
-   private void champ$startDestroyRotationGate(class_2338 pos, class_2350 face, CallbackInfoReturnable<Boolean> cir) {
-      class_746 self = this.field_3712.field_1724;
-      if (self != null && ServerRotation.missesBlock(self, new class_238(pos), self.method_55754())) {
+   @Inject(method = "startDestroyBlock", at = @At("HEAD"), cancellable = true, order = 950)
+   private void champ$startDestroyRotationGate(BlockPos pos, Direction face, CallbackInfoReturnable<Boolean> cir) {
+      LocalPlayer self = this.minecraft.player;
+      if (self != null && ServerRotation.missesBlock(self, new AABB(pos), self.blockInteractionRange())) {
          cir.setReturnValue(false);
       }
    }

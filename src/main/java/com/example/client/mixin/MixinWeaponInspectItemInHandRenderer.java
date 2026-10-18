@@ -7,48 +7,48 @@ import net.champ.client.module.impl.render.HandModelModule;
 import net.champ.client.module.impl.render.WeaponInspectModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_11659;
-import net.minecraft.class_1268;
-import net.minecraft.class_1309;
-import net.minecraft.class_1799;
-import net.minecraft.class_4587;
-import net.minecraft.class_746;
-import net.minecraft.class_759;
-import net.minecraft.class_811;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.ItemInHandRenderer;
+import net.minecraft.world.item.ItemDisplayContext;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_759.class)
+@Mixin(ItemInHandRenderer.class)
 public abstract class MixinWeaponInspectItemInHandRenderer {
-   @Inject(method = "method_22976", at = @At("HEAD"))
-   private void champ$inspectHands(float partialTick, class_4587 poseStack, class_11659 collector, class_746 player, int light, CallbackInfo ci) {
+   @Inject(method = "renderHandsWithItems", at = @At("HEAD"))
+   private void champ$inspectHands(float partialTick, PoseStack poseStack, SubmitNodeCollector collector, LocalPlayer player, int light, CallbackInfo ci) {
       if (WeaponInspectModule.active != null) {
          WeaponInspectModule.handsBegin(poseStack);
       }
    }
 
    @WrapOperation(
-      method = "method_3228",
+      method = "renderArmWithItem",
       at = @At(
          value = "INVOKE",
-         target = "Lnet/minecraft/class_759;method_3233(Lnet/minecraft/class_1309;Lnet/minecraft/class_1799;Lnet/minecraft/class_811;Lnet/minecraft/class_4587;Lnet/minecraft/class_11659;I)V"
+         target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderItem(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V"
       )
    )
    private void champ$inspectItem(
-      class_759 renderer,
-      class_1309 entity,
-      class_1799 stack,
-      class_811 context,
-      class_4587 poseStack,
-      class_11659 collector,
+      ItemInHandRenderer renderer,
+      LivingEntity entity,
+      ItemStack stack,
+      ItemDisplayContext context,
+      PoseStack poseStack,
+      SubmitNodeCollector collector,
       int light,
       Operation<Void> original,
-      @Local(argsOnly = true) class_1268 hand
+      @Local(argsOnly = true) InteractionHand hand
    ) {
-      boolean mainHand = hand == class_1268.field_5808;
+      boolean mainHand = hand == InteractionHand.MAIN_HAND;
       if (WeaponInspectModule.active != null) {
          if (!WeaponInspectModule.renderItem(poseStack, entity, stack, context, collector, light, mainHand)) {
             original.call(new Object[]{renderer, entity, stack, context, poseStack, collector, light});

@@ -6,10 +6,10 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.impl.combat.melee.MeleeAttacks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_1657;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class FriendGuardModule extends ClientModule {
@@ -34,11 +34,11 @@ public final class FriendGuardModule extends ClientModule {
       this.lastHintAt = 0L;
    }
 
-   public static boolean intercepts(class_1657 attacker, class_1297 target) {
+   public static boolean intercepts(Player attacker, Entity target) {
       FriendGuardModule guard = active;
-      if (!(guard != null && target instanceof class_1657 friend) || friend == attacker) {
+      if (!(guard != null && target instanceof Player friend) || friend == attacker) {
          return false;
-      } else if (attacker == class_310.method_1551().field_1724 && MeleeAttacks.isFriend(friend)) {
+      } else if (attacker == Minecraft.getInstance().player && MeleeAttacks.isFriend(friend)) {
          guard.hint(friend);
          return true;
       } else {
@@ -46,27 +46,27 @@ public final class FriendGuardModule extends ClientModule {
       }
    }
 
-   public static boolean interceptsStab(class_746 player) {
+   public static boolean interceptsStab(LocalPlayer player) {
       FriendGuardModule guard = active;
       if (guard != null && player != null) {
-         class_1297 friend = MeleeAttacks.stabTarget(player, entity -> entity instanceof class_1657 other && MeleeAttacks.isFriend(other));
+         Entity friend = MeleeAttacks.stabTarget(player, entity -> entity instanceof Player other && MeleeAttacks.isFriend(other));
          if (friend == null) {
             return false;
          }
 
-         guard.hint((class_1657)friend);
+         guard.hint((Player)friend);
          return true;
       } else {
          return false;
       }
    }
 
-   private void hint(class_1657 friend) {
+   private void hint(Player friend) {
       if (this.notificationsOn()) {
          long now = System.currentTimeMillis();
          if (now - this.lastHintAt >= 1500L) {
             this.lastHintAt = now;
-            ModuleChat.actionBar(this, ModuleChat.body().text("Held back your hit on ").name(friend.method_7334().name()));
+            ModuleChat.actionBar(this, ModuleChat.body().text("Held back your hit on ").name(friend.getGameProfile().name()));
          }
       }
    }

@@ -20,26 +20,26 @@ import net.champ.client.util.LevelUtil;
 import net.champ.client.util.TracerEngine;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12179;
-import net.minecraft.class_12180;
-import net.minecraft.class_1923;
-import net.minecraft.class_1944;
-import net.minecraft.class_2246;
-import net.minecraft.class_2248;
-import net.minecraft.class_2338;
-import net.minecraft.class_2350;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_2626;
-import net.minecraft.class_2637;
-import net.minecraft.class_2672;
-import net.minecraft.class_2680;
-import net.minecraft.class_2818;
-import net.minecraft.class_2826;
-import net.minecraft.class_2841;
-import net.minecraft.class_310;
-import net.minecraft.class_638;
-import net.minecraft.class_2338.class_2339;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.LightLayer;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.chunk.PalettedContainer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos.MutableBlockPos;
 
 @Environment(EnvType.CLIENT)
 public final class AmethystBypassModule extends ClientModule {
@@ -52,10 +52,10 @@ public final class AmethystBypassModule extends ClientModule {
    private final ModeSetting method = this.addSetting("method", new ModeSetting("Method", "Bypass", "Bypass", "Light", "ANBS+ Scan"));
    private final NumberSetting minCells = this.addSetting("min-cells", new NumberSetting("Min Cells", 12.0F, 1.0F, 100.0F).step(1.0F));
    private final BooleanSetting tracer = this.addSetting("tracer", new BooleanSetting("Tracer", false));
-   private final ArrayDeque<class_1923> queue = new ArrayDeque<>();
+   private final ArrayDeque<ChunkPos> queue = new ArrayDeque<>();
    private final LongOpenHashSet found = new LongOpenHashSet();
    private final LongOpenHashSet bypassScanned = new LongOpenHashSet();
-   private final Long2ObjectOpenHashMap<class_2338> bypassMarkers = new Long2ObjectOpenHashMap();
+   private final Long2ObjectOpenHashMap<BlockPos> bypassMarkers = new Long2ObjectOpenHashMap();
    private final GeodeGlowScan glow = new GeodeGlowScan();
    private final LongArrayList glowCells = new LongArrayList();
    private long[] hits = new long[0];
@@ -88,9 +88,9 @@ public final class AmethystBypassModule extends ClientModule {
 
    @EventHandler(stage = Stage.POST)
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_638 level = mc.field_1687;
-      if (level != null && mc.field_1724 != null) {
+      Minecraft mc = Minecraft.getInstance();
+      ClientLevel level = mc.level;
+      if (level != null && mc.player != null) {
          boolean bypass = this.method.is("Bypass");
          if (this.queue.isEmpty()) {
             if (++this.tick < 20) {
@@ -98,28 +98,28 @@ public final class AmethystBypassModule extends ClientModule {
             }
 
             this.tick = 0;
-            class_1923 center = mc.field_1724.method_31476();
-            int radius = (Integer)mc.field_1690.method_42503().method_41753();
+            ChunkPos center = mc.player.chunkPosition();
+            int radius = (Integer)mc.options.renderDistance().get();
             if (bypass) {
                this.bypassScanned
-                  .removeIf(keyx -> !inRange(keyx, center, radius) || !LevelUtil.isLoaded(level, class_1923.method_8325(keyx), class_1923.method_8332(keyx)));
+                  .removeIf(keyx -> !inRange(keyx, center, radius) || !LevelUtil.isLoaded(level, ChunkPos.getX(keyx), ChunkPos.getZ(keyx)));
                this.bypassMarkers.keySet().removeIf(keyx -> !this.bypassScanned.contains(keyx));
 
-               for (int x = center.field_9181 - radius; x <= center.field_9181 + radius; x++) {
-                  for (int z = center.field_9180 - radius; z <= center.field_9180 + radius; z++) {
-                     long key = class_1923.method_8331(x, z);
+               for (int x = center.x - radius; x <= center.x + radius; x++) {
+                  for (int z = center.z - radius; z <= center.z + radius; z++) {
+                     long key = ChunkPos.asLong(x, z);
                      if (LevelUtil.isLoaded(level, x, z) && !this.bypassScanned.contains(key)) {
-                        this.queue.add(new class_1923(x, z));
+                        this.queue.add(new ChunkPos(x, z));
                      }
                   }
                }
             } else {
                this.found.clear();
 
-               for (int x = center.field_9181 - radius; x <= center.field_9181 + radius; x++) {
-                  for (int z = center.field_9180 - radius; z <= center.field_9180 + radius; z++) {
+               for (int x = center.x - radius; x <= center.x + radius; x++) {
+                  for (int z = center.z - radius; z <= center.z + radius; z++) {
                      if (LevelUtil.isLoaded(level, x, z)) {
-                        this.queue.add(new class_1923(x, z));
+                        this.queue.add(new ChunkPos(x, z));
                      }
                   }
                }
@@ -129,12 +129,12 @@ public final class AmethystBypassModule extends ClientModule {
          long deadline = System.nanoTime() + 2000000L;
 
          while (!this.queue.isEmpty() && System.nanoTime() < deadline) {
-            class_1923 pos = this.queue.poll();
-            if (LevelUtil.isLoaded(level, pos.field_9181, pos.field_9180)) {
-               class_2818 chunk = level.method_8497(pos.field_9181, pos.field_9180);
+            ChunkPos pos = this.queue.poll();
+            if (LevelUtil.isLoaded(level, pos.x, pos.z)) {
+               LevelChunk chunk = level.getChunk(pos.x, pos.z);
                if (bypass) {
                   collectPaletteLeak(chunk, this.bypassMarkers);
-                  this.bypassScanned.add(pos.method_8324());
+                  this.bypassScanned.add(pos.toLong());
                } else if (this.method.is("ANBS+ Scan")) {
                   this.collectGlow(level, chunk);
                } else {
@@ -149,7 +149,7 @@ public final class AmethystBypassModule extends ClientModule {
       }
    }
 
-   private void collectGlow(class_638 level, class_2818 chunk) {
+   private void collectGlow(ClientLevel level, LevelChunk chunk) {
       this.glowCells.clear();
       if (this.glow.scan(level, chunk, this.glowCells::add) >= this.minCells.getInt()) {
          int marks = Math.min(this.glowCells.size(), 200);
@@ -160,20 +160,20 @@ public final class AmethystBypassModule extends ClientModule {
       }
    }
 
-   private static boolean inRange(long chunkKey, class_1923 center, int radius) {
-      int x = class_1923.method_8325(chunkKey);
-      int z = class_1923.method_8332(chunkKey);
-      return Math.abs(x - center.field_9181) <= radius && Math.abs(z - center.field_9180) <= radius;
+   private static boolean inRange(long chunkKey, ChunkPos center, int radius) {
+      int x = ChunkPos.getX(chunkKey);
+      int z = ChunkPos.getZ(chunkKey);
+      return Math.abs(x - center.x) <= radius && Math.abs(z - center.z) <= radius;
    }
 
-   private static long[] markersToLongArray(Long2ObjectOpenHashMap<class_2338> markers) {
+   private static long[] markersToLongArray(Long2ObjectOpenHashMap<BlockPos> markers) {
       long[] out = new long[markers.size()];
       int i = 0;
       ObjectIterator var3 = markers.values().iterator();
 
       while (var3.hasNext()) {
-         class_2338 marker = (class_2338)var3.next();
-         out[i++] = marker.method_10063();
+         BlockPos marker = (BlockPos)var3.next();
+         out[i++] = marker.asLong();
       }
 
       return out;
@@ -182,45 +182,45 @@ public final class AmethystBypassModule extends ClientModule {
    @EventHandler
    public void onPacketApplied(PacketAppliedEvent event) {
       if (this.method.is("Bypass")) {
-         if (event.packet instanceof class_2672 chunk) {
-            this.dirtyBypassChunk(chunk.method_11523(), chunk.method_11524());
-         } else if (event.packet instanceof class_2626 update) {
-            this.dirtyBypassChunk(update.method_11309().method_10263() >> 4, update.method_11309().method_10260() >> 4);
-         } else if (event.packet instanceof class_2637 sectionUpdate) {
-            sectionUpdate.method_30621((pos, state) -> this.dirtyBypassChunk(pos.method_10263() >> 4, pos.method_10260() >> 4));
+         if (event.packet instanceof ClientboundLevelChunkWithLightPacket chunk) {
+            this.dirtyBypassChunk(chunk.getX(), chunk.getZ());
+         } else if (event.packet instanceof ClientboundBlockUpdatePacket update) {
+            this.dirtyBypassChunk(update.getPos().getX() >> 4, update.getPos().getZ() >> 4);
+         } else if (event.packet instanceof ClientboundSectionBlocksUpdatePacket sectionUpdate) {
+            sectionUpdate.runUpdates((pos, state) -> this.dirtyBypassChunk(pos.getX() >> 4, pos.getZ() >> 4));
          }
       }
    }
 
    private void dirtyBypassChunk(int chunkX, int chunkZ) {
-      long key = class_1923.method_8331(chunkX, chunkZ);
+      long key = ChunkPos.asLong(chunkX, chunkZ);
       if (this.bypassScanned.remove(key)) {
          this.bypassMarkers.remove(key);
       }
    }
 
-   private static void collectPaletteLeak(class_2818 chunk, Long2ObjectOpenHashMap<class_2338> out) {
-      class_2826[] sections = chunk.method_12006();
-      int minSectionY = chunk.method_32891();
-      class_1923 pos = chunk.method_12004();
+   private static void collectPaletteLeak(LevelChunk chunk, Long2ObjectOpenHashMap<BlockPos> out) {
+      LevelChunkSection[] sections = chunk.getSections();
+      int minSectionY = chunk.getMinSectionY();
+      ChunkPos pos = chunk.getPos();
 
       for (int i = 0; i < sections.length; i++) {
-         class_2826 section = sections[i];
+         LevelChunkSection section = sections[i];
          if (section != null) {
-            class_2841<class_2680> states = section.method_12265();
-            if (!states.method_19526(state -> false) && states.method_19526(AmethystBypassModule::isBud)) {
+            PalettedContainer<BlockState> states = section.getStates();
+            if (!states.maybeHas(state -> false) && states.maybeHas(AmethystBypassModule::isBud)) {
                int baseY = (minSectionY + i) * 16;
-               class_2338 marker = pickMarker(chunk, section, baseY, pos);
-               out.put(pos.method_8324(), marker != null ? marker : new class_2338(pos.method_8326() + 8, baseY + 8, pos.method_8328() + 8));
+               BlockPos marker = pickMarker(chunk, section, baseY, pos);
+               out.put(pos.toLong(), marker != null ? marker : new BlockPos(pos.getMinBlockX() + 8, baseY + 8, pos.getMinBlockZ() + 8));
                return;
             }
          }
       }
    }
 
-   private static class_2338 pickMarker(class_2818 chunk, class_2826 section, int baseY, class_1923 pos) {
-      class_2339 neighbour = new class_2339();
-      class_2338 best = null;
+   private static BlockPos pickMarker(LevelChunk chunk, LevelChunkSection section, int baseY, ChunkPos pos) {
+      MutableBlockPos neighbour = new MutableBlockPos();
+      BlockPos best = null;
       int bestScore = Integer.MAX_VALUE;
 
       for (int y = 0; y < 16; y++) {
@@ -228,18 +228,18 @@ public final class AmethystBypassModule extends ClientModule {
 
          for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
-               if (section.method_12254(x, y, z).method_26215()) {
-                  int worldX = pos.method_8326() + x;
-                  int worldZ = pos.method_8328() + z;
+               if (section.getBlockState(x, y, z).isAir()) {
+                  int worldX = pos.getMinBlockX() + x;
+                  int worldZ = pos.getMinBlockZ() + z;
                   boolean touchesGeode = false;
 
-                  for (class_2350 direction : class_2350.values()) {
-                     int nx = worldX + direction.method_10148();
-                     int nz = worldZ + direction.method_10165();
-                     if (nx >> 4 == pos.field_9181 && nz >> 4 == pos.field_9180) {
-                        neighbour.method_10103(nx, worldY + direction.method_10164(), nz);
-                        class_2248 block = chunk.method_8320(neighbour).method_26204();
-                        if (block == class_2246.field_27159 || block == class_2246.field_27160) {
+                  for (Direction direction : Direction.values()) {
+                     int nx = worldX + direction.getStepX();
+                     int nz = worldZ + direction.getStepZ();
+                     if (nx >> 4 == pos.x && nz >> 4 == pos.z) {
+                        neighbour.set(nx, worldY + direction.getStepY(), nz);
+                        Block block = chunk.getBlockState(neighbour).getBlock();
+                        if (block == Blocks.AMETHYST_BLOCK || block == Blocks.BUDDING_AMETHYST) {
                            touchesGeode = true;
                            break;
                         }
@@ -250,7 +250,7 @@ public final class AmethystBypassModule extends ClientModule {
                      int score = scatter(worldX, worldY, worldZ);
                      if (score < bestScore) {
                         bestScore = score;
-                        best = new class_2338(worldX, worldY, worldZ);
+                        best = new BlockPos(worldX, worldY, worldZ);
                      }
                   }
                }
@@ -269,25 +269,25 @@ public final class AmethystBypassModule extends ClientModule {
       return Math.floorMod(h, 100);
    }
 
-   private static void collectHiddenBuds(class_638 level, class_2818 chunk, LongOpenHashSet out) {
-      class_2826[] sections = chunk.method_12006();
-      int minSectionY = chunk.method_32891();
-      class_1923 pos = chunk.method_12004();
-      class_2339 cursor = new class_2339();
+   private static void collectHiddenBuds(ClientLevel level, LevelChunk chunk, LongOpenHashSet out) {
+      LevelChunkSection[] sections = chunk.getSections();
+      int minSectionY = chunk.getMinSectionY();
+      ChunkPos pos = chunk.getPos();
+      MutableBlockPos cursor = new MutableBlockPos();
 
       for (int i = 0; i < sections.length; i++) {
-         class_2826 section = sections[i];
-         if (section != null && !section.method_38292() && section.method_12265().method_19526(AmethystBypassModule::isGeode)) {
+         LevelChunkSection section = sections[i];
+         if (section != null && !section.hasOnlyAir() && section.getStates().maybeHas(AmethystBypassModule::isGeode)) {
             int baseY = (minSectionY + i) * 16;
 
             for (int y = 0; y < 16; y++) {
                for (int z = 0; z < 16; z++) {
                   for (int x = 0; x < 16; x++) {
-                     if (section.method_12254(x, y, z).method_26213() <= 0) {
-                        cursor.method_10103(pos.method_8326() + x, baseY + y, pos.method_8328() + z);
-                        int light = level.method_8314(class_1944.field_9282, cursor);
+                     if (section.getBlockState(x, y, z).getLightEmission() <= 0) {
+                        cursor.set(pos.getMinBlockX() + x, baseY + y, pos.getMinBlockZ() + z);
+                        int light = level.getBrightness(LightLayer.BLOCK, cursor);
                         if (isBudLight(light) && touchesGeode(level, cursor) && isLocalMaximum(level, cursor, light)) {
-                           out.add(cursor.method_10063());
+                           out.add(cursor.asLong());
                         }
                      }
                   }
@@ -301,9 +301,9 @@ public final class AmethystBypassModule extends ClientModule {
       return light == 1 || light == 2 || light == 4 || light == 5;
    }
 
-   private static boolean touchesGeode(class_638 level, class_2338 pos) {
-      for (class_2350 direction : class_2350.values()) {
-         if (isGeode(level.method_8320(pos.method_10093(direction)))) {
+   private static boolean touchesGeode(ClientLevel level, BlockPos pos) {
+      for (Direction direction : Direction.values()) {
+         if (isGeode(level.getBlockState(pos.relative(direction)))) {
             return true;
          }
       }
@@ -311,9 +311,9 @@ public final class AmethystBypassModule extends ClientModule {
       return false;
    }
 
-   private static boolean isLocalMaximum(class_638 level, class_2338 pos, int light) {
-      for (class_2350 direction : class_2350.values()) {
-         if (level.method_8314(class_1944.field_9282, pos.method_10093(direction)) >= light) {
+   private static boolean isLocalMaximum(ClientLevel level, BlockPos pos, int light) {
+      for (Direction direction : Direction.values()) {
+         if (level.getBrightness(LightLayer.BLOCK, pos.relative(direction)) >= light) {
             return false;
          }
       }
@@ -321,29 +321,29 @@ public final class AmethystBypassModule extends ClientModule {
       return true;
    }
 
-   private static boolean isBud(class_2680 state) {
-      class_2248 block = state.method_26204();
-      return block == class_2246.field_27164 || block == class_2246.field_27163 || block == class_2246.field_27162;
+   private static boolean isBud(BlockState state) {
+      Block block = state.getBlock();
+      return block == Blocks.SMALL_AMETHYST_BUD || block == Blocks.MEDIUM_AMETHYST_BUD || block == Blocks.LARGE_AMETHYST_BUD;
    }
 
-   private static boolean isGeode(class_2680 state) {
-      return state.method_27852(class_2246.field_27159) || state.method_27852(class_2246.field_27160);
+   private static boolean isGeode(BlockState state) {
+      return state.is(Blocks.AMETHYST_BLOCK) || state.is(Blocks.BUDDING_AMETHYST);
    }
 
    @EventHandler
    public void onRender3D(Render3DEvent event) {
-      class_638 level = class_310.method_1551().field_1687;
+      ClientLevel level = Minecraft.getInstance().level;
       long[] current = this.hits;
       if (level != null && current.length != 0) {
-         class_12179 style = class_12179.method_75537(-3636481, 1.5F, -3636481);
+         GizmoStyle style = GizmoStyle.strokeAndFill(-3636481, 1.5F, -3636481);
          boolean drawTracers = this.tracer.get();
 
          for (long packed : current) {
-            class_2338 pos = class_2338.method_10092(packed);
-            if (LevelUtil.isLoaded(level, pos.method_10263() >> 4, pos.method_10260() >> 4)) {
-               class_12180.method_75541(new class_238(pos), style).method_75533();
+            BlockPos pos = BlockPos.of(packed);
+            if (LevelUtil.isLoaded(level, pos.getX() >> 4, pos.getZ() >> 4)) {
+               Gizmos.cuboid(new AABB(pos), style).setAlwaysOnTop();
                if (drawTracers) {
-                  TracerEngine.draw(class_243.method_24953(pos), -3636481);
+                  TracerEngine.draw(Vec3.atCenterOf(pos), -3636481);
                }
             }
          }

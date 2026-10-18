@@ -34,13 +34,13 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.ClientStopping;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.EndTick;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.class_11908;
-import net.minecraft.class_2960;
-import net.minecraft.class_304;
-import net.minecraft.class_310;
-import net.minecraft.class_3414;
-import net.minecraft.class_304.class_11900;
-import net.minecraft.class_3675.class_307;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.client.KeyMapping.Category;
+import com.mojang.blaze3d.platform.InputConstants.Type;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,10 +48,10 @@ import org.slf4j.LoggerFactory;
 @Environment(EnvType.CLIENT)
 public final class ChampClientMod implements ClientModInitializer {
    public static final Logger LOGGER = LoggerFactory.getLogger("Champ Client");
-   public static final class_2960 SPAWNER_NOTIFY_SOUND_ID = class_2960.method_60655("champ", "spawner_notify");
-   public static final class_3414 SPAWNER_NOTIFY_SOUND = class_3414.method_47908(SPAWNER_NOTIFY_SOUND_ID);
-   public static final class_11900 KEY_CATEGORY = class_11900.method_74698(class_2960.method_60655("champ", "controls"));
-   private static class_304 openGuiKey;
+   public static final Identifier SPAWNER_NOTIFY_SOUND_ID = Identifier.fromNamespaceAndPath("champ", "spawner_notify");
+   public static final SoundEvent SPAWNER_NOTIFY_SOUND = SoundEvent.createVariableRangeEvent(SPAWNER_NOTIFY_SOUND_ID);
+   public static final Category KEY_CATEGORY = Category.register(Identifier.fromNamespaceAndPath("champ", "controls"));
+   private static KeyMapping openGuiKey;
    private final ModuleKeybinds keybinds = new ModuleKeybinds();
    private static final Object LEAK_TRACKER_OWNER = new Object();
    private static final Object PLAYER_BYPASS_TRACKER_OWNER = new Object();
@@ -83,7 +83,7 @@ public final class ChampClientMod implements ClientModInitializer {
          ProtectedChunkStore.get().flushAndWait();
          StreamOverlay.stop();
       });
-      openGuiKey = KeyBindingHelper.registerKeyBinding(new class_304("key.champ.open_gui", class_307.field_1668, 344, KEY_CATEGORY));
+      openGuiKey = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.champ.open_gui", Type.KEYSYM, 344, KEY_CATEGORY));
       ModuleConfigStore.getInstance().load();
       AddonManager.configLoaded();
       ClientTickEvents.END_CLIENT_TICK
@@ -91,48 +91,48 @@ public final class ChampClientMod implements ClientModInitializer {
             (EndTick)client -> {
                ModuleConfigStore.getInstance().applyPendingEnabled();
 
-               while (openGuiKey.method_1436()) {
-                  if (client.field_1755 instanceof ImGuiScreen) {
-                     client.method_1507(null);
+               while (openGuiKey.consumeClick()) {
+                  if (client.screen instanceof ImGuiScreen) {
+                     client.setScreen(null);
                   } else {
-                     client.method_1507(new ImGuiScreen());
+                     client.setScreen(new ImGuiScreen());
                   }
                }
 
                this.keybinds
-                  .update(ModuleRegistry.all(), ChampClientMod::isBoundKeyDown, client.field_1755 == null && client.method_1569() && client.field_1724 != null);
+                  .update(ModuleRegistry.all(), ChampClientMod::isBoundKeyDown, client.screen == null && client.isWindowActive() && client.player != null);
                ModuleConfigStore.getInstance().tickAutosave();
             }
          );
    }
 
-   public static boolean isGuiKey(long window, class_11908 event) {
-      return openGuiKey != null && window == class_310.method_1551().method_22683().method_4490() && openGuiKey.method_1417(event);
+   public static boolean isGuiKey(long window, KeyEvent event) {
+      return openGuiKey != null && window == Minecraft.getInstance().getWindow().handle() && openGuiKey.matches(event);
    }
 
    public static boolean toggleGuiFromKey() {
-      class_310 client = class_310.method_1551();
-      if (client.field_1755 == null) {
-         client.method_1507(new ImGuiScreen());
+      Minecraft client = Minecraft.getInstance();
+      if (client.screen == null) {
+         client.setScreen(new ImGuiScreen());
          return true;
       }
 
-      if (client.field_1755 instanceof ImGuiScreen gui && !gui.capturesKeys()) {
-         client.method_1507(null);
+      if (client.screen instanceof ImGuiScreen gui && !gui.capturesKeys()) {
+         client.setScreen(null);
       }
 
       return false;
    }
 
    public static void dropGuiClicks() {
-      while (openGuiKey.method_1436()) {
+      while (openGuiKey.consumeClick()) {
       }
    }
 
    private static boolean isBoundKeyDown(int key) {
-      class_310 client = class_310.method_1551();
+      Minecraft client = Minecraft.getInstance();
       return key >= 1000
-         ? GLFW.glfwGetMouseButton(client.method_22683().method_4490(), key - 1000) == 1
-         : ChampKeyPolling.isKeyDown(client.method_22683(), key);
+         ? GLFW.glfwGetMouseButton(client.getWindow().handle(), key - 1000) == 1
+         : ChampKeyPolling.isKeyDown(client.getWindow(), key);
    }
 }

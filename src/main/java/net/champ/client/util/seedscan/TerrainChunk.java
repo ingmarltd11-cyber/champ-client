@@ -2,10 +2,10 @@ package net.champ.client.util.seedscan;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2680;
-import net.minecraft.class_2826;
-import net.minecraft.class_2839;
-import net.minecraft.class_2902.class_2903;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.chunk.ProtoChunk;
+import net.minecraft.world.level.levelgen.Heightmap.Types;
 
 @Environment(EnvType.CLIENT)
 public final class TerrainChunk {
@@ -23,19 +23,19 @@ public final class TerrainChunk {
       this.chunkZ = chunkZ;
    }
 
-   static TerrainChunk of(class_2839 chunk) {
-      TerrainChunk terrain = new TerrainChunk(chunk.method_12004().field_9181, chunk.method_12004().field_9180);
+   static TerrainChunk of(ProtoChunk chunk) {
+      TerrainChunk terrain = new TerrainChunk(chunk.getPos().x, chunk.getPos().z);
 
       for (int i = 0; i < 24; i++) {
-         class_2826 section = chunk.method_38259(i);
-         if (section.method_38292()) {
+         LevelChunkSection section = chunk.getSection(i);
+         if (section.hasOnlyAir()) {
             terrain.uniform[i] = 0;
          } else {
-            byte first = VBlock.of(section.method_12254(0, 0, 0));
+            byte first = VBlock.of(section.getBlockState(0, 0, 0));
             byte[] packed = null;
 
             for (int index = 0; index < 4096; index++) {
-               class_2680 state = section.method_12254(index & 15, index >> 8, index >> 4 & 15);
+               BlockState state = section.getBlockState(index & 15, index >> 8, index >> 4 & 15);
                byte kind = VBlock.of(state);
                if (packed == null) {
                   if (kind == first) {
@@ -59,7 +59,7 @@ public final class TerrainChunk {
 
       for (int z = 0; z < 16; z++) {
          for (int x = 0; x < 16; x++) {
-            terrain.oceanFloor[x + 16 * z] = (short)(chunk.method_12005(class_2903.field_13195, x, z) + 1);
+            terrain.oceanFloor[x + 16 * z] = (short)(chunk.getHeight(Types.OCEAN_FLOOR_WG, x, z) + 1);
          }
       }
 

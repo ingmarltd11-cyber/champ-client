@@ -16,21 +16,21 @@ import net.champ.client.chat.ModuleChat;
 import net.champ.client.util.netherite.NetheriteChunkTracker;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1799;
-import net.minecraft.class_2246;
-import net.minecraft.class_2338;
-import net.minecraft.class_2350;
-import net.minecraft.class_243;
-import net.minecraft.class_2680;
-import net.minecraft.class_2846;
-import net.minecraft.class_2868;
-import net.minecraft.class_310;
-import net.minecraft.class_638;
-import net.minecraft.class_7202;
-import net.minecraft.class_746;
-import net.minecraft.class_9334;
-import net.minecraft.class_2338.class_2339;
-import net.minecraft.class_2846.class_2847;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.prediction.BlockStatePredictionHandler;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.BlockPos.MutableBlockPos;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
 
 @Environment(EnvType.CLIENT)
 final class AdvancedFinder {
@@ -42,7 +42,7 @@ final class AdvancedFinder {
    private final NetheriteFinderModule module;
    private final Map<NetheriteChunkTracker.Candidate, AdvancedFinder.Scan> scans = new HashMap<>();
    private final Set<NetheriteChunkTracker.Candidate> done = new HashSet<>();
-   private final Set<class_2338> revealed = new LinkedHashSet<>();
+   private final Set<BlockPos> revealed = new LinkedHashSet<>();
    private boolean armed;
    private int ticks;
    private double budget;
@@ -50,7 +50,7 @@ final class AdvancedFinder {
    private static final int MISSING_REFRESH_TICKS = 10;
    private int handWarning;
    private String lastReason = "";
-   private class_638 level;
+   private ClientLevel level;
 
    AdvancedFinder(NetheriteFinderModule module) {
       this.module = module;
@@ -60,7 +60,7 @@ final class AdvancedFinder {
       return this.armed;
    }
 
-   Collection<class_2338> revealed() {
+   Collection<BlockPos> revealed() {
       return this.revealed;
    }
 
@@ -77,7 +77,7 @@ final class AdvancedFinder {
       return scan.total == 0 ? 1.0F : Math.min(1.0F, (float)scan.sent / scan.total);
    }
 
-   void forEachProbe(class_243 eye, double radius, int limit, float missingFrom, AdvancedFinder.ProbeVisitor visitor) {
+   void forEachProbe(Vec3 eye, double radius, int limit, float missingFrom, AdvancedFinder.ProbeVisitor visitor) {
       if (this.armed) {
          double radiusSq = radius * radius;
          int emitted = 0;
@@ -94,9 +94,9 @@ final class AdvancedFinder {
                      int x = baseX + (index & 15);
                      int y = baseY + (index >> 8);
                      int z = baseZ + (index >> 4 & 15);
-                     double dx = x + 0.5 - eye.field_1352;
-                     double dy = y + 0.5 - eye.field_1351;
-                     double dz = z + 0.5 - eye.field_1350;
+                     double dx = x + 0.5 - eye.x;
+                     double dy = y + 0.5 - eye.y;
+                     double dz = z + 0.5 - eye.z;
                      if (!(dx * dx + dy * dy + dz * dz > radiusSq)) {
                         visitor.visit(x, y, z, this.ticks - at + 1);
                         if (++emitted >= limit) {
@@ -110,7 +110,7 @@ final class AdvancedFinder {
       }
    }
 
-   void forEachMissing(class_243 eye, double radius, int limit, float missingFrom, AdvancedFinder.MissingVisitor visitor) {
+   void forEachMissing(Vec3 eye, double radius, int limit, float missingFrom, AdvancedFinder.MissingVisitor visitor) {
       if (this.armed) {
          double radiusSq = radius * radius;
          int emitted = 0;
@@ -128,9 +128,9 @@ final class AdvancedFinder {
                      int x = baseX + (index & 15);
                      int y = baseY + (index >> 8);
                      int z = baseZ + (index >> 4 & 15);
-                     double dx = x + 0.5 - eye.field_1352;
-                     double dy = y + 0.5 - eye.field_1351;
-                     double dz = z + 0.5 - eye.field_1350;
+                     double dx = x + 0.5 - eye.x;
+                     double dy = y + 0.5 - eye.y;
+                     double dz = z + 0.5 - eye.z;
                      if (!(dx * dx + dy * dy + dz * dz > radiusSq)) {
                         visitor.visit(x, y, z);
                         if (++emitted >= limit) {
@@ -150,11 +150,11 @@ final class AdvancedFinder {
          int baseX = scan.section.chunkX() << 4;
          int baseY = scan.section.sectionY() << 4;
          int baseZ = scan.section.chunkZ() << 4;
-         class_2339 cursor = new class_2339();
+         MutableBlockPos cursor = new MutableBlockPos();
          int count = 0;
 
          for (int index = scan.probed.nextClearBit(0); index < 4096; index = scan.probed.nextClearBit(index + 1)) {
-            cursor.method_10103(baseX + (index & 15), baseY + (index >> 8), baseZ + (index >> 4 & 15));
+            cursor.set(baseX + (index & 15), baseY + (index >> 8), baseZ + (index >> 4 & 15));
             if (worthProbing(this.level, cursor)) {
                scan.missing[count++] = index;
             }
@@ -169,12 +169,12 @@ final class AdvancedFinder {
       this.lastReason = "";
    }
 
-   void disarm(class_310 mc) {
+   void disarm(Minecraft mc) {
       this.armed = false;
       this.lastReason = "";
    }
 
-   void reset(class_310 mc) {
+   void reset(Minecraft mc) {
       this.disarm(mc);
       this.scans.clear();
       this.done.clear();
@@ -183,14 +183,14 @@ final class AdvancedFinder {
       this.level = null;
    }
 
-   boolean onRevealed(class_2338 pos) {
-      NetheriteChunkTracker.Candidate section = new NetheriteChunkTracker.Candidate(pos.method_10263() >> 4, pos.method_10260() >> 4, pos.method_10264() >> 4);
+   boolean onRevealed(BlockPos pos) {
+      NetheriteChunkTracker.Candidate section = new NetheriteChunkTracker.Candidate(pos.getX() >> 4, pos.getZ() >> 4, pos.getY() >> 4);
       if (!this.revealed.add(pos)) {
          return false;
       }
 
       if (this.revealed.size() > 256) {
-         Iterator<class_2338> oldest = this.revealed.iterator();
+         Iterator<BlockPos> oldest = this.revealed.iterator();
          oldest.next();
          oldest.remove();
       }
@@ -199,18 +199,18 @@ final class AdvancedFinder {
          this.done.add(section);
          ModuleChat.send(
             this.module,
-            ModuleChat.body().text("Ancient debris ").good("found").text(" at ").coords(pos.method_10263(), pos.method_10264(), pos.method_10260())
+            ModuleChat.body().text("Ancient debris ").good("found").text(" at ").coords(pos.getX(), pos.getY(), pos.getZ())
          );
       }
 
       return true;
    }
 
-   void maintain(class_310 mc) {
-      class_638 world = mc.field_1687;
+   void maintain(Minecraft mc) {
+      ClientLevel world = mc.level;
       if (world == this.level) {
          if (world != null) {
-            this.revealed.removeIf(pos -> !world.method_8320(pos).method_27852(class_2246.field_22109));
+            this.revealed.removeIf(pos -> !world.getBlockState(pos).is(Blocks.ANCIENT_DEBRIS));
          }
       } else {
          this.scans.clear();
@@ -220,11 +220,11 @@ final class AdvancedFinder {
       }
    }
 
-   void tick(class_310 mc) {
+   void tick(Minecraft mc) {
       if (this.armed) {
-         class_746 player = mc.field_1724;
-         class_638 world = mc.field_1687;
-         if (player != null && world != null && player.field_3944 != null && mc.field_1761 != null) {
+         LocalPlayer player = mc.player;
+         ClientLevel world = mc.level;
+         if (player != null && world != null && player.connection != null && mc.gameMode != null) {
             this.ticks++;
             this.budget = Math.min(600.0, this.budget + 18.0);
             if (this.handWarning > 0) {
@@ -235,13 +235,13 @@ final class AdvancedFinder {
                this.hold("Not in the Nether");
             } else {
                this.lastReason = "";
-               if (mc.field_1755 == null && !player.method_6115() && !mc.field_1761.method_2923()) {
-                  class_243 eye = player.method_33571();
+               if (mc.screen == null && !player.isUsingItem() && !mc.gameMode.isDestroying()) {
+                  Vec3 eye = player.getEyePosition();
                   this.refreshScans(world, eye);
                   if (!this.scans.isEmpty() && !(this.budget < 1.0)) {
                      List<AdvancedFinder.Probe> probes = this.collect(world, eye);
                      if (!probes.isEmpty()) {
-                        int selected = player.method_31548().method_67532();
+                        int selected = player.getInventory().getSelectedSlot();
                         int slot = probeSlot(player, selected);
                         if (slot < 0) {
                            if (this.handWarning <= 0) {
@@ -250,17 +250,17 @@ final class AdvancedFinder {
                            }
                         } else {
                            if (slot != selected) {
-                              player.field_3944.method_52787(new class_2868(slot));
+                              player.connection.send(new ServerboundSetCarriedItemPacket(slot));
                            }
 
-                           class_2338 last = null;
+                           BlockPos last = null;
 
                            for (AdvancedFinder.Probe probe : probes) {
                               if (this.budget < 1.0) {
                                  break;
                               }
 
-                              sendAction(player, world, class_2847.field_12968, probe.pos());
+                              sendAction(player, world, Action.START_DESTROY_BLOCK, probe.pos());
                               probe.scan().probed.set(probe.index());
                               probe.scan().sent++;
                               probe.scan().stamp[probe.index()] = this.ticks;
@@ -270,11 +270,11 @@ final class AdvancedFinder {
                            }
 
                            if (last != null) {
-                              sendAction(player, world, class_2847.field_12971, last);
+                              sendAction(player, world, Action.ABORT_DESTROY_BLOCK, last);
                            }
 
                            if (slot != selected) {
-                              player.field_3944.method_52787(new class_2868(selected));
+                              player.connection.send(new ServerboundSetCarriedItemPacket(selected));
                            }
                         }
                      }
@@ -285,7 +285,7 @@ final class AdvancedFinder {
       }
    }
 
-   private void refreshScans(class_638 world, class_243 eye) {
+   private void refreshScans(ClientLevel world, Vec3 eye) {
       Set<NetheriteChunkTracker.Candidate> live = new HashSet<>(NetheriteChunkTracker.snapshot());
       this.scans.keySet().retainAll(live);
 
@@ -317,14 +317,14 @@ final class AdvancedFinder {
       }
    }
 
-   private List<AdvancedFinder.Probe> collect(class_638 world, class_243 eye) {
+   private List<AdvancedFinder.Probe> collect(ClientLevel world, Vec3 eye) {
       List<AdvancedFinder.Probe> coarse = new ArrayList<>();
       List<AdvancedFinder.Probe> fine = new ArrayList<>();
       int span = (int)Math.ceil(5.0);
-      int cx = (int)Math.floor(eye.field_1352);
-      int cy = (int)Math.floor(eye.field_1351);
-      int cz = (int)Math.floor(eye.field_1350);
-      class_2339 cursor = new class_2339();
+      int cx = (int)Math.floor(eye.x);
+      int cy = (int)Math.floor(eye.y);
+      int cz = (int)Math.floor(eye.z);
+      MutableBlockPos cursor = new MutableBlockPos();
 
       for (AdvancedFinder.Scan scan : this.scans.values()) {
          int baseX = scan.section.chunkX() << 4;
@@ -345,13 +345,13 @@ final class AdvancedFinder {
                   int lz = z & 15;
                   int index = ly << 8 | lz << 4 | lx;
                   if (!scan.probed.get(index)) {
-                     cursor.method_10103(x, y, z);
+                     cursor.set(x, y, z);
                      double distanceSq = distanceToBlockSq(eye, cursor);
                      if (!(distanceSq > 25.0)) {
                         if (!worthProbing(world, cursor)) {
                            scan.probed.set(index);
                         } else {
-                           AdvancedFinder.Probe probe = new AdvancedFinder.Probe(scan, index, cursor.method_10062(), distanceSq);
+                           AdvancedFinder.Probe probe = new AdvancedFinder.Probe(scan, index, cursor.immutable(), distanceSq);
                            if (lx % 3 == 1 && ly % 3 == 1 && lz % 3 == 1) {
                               coarse.add(probe);
                            } else {
@@ -371,15 +371,15 @@ final class AdvancedFinder {
       return coarse;
    }
 
-   private static int countProbeable(class_638 world, NetheriteChunkTracker.Candidate section) {
+   private static int countProbeable(ClientLevel world, NetheriteChunkTracker.Candidate section) {
       int baseX = section.chunkX() << 4;
       int baseY = section.sectionY() << 4;
       int baseZ = section.chunkZ() << 4;
-      class_2339 cursor = new class_2339();
+      MutableBlockPos cursor = new MutableBlockPos();
       int count = 0;
 
       for (int index = 0; index < 4096; index++) {
-         cursor.method_10103(baseX + (index & 15), baseY + (index >> 8), baseZ + (index >> 4 & 15));
+         cursor.set(baseX + (index & 15), baseY + (index >> 8), baseZ + (index >> 4 & 15));
          if (worthProbing(world, cursor)) {
             count++;
          }
@@ -388,14 +388,14 @@ final class AdvancedFinder {
       return count;
    }
 
-   private static boolean hasUnprobed(class_638 world, AdvancedFinder.Scan scan) {
+   private static boolean hasUnprobed(ClientLevel world, AdvancedFinder.Scan scan) {
       int baseX = scan.section.chunkX() << 4;
       int baseY = scan.section.sectionY() << 4;
       int baseZ = scan.section.chunkZ() << 4;
-      class_2339 cursor = new class_2339();
+      MutableBlockPos cursor = new MutableBlockPos();
 
       for (int index = scan.probed.nextClearBit(0); index < 4096; index = scan.probed.nextClearBit(index + 1)) {
-         cursor.method_10103(baseX + (index & 15), baseY + (index >> 8), baseZ + (index >> 4 & 15));
+         cursor.set(baseX + (index & 15), baseY + (index >> 8), baseZ + (index >> 4 & 15));
          if (worthProbing(world, cursor)) {
             return true;
          }
@@ -404,10 +404,10 @@ final class AdvancedFinder {
       return false;
    }
 
-   private static boolean worthProbing(class_638 world, class_2338 pos) {
-      class_2680 state = world.method_8320(pos);
-      return !state.method_26215() && state.method_26227().method_15769() && !state.method_27852(class_2246.field_22109)
-         ? state.method_26216() && state.method_26214(world, pos) > 0.0F
+   private static boolean worthProbing(ClientLevel world, BlockPos pos) {
+      BlockState state = world.getBlockState(pos);
+      return !state.isAir() && state.getFluidState().isEmpty() && !state.is(Blocks.ANCIENT_DEBRIS)
+         ? state.isSolidRender() && state.getDestroySpeed(world, pos) > 0.0F
          : false;
    }
 
@@ -418,12 +418,12 @@ final class AdvancedFinder {
       }
    }
 
-   private static void sendAction(class_746 player, class_638 world, class_2847 action, class_2338 pos) {
-      class_7202 handler = ((AccessorNetheriteClientLevel)world).champ$blockStatePredictionHandler();
-      class_7202 sequence = handler.method_41937();
+   private static void sendAction(LocalPlayer player, ClientLevel world, Action action, BlockPos pos) {
+      BlockStatePredictionHandler handler = ((AccessorNetheriteClientLevel)world).champ$blockStatePredictionHandler();
+      BlockStatePredictionHandler sequence = handler.startPredicting();
 
       try {
-         player.field_3944.method_52787(new class_2846(action, pos, class_2350.field_11036, sequence.method_41942()));
+         player.connection.send(new ServerboundPlayerActionPacket(action, pos, Direction.UP, sequence.currentSequence()));
       } catch (Throwable var9) {
          if (sequence != null) {
             try {
@@ -441,36 +441,36 @@ final class AdvancedFinder {
       }
    }
 
-   private static double distanceToSectionSq(class_243 from, NetheriteChunkTracker.Candidate section) {
+   private static double distanceToSectionSq(Vec3 from, NetheriteChunkTracker.Candidate section) {
       double minX = section.chunkX() * 16.0;
       double minY = section.sectionY() * 16.0;
       double minZ = section.chunkZ() * 16.0;
-      double dx = Math.max(0.0, Math.max(minX - from.field_1352, from.field_1352 - (minX + 16.0)));
-      double dy = Math.max(0.0, Math.max(minY - from.field_1351, from.field_1351 - (minY + 16.0)));
-      double dz = Math.max(0.0, Math.max(minZ - from.field_1350, from.field_1350 - (minZ + 16.0)));
+      double dx = Math.max(0.0, Math.max(minX - from.x, from.x - (minX + 16.0)));
+      double dy = Math.max(0.0, Math.max(minY - from.y, from.y - (minY + 16.0)));
+      double dz = Math.max(0.0, Math.max(minZ - from.z, from.z - (minZ + 16.0)));
       return dx * dx + dy * dy + dz * dz;
    }
 
-   private static double distanceToBlockSq(class_243 from, class_2338 pos) {
-      double dx = Math.max(0.0, Math.max(pos.method_10263() - from.field_1352, from.field_1352 - (pos.method_10263() + 1.0)));
-      double dy = Math.max(0.0, Math.max(pos.method_10264() - from.field_1351, from.field_1351 - (pos.method_10264() + 1.0)));
-      double dz = Math.max(0.0, Math.max(pos.method_10260() - from.field_1350, from.field_1350 - (pos.method_10260() + 1.0)));
+   private static double distanceToBlockSq(Vec3 from, BlockPos pos) {
+      double dx = Math.max(0.0, Math.max(pos.getX() - from.x, from.x - (pos.getX() + 1.0)));
+      double dy = Math.max(0.0, Math.max(pos.getY() - from.y, from.y - (pos.getY() + 1.0)));
+      double dz = Math.max(0.0, Math.max(pos.getZ() - from.z, from.z - (pos.getZ() + 1.0)));
       return dx * dx + dy * dy + dz * dz;
    }
 
-   private static int probeSlot(class_746 player, int selected) {
-      if (!isTool(player.method_31548().method_5438(selected))) {
+   private static int probeSlot(LocalPlayer player, int selected) {
+      if (!isTool(player.getInventory().getItem(selected))) {
          return selected;
       }
 
       for (int slot = 0; slot < 9; slot++) {
-         if (player.method_31548().method_5438(slot).method_7960()) {
+         if (player.getInventory().getItem(slot).isEmpty()) {
             return slot;
          }
       }
 
       for (int slot = 0; slot < 9; slot++) {
-         if (!isTool(player.method_31548().method_5438(slot))) {
+         if (!isTool(player.getInventory().getItem(slot))) {
             return slot;
          }
       }
@@ -478,8 +478,8 @@ final class AdvancedFinder {
       return -1;
    }
 
-   private static boolean isTool(class_1799 stack) {
-      return stack.method_57826(class_9334.field_50077);
+   private static boolean isTool(ItemStack stack) {
+      return stack.has(DataComponents.TOOL);
    }
 
    @FunctionalInterface
@@ -489,7 +489,7 @@ final class AdvancedFinder {
    }
 
    @Environment(EnvType.CLIENT)
-   private record Probe(AdvancedFinder.Scan scan, int index, class_2338 pos, double distanceSq) {
+   private record Probe(AdvancedFinder.Scan scan, int index, BlockPos pos, double distanceSq) {
    }
 
    @FunctionalInterface

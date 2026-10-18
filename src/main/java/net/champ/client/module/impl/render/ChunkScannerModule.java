@@ -35,23 +35,23 @@ import net.champ.client.util.PerformanceBudget;
 import net.champ.client.util.seedscan.AdvancedScanner;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_1923;
-import net.minecraft.class_1937;
-import net.minecraft.class_2246;
-import net.minecraft.class_2248;
-import net.minecraft.class_2338;
-import net.minecraft.class_2561;
-import net.minecraft.class_2672;
-import net.minecraft.class_2680;
-import net.minecraft.class_2818;
-import net.minecraft.class_2826;
-import net.minecraft.class_310;
-import net.minecraft.class_5285;
-import net.minecraft.class_634;
-import net.minecraft.class_638;
-import net.minecraft.class_9848;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.util.ARGB;
 
 @Environment(EnvType.CLIENT)
 public final class ChunkScannerModule extends ClientModule {
@@ -89,7 +89,7 @@ public final class ChunkScannerModule extends ClientModule {
    private LongOpenHashSet shown = new LongOpenHashSet();
    private boolean shownDirty = true;
    private int shownRefreshTicks;
-   private class_638 lastLevel;
+   private ClientLevel lastLevel;
    private boolean scanning;
    private AdvancedScanner advanced;
    private boolean appliedAdvanced;
@@ -97,21 +97,21 @@ public final class ChunkScannerModule extends ClientModule {
    private int seedStill;
    private boolean seedAsked;
    private ChunkScannerModule.ScanConfig appliedConfig;
-   private WeakReference<class_634> probeServer = new WeakReference<>(null);
+   private WeakReference<ClientPacketListener> probeServer = new WeakReference<>(null);
    private boolean probing;
    private final LongOpenHashSet probed = new LongOpenHashSet();
-   private final class_2818[] around = new class_2818[9];
+   private final LevelChunk[] around = new LevelChunk[9];
    private final int[] groupX = new int[4];
    private final int[] groupZ = new int[4];
    private int groupSize;
    private boolean guessed;
-   private class_2248 wall;
-   private class_2248 lastBlock;
+   private Block wall;
+   private Block lastBlock;
    private final int[] stackTop = new int[256];
    private final int[] stackShape = new int[256];
    private final int[] stackAreas = new int[256];
    private final boolean[] stackGuessed = new boolean[256];
-   private final class_2248[] stackWall = new class_2248[256];
+   private final Block[] stackWall = new Block[256];
    private boolean sawBlob;
    private int scanX;
    private int scanZ;
@@ -145,7 +145,7 @@ public final class ChunkScannerModule extends ClientModule {
 
    @Override
    protected void onEnable() {
-      this.startLevel(class_310.method_1551().field_1687);
+      this.startLevel(Minecraft.getInstance().level);
    }
 
    @Override
@@ -153,7 +153,7 @@ public final class ChunkScannerModule extends ClientModule {
       this.startLevel(null);
    }
 
-   private void startLevel(class_638 level) {
+   private void startLevel(ClientLevel level) {
       this.closeAdvanced();
       this.appliedAdvanced = this.advancedScanner.get();
       this.flagged.clear();
@@ -166,9 +166,9 @@ public final class ChunkScannerModule extends ClientModule {
       this.shownDirty = true;
       this.shownRefreshTicks = 0;
       this.lastLevel = level;
-      this.scanning = level != null && level.method_27983() != class_1937.field_25180 && level.method_27983() != class_1937.field_25181;
+      this.scanning = level != null && level.dimension() != Level.NETHER && level.dimension() != Level.END;
       if (this.scanning) {
-         class_634 connection = class_310.method_1551().method_1562();
+         ClientPacketListener connection = Minecraft.getInstance().getConnection();
          if (connection != this.probeServer.get()) {
             this.probeServer = new WeakReference<>(connection);
             this.probing = true;
@@ -180,20 +180,20 @@ public final class ChunkScannerModule extends ClientModule {
       }
    }
 
-   private ChunkScannerModule.ScanConfig currentConfig(class_638 level) {
-      return new ChunkScannerModule.ScanConfig(Math.max(0, level.method_31607()), Math.min(32, level.method_31600()), this.stackHeight.getInt());
+   private ChunkScannerModule.ScanConfig currentConfig(ClientLevel level) {
+      return new ChunkScannerModule.ScanConfig(Math.max(0, level.getMinY()), Math.min(32, level.getMaxY()), this.stackHeight.getInt());
    }
 
-   private void queueLoadedChunks(class_638 level) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null) {
-         int radius = (Integer)mc.field_1690.method_42503().method_41753() + 1;
-         class_1923 center = mc.field_1724.method_31476();
+   private void queueLoadedChunks(ClientLevel level) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null) {
+         int radius = (Integer)mc.options.renderDistance().get() + 1;
+         ChunkPos center = mc.player.chunkPosition();
 
-         for (int x = center.field_9181 - radius; x <= center.field_9181 + radius; x++) {
-            for (int z = center.field_9180 - radius; z <= center.field_9180 + radius; z++) {
+         for (int x = center.x - radius; x <= center.x + radius; x++) {
+            for (int z = center.z - radius; z <= center.z + radius; z++) {
                if (LevelUtil.isLoaded(level, x, z)) {
-                  this.enqueue(class_1923.method_8331(x, z));
+                  this.enqueue(ChunkPos.asLong(x, z));
                }
             }
          }
@@ -208,18 +208,18 @@ public final class ChunkScannerModule extends ClientModule {
 
    @EventHandler
    public void onPacketApplied(PacketAppliedEvent event) {
-      if (this.advanced != null && event.packet instanceof class_2672 arrived) {
-         this.advanced.chunkArrived(arrived.method_11523(), arrived.method_11524());
+      if (this.advanced != null && event.packet instanceof ClientboundLevelChunkWithLightPacket arrived) {
+         this.advanced.chunkArrived(arrived.getX(), arrived.getZ());
       }
 
-      if (event.packet instanceof class_2672 chunk) {
+      if (event.packet instanceof ClientboundLevelChunkWithLightPacket chunk) {
          this.shownDirty = true;
-         this.enqueue(class_1923.method_8331(chunk.method_11523(), chunk.method_11524()));
+         this.enqueue(ChunkPos.asLong(chunk.getX(), chunk.getZ()));
 
          for (int var7 = -1; var7 <= 1; var7++) {
             for (int dz = -1; dz <= 1; dz++) {
                if (var7 != 0 || dz != 0) {
-                  this.enqueue(class_1923.method_8331(chunk.method_11523() + var7, chunk.method_11524() + dz));
+                  this.enqueue(ChunkPos.asLong(chunk.getX() + var7, chunk.getZ() + dz));
                }
             }
          }
@@ -233,15 +233,15 @@ public final class ChunkScannerModule extends ClientModule {
             this.advanced.blockChanged(event.pos);
          }
 
-         int y = event.pos.method_10264();
+         int y = event.pos.getY();
          if (y >= this.appliedConfig.minY() - 1 && y <= this.appliedConfig.maxY() + 1) {
             if (matters(event.oldState) || matters(event.newState)) {
-               int x = event.pos.method_10263();
-               int z = event.pos.method_10260();
+               int x = event.pos.getX();
+               int z = event.pos.getZ();
 
                for (int cx = x - 2 >> 4; cx <= x + 1 >> 4; cx++) {
                   for (int cz = z - 2 >> 4; cz <= z + 2 >> 4; cz++) {
-                     this.enqueue(class_1923.method_8331(cx, cz));
+                     this.enqueue(ChunkPos.asLong(cx, cz));
                   }
                }
             }
@@ -251,7 +251,7 @@ public final class ChunkScannerModule extends ClientModule {
 
    @EventHandler
    public void onTick(TickEvent event) {
-      class_638 level = class_310.method_1551().field_1687;
+      ClientLevel level = Minecraft.getInstance().level;
       if (level != this.lastLevel) {
          this.startLevel(level);
       }
@@ -292,8 +292,8 @@ public final class ChunkScannerModule extends ClientModule {
             while (!this.queue.isEmpty() && System.nanoTime() < deadline) {
                long key = this.queue.dequeueLong();
                this.queued.remove(key);
-               int cx = class_1923.method_8325(key);
-               int cz = class_1923.method_8332(key);
+               int cx = ChunkPos.getX(key);
+               int cz = ChunkPos.getZ(key);
                if (LevelUtil.isLoaded(level, cx, cz)) {
                   ChunkScannerModule.Find find = this.scan(level, cx, cz, config);
                   if (this.sawBlob) {
@@ -344,12 +344,12 @@ public final class ChunkScannerModule extends ClientModule {
    private void spread(long key, ChunkScannerModule.Find find, int sign) {
       int amount = sign * find.stacks().length;
       int r = this.appliedRadius;
-      int cx = class_1923.method_8325(key);
-      int cz = class_1923.method_8332(key);
+      int cx = ChunkPos.getX(key);
+      int cz = ChunkPos.getZ(key);
 
       for (int x = cx - r; x <= cx + r; x++) {
          for (int z = cz - r; z <= cz + r; z++) {
-            long area = class_1923.method_8331(x, z);
+            long area = ChunkPos.asLong(x, z);
             if (this.heat.addTo(area, amount) + amount == 0) {
                this.heat.remove(area);
             }
@@ -357,14 +357,14 @@ public final class ChunkScannerModule extends ClientModule {
       }
    }
 
-   private LongOpenHashSet computeShown(class_638 level) {
+   private LongOpenHashSet computeShown(ClientLevel level) {
       Long2IntOpenHashMap candidates = new Long2IntOpenHashMap();
       ObjectIterator var3 = Long2IntMaps.fastIterable(this.heat).iterator();
 
       while (var3.hasNext()) {
          it.unimi.dsi.fastutil.longs.Long2IntMap.Entry entry = (it.unimi.dsi.fastutil.longs.Long2IntMap.Entry)var3.next();
          long key = entry.getLongKey();
-         if (LevelUtil.isLoaded(level, class_1923.method_8325(key), class_1923.method_8332(key))) {
+         if (LevelUtil.isLoaded(level, ChunkPos.getX(key), ChunkPos.getZ(key))) {
             candidates.put(key, entry.getIntValue());
          }
       }
@@ -390,11 +390,11 @@ public final class ChunkScannerModule extends ClientModule {
                long key = open.dequeueLong();
                patch.add(key);
                max = Math.max(max, candidates.get(key));
-               int cx = class_1923.method_8325(key);
-               int cz = class_1923.method_8332(key);
+               int cx = ChunkPos.getX(key);
+               int cz = ChunkPos.getZ(key);
 
                for (int side = 0; side < 4; side++) {
-                  long next = class_1923.method_8331(cx + SIDE_X[side], cz + SIDE_Z[side]);
+                  long next = ChunkPos.asLong(cx + SIDE_X[side], cz + SIDE_Z[side]);
                   if (candidates.containsKey(next) && seen.add(next)) {
                      open.enqueue(next);
                   }
@@ -412,10 +412,10 @@ public final class ChunkScannerModule extends ClientModule {
       return kept;
    }
 
-   private ChunkScannerModule.Find scan(class_638 level, int chunkX, int chunkZ, ChunkScannerModule.ScanConfig config) {
+   private ChunkScannerModule.Find scan(ClientLevel level, int chunkX, int chunkZ, ChunkScannerModule.ScanConfig config) {
       for (int dx = -1; dx <= 1; dx++) {
          for (int dz = -1; dz <= 1; dz++) {
-            this.around[(dx + 1) * 3 + dz + 1] = level.method_2935().method_21730(chunkX + dx, chunkZ + dz);
+            this.around[(dx + 1) * 3 + dz + 1] = level.getChunkSource().getChunkNow(chunkX + dx, chunkZ + dz);
          }
       }
 
@@ -429,15 +429,15 @@ public final class ChunkScannerModule extends ClientModule {
       this.unsure = false;
 
       try {
-         class_2818 chunk = this.around[4];
-         class_2826[] sections = chunk.method_12006();
-         int minSectionY = chunk.method_32891();
+         LevelChunk chunk = this.around[4];
+         LevelChunkSection[] sections = chunk.getSections();
+         int minSectionY = chunk.getMinSectionY();
          Arrays.fill(this.stackTop, Integer.MIN_VALUE);
          boolean blank = true;
 
          for (int i = 0; i < sections.length; i++) {
-            class_2826 section = sections[i];
-            if (section != null && !section.method_38292()) {
+            LevelChunkSection section = sections[i];
+            if (section != null && !section.hasOnlyAir()) {
                int baseY = minSectionY + i << 4;
                if (baseY + 15 >= config.minY() && baseY <= config.maxY()) {
                   int fromY = Math.max(config.minY() - baseY, 0);
@@ -446,14 +446,14 @@ public final class ChunkScannerModule extends ClientModule {
                      blank = !hasBlocks(section, fromY, toY);
                   }
 
-                  if (section.method_19523(state -> state.method_27852(class_2246.field_10340)) && section.method_19523(state -> isBlob(state.method_26204()))) {
+                  if (section.maybeHas(state -> state.is(Blocks.STONE)) && section.maybeHas(state -> isBlob(state.getBlock()))) {
                      for (int y = fromY; y <= toY; y++) {
                         for (int z = 0; z < 16; z++) {
                            boolean afterStone = false;
 
                            for (int x = 0; x < 16; x++) {
-                              class_2248 block = section.method_12254(x, y, z).method_26204();
-                              boolean stone = block == class_2246.field_10340;
+                              Block block = section.getBlockState(x, y, z).getBlock();
+                              boolean stone = block == Blocks.STONE;
                               if (stone) {
                                  if (!afterStone && this.isArea(x, baseY + y, z)) {
                                     this.stack(x, baseY + y, z);
@@ -515,7 +515,7 @@ public final class ChunkScannerModule extends ClientModule {
             } else {
                int x = this.scanX + (i & 15);
                int z = this.scanZ + (i >> 4);
-               long lowest = class_2338.method_10064(x, top - height + 1, z);
+               long lowest = BlockPos.asLong(x, top - height + 1, z);
                if (height > this.tallest || height == this.tallest && before(lowest, this.bottom)) {
                   this.tallest = height;
                   this.bottom = lowest;
@@ -545,12 +545,12 @@ public final class ChunkScannerModule extends ClientModule {
    }
 
    private static boolean before(long a, long b) {
-      if (class_2338.method_10071(a) != class_2338.method_10071(b)) {
-         return class_2338.method_10071(a) < class_2338.method_10071(b);
+      if (BlockPos.getY(a) != BlockPos.getY(b)) {
+         return BlockPos.getY(a) < BlockPos.getY(b);
       } else {
-         return class_2338.method_10083(a) != class_2338.method_10083(b)
-            ? class_2338.method_10083(a) < class_2338.method_10083(b)
-            : class_2338.method_10061(a) < class_2338.method_10061(b);
+         return BlockPos.getZ(a) != BlockPos.getZ(b)
+            ? BlockPos.getZ(a) < BlockPos.getZ(b)
+            : BlockPos.getX(a) < BlockPos.getX(b);
       }
    }
 
@@ -665,15 +665,15 @@ public final class ChunkScannerModule extends ClientModule {
    }
 
    private byte kind(int x, int y, int z) {
-      class_2818 chunk = this.around[((x >> 4) + 1) * 3 + (z >> 4) + 1];
+      LevelChunk chunk = this.around[((x >> 4) + 1) * 3 + (z >> 4) + 1];
       this.lastBlock = null;
       if (chunk == null) {
          return 4;
       } else {
-         int index = chunk.method_31602(y);
-         if (index >= 0 && index < chunk.method_32890()) {
-            class_2680 state = chunk.method_38259(index).method_12254(x & 15, y & 15, z & 15);
-            this.lastBlock = state.method_26204();
+         int index = chunk.getSectionIndex(y);
+         if (index >= 0 && index < chunk.getSectionsCount()) {
+            BlockState state = chunk.getSection(index).getBlockState(x & 15, y & 15, z & 15);
+            this.lastBlock = state.getBlock();
             return kindOf(state);
          } else {
             return 0;
@@ -691,24 +691,24 @@ public final class ChunkScannerModule extends ClientModule {
    }
 
    private boolean full(int x, int y, int z) {
-      class_2818 chunk = this.around[((x >> 4) + 1) * 3 + (z >> 4) + 1];
+      LevelChunk chunk = this.around[((x >> 4) + 1) * 3 + (z >> 4) + 1];
       if (chunk == null) {
          return false;
       }
 
-      int index = chunk.method_31602(y);
-      return index >= 0 && index < chunk.method_32890() && chunk.method_38259(index).method_12254(x & 15, y & 15, z & 15).method_26216();
+      int index = chunk.getSectionIndex(y);
+      return index >= 0 && index < chunk.getSectionsCount() && chunk.getSection(index).getBlockState(x & 15, y & 15, z & 15).isSolidRender();
    }
 
-   private static boolean hasBlocks(class_2826 section, int fromY, int toY) {
-      if (!section.method_19523(state -> !state.method_26215())) {
+   private static boolean hasBlocks(LevelChunkSection section, int fromY, int toY) {
+      if (!section.maybeHas(state -> !state.isAir())) {
          return false;
       }
 
       for (int y = fromY; y <= toY; y++) {
          for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
-               if (!section.method_12254(x, y, z).method_26215()) {
+               if (!section.getBlockState(x, y, z).isAir()) {
                   return true;
                }
             }
@@ -718,27 +718,27 @@ public final class ChunkScannerModule extends ClientModule {
       return false;
    }
 
-   private static byte kindOf(class_2680 state) {
-      class_2248 block = state.method_26204();
-      if (block == class_2246.field_10340) {
+   private static byte kindOf(BlockState state) {
+      Block block = state.getBlock();
+      if (block == Blocks.STONE) {
          return 1;
       } else if (isBlob(block)) {
          return 2;
       } else {
-         return (byte)(state.method_26215() ? 3 : 0);
+         return (byte)(state.isAir() ? 3 : 0);
       }
    }
 
-   private static boolean isBlob(class_2248 block) {
-      return block == class_2246.field_10508 || block == class_2246.field_10115 || block == class_2246.field_10474 || block == class_2246.field_10255;
+   private static boolean isBlob(Block block) {
+      return block == Blocks.DIORITE || block == Blocks.ANDESITE || block == Blocks.GRANITE || block == Blocks.GRAVEL;
    }
 
-   private static boolean carriesStone(class_2248 block) {
-      return block == class_2246.field_10340 || block == class_2246.field_28888;
+   private static boolean carriesStone(Block block) {
+      return block == Blocks.STONE || block == Blocks.DEEPSLATE;
    }
 
-   private static boolean matters(class_2680 state) {
-      return state != null && (kindOf(state) != 0 || carriesStone(state.method_26204()));
+   private static boolean matters(BlockState state) {
+      return state != null && (kindOf(state) != 0 || carriesStone(state.getBlock()));
    }
 
    private void probe(long key) {
@@ -752,13 +752,13 @@ public final class ChunkScannerModule extends ClientModule {
    private void announce(List<ChunkScannerModule.Find> finds) {
       if (this.notificationsOn()) {
          if (!finds.isEmpty()) {
-            class_1799 icon = new class_1799(this.advancedScanner.get() ? class_1802.field_20401 : class_1802.field_27070);
-            ChallengeToast.addOrUpdate(icon, this.name(), class_2561.method_43470("Suspect Chunk Scanned"), this.sound.get());
+            ItemStack icon = new ItemStack(this.advancedScanner.get() ? Items.DIORITE : Items.SPYGLASS);
+            ChallengeToast.addOrUpdate(icon, this.name(), Component.literal("Suspect Chunk Scanned"), this.sound.get());
          }
       }
    }
 
-   private void tickAdvanced(class_638 level, long deadline) {
+   private void tickAdvanced(ClientLevel level, long deadline) {
       String text = this.seed.get();
       if (!text.equals(this.seedText)) {
          this.seedStill = this.seedText == null ? 20 : 0;
@@ -768,7 +768,7 @@ public final class ChunkScannerModule extends ClientModule {
       }
 
       if (this.seedStill >= 20) {
-         OptionalLong wanted = class_5285.method_46720(text);
+         OptionalLong wanted = WorldOptions.parseSeed(text);
          if (wanted.isEmpty()) {
             if (this.advanced != null) {
                this.startLevel(level);
@@ -820,10 +820,10 @@ public final class ChunkScannerModule extends ClientModule {
 
    @EventHandler
    public void onRender3D(Render3DEvent event) {
-      if (class_310.method_1551().field_1687 != null) {
+      if (Minecraft.getInstance().level != null) {
          this.chunkOverlay.draw(this.shown, this.chunkColor.argb(), event.partialTick);
          if (this.tracers.get()) {
-            this.chunkAreas.drawTracers(this.shown, 63.0, class_9848.method_61334(this.chunkColor.argb()));
+            this.chunkAreas.drawTracers(this.shown, 63.0, ARGB.opaque(this.chunkColor.argb()));
          }
       }
    }

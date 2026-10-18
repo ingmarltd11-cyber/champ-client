@@ -4,8 +4,8 @@ import com.sun.jna.Platform;
 import net.champ.client.module.impl.misc.NoInvLeakModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1041;
-import net.minecraft.class_310;
+import com.mojang.blaze3d.platform.Window;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class BorderlessFullscreen {
@@ -17,8 +17,8 @@ public final class BorderlessFullscreen {
    }
 
    public static void tick() {
-      class_1041 window = class_310.method_1551().method_22683();
-      if (window.method_4498()) {
+      Window window = Minecraft.getInstance().getWindow();
+      if (window.isFullscreen()) {
          BorderlessFullscreen.Switchable switchable = (BorderlessFullscreen.Switchable)window;
          if (wanted() != switchable.champ$isBorderless()) {
             switchable.champ$reapplyMode();

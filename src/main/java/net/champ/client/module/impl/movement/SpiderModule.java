@@ -7,9 +7,9 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class SpiderModule extends ClientModule {
@@ -26,11 +26,11 @@ public final class SpiderModule extends ClientModule {
    }
 
    private void onPostTick(TickEvent event) {
-      class_746 player = class_310.method_1551().field_1724;
-      if (player != null && player.field_5976) {
-         class_243 velocity = player.method_18798();
-         if (!(velocity.field_1351 >= 0.2)) {
-            player.method_18800(velocity.field_1352, this.climbSpeed.get(), velocity.field_1350);
+      LocalPlayer player = Minecraft.getInstance().player;
+      if (player != null && player.horizontalCollision) {
+         Vec3 velocity = player.getDeltaMovement();
+         if (!(velocity.y >= 0.2)) {
+            player.setDeltaMovement(velocity.x, this.climbSpeed.get(), velocity.z);
          }
       }
    }

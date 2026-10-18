@@ -2,14 +2,14 @@ package net.champ.client.util.pvp;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10185;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_2596;
-import net.minecraft.class_2828;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class ServerRotation {
@@ -17,7 +17,7 @@ public final class ServerRotation {
    private static Rotation committed;
    private static Rotation server;
    private static boolean silent;
-   private static class_746 owner;
+   private static LocalPlayer owner;
    private static float ownYaw;
    private static float ownPitch;
    private static boolean swapped;
@@ -40,23 +40,23 @@ public final class ServerRotation {
       return server;
    }
 
-   public static boolean canRotate(class_746 player) {
-      return !player.method_6128() && !player.method_6123() && !player.method_5765() && !player.method_5681() && player.field_3944.method_76760();
+   public static boolean canRotate(LocalPlayer player) {
+      return !player.isFallFlying() && !player.isAutoSpinAttack() && !player.isPassenger() && !player.isSwimming() && player.connection.hasClientLoaded();
    }
 
-   public static Rotation next(class_746 player, Rotation wanted) {
-      Rotation base = server != null ? server : new Rotation(player.method_36454(), player.method_36455());
-      double k = RotationUtils.mouseScale(class_310.method_1551(), player);
+   public static Rotation next(LocalPlayer player, Rotation wanted) {
+      Rotation base = server != null ? server : new Rotation(player.getYRot(), player.getXRot());
+      double k = RotationUtils.mouseScale(Minecraft.getInstance(), player);
       float step = (float)k * 0.15F;
-      long yawCounts = Math.round(class_3532.method_15393(wanted.yaw() - base.yaw()) / step);
+      long yawCounts = Math.round(Mth.wrapDegrees(wanted.yaw() - base.yaw()) / step);
       long pitchCounts = Math.round((wanted.pitch() - base.pitch()) / step);
       float yaw = base.yaw() + (float)(yawCounts * k) * 0.15F;
-      float pitch = class_3532.method_15363(base.pitch() + (float)(pitchCounts * k) * 0.15F, -90.0F, 90.0F);
+      float pitch = Mth.clamp(base.pitch() + (float)(pitchCounts * k) * 0.15F, -90.0F, 90.0F);
       return new Rotation(yaw, pitch);
    }
 
    public static void startTick() {
-      class_746 player = class_310.method_1551().field_1724;
+      LocalPlayer player = Minecraft.getInstance().player;
       if (player != owner) {
          owner = player;
          server = null;
@@ -64,30 +64,30 @@ public final class ServerRotation {
 
       requested = null;
       committed = null;
-      if (player != null && server != null && !(Math.abs(player.method_36454() - server.yaw()) <= 180.0F)) {
-         float shift = server.yaw() + class_3532.method_15393(player.method_36454() - server.yaw()) - player.method_36454();
-         player.method_36456(player.method_36454() + shift);
-         player.field_5982 += shift;
-         player.field_3932 += shift;
-         player.field_3931 += shift;
-         player.field_6241 += shift;
-         player.field_6259 += shift;
-         player.field_6283 += shift;
-         player.field_6220 += shift;
+      if (player != null && server != null && !(Math.abs(player.getYRot() - server.yaw()) <= 180.0F)) {
+         float shift = server.yaw() + Mth.wrapDegrees(player.getYRot() - server.yaw()) - player.getYRot();
+         player.setYRot(player.getYRot() + shift);
+         player.yRotO += shift;
+         player.yBob += shift;
+         player.yBobO += shift;
+         player.yHeadRot += shift;
+         player.yHeadRotO += shift;
+         player.yBodyRot += shift;
+         player.yBodyRotO += shift;
       }
    }
 
-   public static void noteSent(class_2596<?> packet) {
-      if (packet instanceof class_2828 move && move.method_36172() && class_310.method_1551().method_18854()) {
-         server = new Rotation(move.method_12271(0.0F), move.method_12270(0.0F));
+   public static void noteSent(Packet<?> packet) {
+      if (packet instanceof ServerboundMovePlayerPacket move && move.hasRotation() && Minecraft.getInstance().isSameThread()) {
+         server = new Rotation(move.getYRot(0.0F), move.getXRot(0.0F));
          silent = swapped;
-         owner = class_310.method_1551().field_1724;
+         owner = Minecraft.getInstance().player;
       }
    }
 
-   public static Rotation commit(class_746 player) {
+   public static Rotation commit(LocalPlayer player) {
       if (committed == null) {
-         committed = requested != null && canRotate(player) ? next(player, requested) : new Rotation(player.method_36454(), player.method_36455());
+         committed = requested != null && canRotate(player) ? next(player, requested) : new Rotation(player.getYRot(), player.getXRot());
       }
 
       return committed;
@@ -97,21 +97,21 @@ public final class ServerRotation {
       return swapped;
    }
 
-   public static void applyForMovement(class_746 player) {
+   public static void applyForMovement(LocalPlayer player) {
       if (!swapped && canRotate(player)) {
          Rotation target = committed != null ? committed : (requested != null ? next(player, requested) : null);
-         if (target != null && (target.yaw() != player.method_36454() || target.pitch() != player.method_36455())) {
-            ownYaw = player.method_36454();
-            ownPitch = player.method_36455();
-            player.method_36456(target.yaw());
-            player.method_36457(target.pitch());
+         if (target != null && (target.yaw() != player.getYRot() || target.pitch() != player.getXRot())) {
+            ownYaw = player.getYRot();
+            ownPitch = player.getXRot();
+            player.setYRot(target.yaw());
+            player.setXRot(target.pitch());
             walked = target;
             swapped = true;
          }
       }
    }
 
-   public static class_10185 correctInput(class_10185 keys) {
+   public static Input correctInput(Input keys) {
       if (walked == null) {
          return keys;
       }
@@ -143,13 +143,13 @@ public final class ServerRotation {
 
       return bestForward == forward && bestStrafe == strafe
          ? keys
-         : new class_10185(bestForward > 0, bestForward < 0, bestStrafe > 0, bestStrafe < 0, keys.comp_3163(), keys.comp_3164(), keys.comp_3165());
+         : new Input(bestForward > 0, bestForward < 0, bestStrafe > 0, bestStrafe < 0, keys.comp_3163(), keys.comp_3164(), keys.comp_3165());
    }
 
-   public static boolean misses(class_746 player, class_238 box, double range) {
+   public static boolean misses(LocalPlayer player, AABB box, double range) {
       if (server != null && pending() && canRotate(player)) {
-         class_243 eye = player.method_33571();
-         if (box.method_1006(eye)) {
+         Vec3 eye = player.getEyePosition();
+         if (box.contains(eye)) {
             return false;
          }
 
@@ -162,7 +162,7 @@ public final class ServerRotation {
       }
    }
 
-   public static boolean missesBlock(class_746 player, class_238 box, double range) {
+   public static boolean missesBlock(LocalPlayer player, AABB box, double range) {
       if (server == null) {
          return false;
       }
@@ -173,22 +173,22 @@ public final class ServerRotation {
          }
 
          Rotation look = committed != null ? committed : next(player, requested);
-         if (look.yaw() == player.method_36454() && look.pitch() == player.method_36455()) {
+         if (look.yaw() == player.getYRot() && look.pitch() == player.getXRot()) {
             return false;
          }
       }
 
-      class_243 eye = player.method_33571();
-      return !box.method_1006(eye) && !hits(eye, box, range, server.yaw(), server.pitch());
+      Vec3 eye = player.getEyePosition();
+      return !box.contains(eye) && !hits(eye, box, range, server.yaw(), server.pitch());
    }
 
-   public static void afterSend(class_746 player) {
+   public static void afterSend(LocalPlayer player) {
       if (swapped) {
          restore(player);
       }
    }
 
-   public static void finishTick(class_746 player) {
+   public static void finishTick(LocalPlayer player) {
       if (swapped) {
          restore(player);
       }
@@ -199,25 +199,25 @@ public final class ServerRotation {
    }
 
    private static double[] heading(float yaw, int strafe, int forward) {
-      double sin = class_3532.method_15374(yaw * (float) (Math.PI / 180.0));
-      double cos = class_3532.method_15362(yaw * (float) (Math.PI / 180.0));
+      double sin = Mth.sin(yaw * (float) (Math.PI / 180.0));
+      double cos = Mth.cos(yaw * (float) (Math.PI / 180.0));
       double x = strafe * cos - forward * sin;
       double z = forward * cos + strafe * sin;
       double length = Math.sqrt(x * x + z * z);
       return new double[]{x / length, z / length};
    }
 
-   private static boolean hits(class_243 eye, class_238 box, double range, float yaw, float pitch) {
-      class_243 direction = class_243.method_1030(pitch, yaw);
-      return box.method_992(eye, eye.method_1019(direction.method_1021(range))).isPresent();
+   private static boolean hits(Vec3 eye, AABB box, double range, float yaw, float pitch) {
+      Vec3 direction = Vec3.directionFromRotation(pitch, yaw);
+      return box.clip(eye, eye.add(direction.scale(range))).isPresent();
    }
 
-   private static void restore(class_746 player) {
-      player.field_3932 = player.field_3932 + (ownYaw - walked.yaw()) * 0.5F;
-      player.field_3916 = player.field_3916 + (ownPitch - walked.pitch()) * 0.5F;
+   private static void restore(LocalPlayer player) {
+      player.yBob = player.yBob + (ownYaw - walked.yaw()) * 0.5F;
+      player.xBob = player.xBob + (ownPitch - walked.pitch()) * 0.5F;
       walked = null;
-      player.method_36456(ownYaw);
-      player.method_36457(ownPitch);
+      player.setYRot(ownYaw);
+      player.setXRot(ownPitch);
       swapped = false;
    }
 }

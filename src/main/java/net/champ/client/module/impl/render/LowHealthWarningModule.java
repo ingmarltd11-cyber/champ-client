@@ -13,9 +13,9 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
-import net.minecraft.class_9848;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.util.ARGB;
 
 @Environment(EnvType.CLIENT)
 public final class LowHealthWarningModule extends ClientModule implements HudOverlayProvider {
@@ -78,7 +78,7 @@ public final class LowHealthWarningModule extends ClientModule implements HudOve
 
    @Override
    public void renderHudOverlay(ImDrawList dl, float screenW, float screenH) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       float dt = Math.min(Math.max(ImGui.getIO().getDeltaTime(), 0.0F), 0.1F);
       long now = System.nanoTime();
       if (now - this.lastFrame > 250000000L) {
@@ -87,11 +87,11 @@ public final class LowHealthWarningModule extends ClientModule implements HudOve
       }
 
       this.lastFrame = now;
-      class_746 player = mc.field_1724;
-      boolean dead = player == null || player.method_29504();
+      LocalPlayer player = mc.player;
+      boolean dead = player == null || player.isDeadOrDying();
       float want = 0.0F;
-      if (!dead && !mc.field_1690.field_1842 && !player.method_7325() && !player.method_31549().field_7480) {
-         float health = player.method_6032() + (this.countAbsorption.get() ? player.method_6067() : 0.0F);
+      if (!dead && !mc.options.hideGui && !player.isSpectator() && !player.getAbilities().invulnerable) {
+         float health = player.getHealth() + (this.countAbsorption.get() ? player.getAbsorptionAmount() : 0.0F);
          float limit = this.warnBelow.get();
          if (health < limit) {
             want = 1.0F;
@@ -127,7 +127,7 @@ public final class LowHealthWarningModule extends ClientModule implements HudOve
          if (this.edgeLine.get()) {
             float line = Math.max(2.0F, depth * 0.07F);
             float alpha = this.intensity.get() * shown * (0.2F + 0.55F * beat);
-            int edge = manual ? this.edgeColor.argb() | 0xFF000000 : class_9848.method_61319(0.5F, accent, -1);
+            int edge = manual ? this.edgeColor.argb() | 0xFF000000 : ARGB.srgbLerp(0.5F, accent, -1);
             frame(dl, screenW, screenH, line, EgyptDraw.col(edge, alpha));
          }
       }

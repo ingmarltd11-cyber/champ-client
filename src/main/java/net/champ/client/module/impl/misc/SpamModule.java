@@ -12,9 +12,9 @@ import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.module.setting.StringListSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_634;
-import net.minecraft.class_746;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.player.LocalPlayer;
 import org.apache.commons.lang3.RandomStringUtils;
 
 @Environment(EnvType.CLIENT)
@@ -65,8 +65,8 @@ public final class SpamModule extends ClientModule {
    }
 
    public static void onGameLeft() {
-      class_310 mc = class_310.method_1551();
-      if (!mc.method_18854()) {
+      Minecraft mc = Minecraft.getInstance();
+      if (!mc.isSameThread()) {
          mc.execute(SpamModule::onGameLeft);
       } else {
          SpamModule spam = active;
@@ -77,8 +77,8 @@ public final class SpamModule extends ClientModule {
    }
 
    public static void onDisconnectedScreen() {
-      class_310 mc = class_310.method_1551();
-      if (!mc.method_18854()) {
+      Minecraft mc = Minecraft.getInstance();
+      if (!mc.isSameThread()) {
          mc.execute(SpamModule::onDisconnectedScreen);
       } else {
          SpamModule spam = active;
@@ -99,9 +99,9 @@ public final class SpamModule extends ClientModule {
    }
 
    private void onPostTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      if (player != null && mc.field_1687 != null) {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      if (player != null && mc.level != null) {
          if (this.resetPending) {
             this.resetPending = false;
             this.timer = this.delay.getInt();
@@ -146,7 +146,7 @@ public final class SpamModule extends ClientModule {
 
                   int start = this.splitNum * chunk;
                   int end = Math.min(start + chunk, this.text.length());
-                  sendPlayerMsg(mc, player.field_3944, this.text.substring(start, end));
+                  sendPlayerMsg(mc, player.connection, this.text.substring(start, end));
                   this.splitNum = (this.splitNum + 1) % splits;
                   this.timer = this.autoSplitDelay.getInt();
                   if (this.splitNum == 0) {
@@ -158,7 +158,7 @@ public final class SpamModule extends ClientModule {
                      this.text = this.text.substring(0, 256);
                   }
 
-                  sendPlayerMsg(mc, player.field_3944, this.text);
+                  sendPlayerMsg(mc, player.connection, this.text);
                   this.timer = this.delay.getInt();
                   this.text = null;
                }
@@ -167,12 +167,12 @@ public final class SpamModule extends ClientModule {
       }
    }
 
-   private static void sendPlayerMsg(class_310 mc, class_634 connection, String message) {
-      mc.field_1705.method_1743().method_1803(message);
+   private static void sendPlayerMsg(Minecraft mc, ClientPacketListener connection, String message) {
+      mc.gui.getChat().addRecentChat(message);
       if (message.startsWith("/")) {
-         connection.method_45730(message.substring(1));
+         connection.sendCommand(message.substring(1));
       } else {
-         connection.method_45729(message);
+         connection.sendChat(message);
       }
    }
 }

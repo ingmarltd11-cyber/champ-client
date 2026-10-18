@@ -3,13 +3,13 @@ package com.example.client.mixin;
 import net.champ.client.module.impl.render.HandsModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_11659;
-import net.minecraft.class_1268;
-import net.minecraft.class_1306;
-import net.minecraft.class_1799;
-import net.minecraft.class_4587;
-import net.minecraft.class_742;
-import net.minecraft.class_759;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.item.ItemStack;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.ItemInHandRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,26 +17,26 @@ import org.spongepowered.asm.mixin.injection.At.Shift;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_759.class)
+@Mixin(ItemInHandRenderer.class)
 public abstract class MixinHandsItemInHandRenderer {
-   @Inject(method = "method_3228", at = @At(value = "INVOKE", target = "Lnet/minecraft/class_4587;method_22903()V", shift = Shift.AFTER))
+   @Inject(method = "renderArmWithItem", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V", shift = Shift.AFTER))
    private void champ$handsPose(
-      class_742 player,
+      AbstractClientPlayer player,
       float partialTick,
       float pitch,
-      class_1268 hand,
+      InteractionHand hand,
       float swing,
-      class_1799 stack,
+      ItemStack stack,
       float equip,
-      class_4587 poseStack,
-      class_11659 collector,
+      PoseStack poseStack,
+      SubmitNodeCollector collector,
       int light,
       CallbackInfo ci
    ) {
       if (HandsModule.live != null) {
-         boolean mainHand = hand == class_1268.field_5808;
-         class_1306 arm = mainHand ? player.method_6068() : player.method_6068().method_5928();
-         HandsModule.shape(poseStack, mainHand, arm == class_1306.field_6183 ? 1 : -1);
+         boolean mainHand = hand == InteractionHand.MAIN_HAND;
+         HumanoidArm arm = mainHand ? player.getMainArm() : player.getMainArm().getOpposite();
+         HandsModule.shape(poseStack, mainHand, arm == HumanoidArm.RIGHT ? 1 : -1);
       }
    }
 }

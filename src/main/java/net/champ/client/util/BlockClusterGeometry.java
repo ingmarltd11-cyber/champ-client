@@ -11,8 +11,8 @@ import java.util.Set;
 import java.util.Map.Entry;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2338;
-import net.minecraft.class_243;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 
 @Environment(EnvType.CLIENT)
 public final class BlockClusterGeometry {
@@ -21,12 +21,12 @@ public final class BlockClusterGeometry {
    private BlockClusterGeometry() {
    }
 
-   public static BlockClusterGeometry.Mesh build(Collection<class_2338> blocks, BlockClusterGeometry.Membership same) {
+   public static BlockClusterGeometry.Mesh build(Collection<BlockPos> blocks, BlockClusterGeometry.Membership same) {
       List<int[]> unitEdges = new ArrayList<>(blocks.size() * 4);
       List<BlockClusterGeometry.Face> faces = new ArrayList<>(blocks.size() * 3);
 
-      for (class_2338 pos : blocks) {
-         int[] p = new int[]{pos.method_10263(), pos.method_10264(), pos.method_10260()};
+      for (BlockPos pos : blocks) {
+         int[] p = new int[]{pos.getX(), pos.getY(), pos.getZ()};
          addFaces(p, same, faces);
          addEdges(p, same, unitEdges);
       }
@@ -77,24 +77,24 @@ public final class BlockClusterGeometry {
       return merged;
    }
 
-   public static List<List<class_2338>> connectedComponents(Collection<class_2338> blocks) {
-      Set<class_2338> remaining = new HashSet<>(blocks);
-      List<List<class_2338>> components = new ArrayList<>();
-      ArrayDeque<class_2338> queue = new ArrayDeque<>();
+   public static List<List<BlockPos>> connectedComponents(Collection<BlockPos> blocks) {
+      Set<BlockPos> remaining = new HashSet<>(blocks);
+      List<List<BlockPos>> components = new ArrayList<>();
+      ArrayDeque<BlockPos> queue = new ArrayDeque<>();
 
       while (!remaining.isEmpty()) {
-         class_2338 seed = remaining.iterator().next();
+         BlockPos seed = remaining.iterator().next();
          remaining.remove(seed);
-         List<class_2338> component = new ArrayList<>();
+         List<BlockPos> component = new ArrayList<>();
          queue.add(seed);
 
          while (!queue.isEmpty()) {
-            class_2338 current = queue.poll();
+            BlockPos current = queue.poll();
             component.add(current);
 
             for (int[] axis : AXES) {
                for (int sign = -1; sign <= 1; sign += 2) {
-                  class_2338 next = current.method_10069(axis[0] * sign, axis[1] * sign, axis[2] * sign);
+                  BlockPos next = current.offset(axis[0] * sign, axis[1] * sign, axis[2] * sign);
                   if (remaining.remove(next)) {
                      queue.add(next);
                   }
@@ -165,19 +165,19 @@ public final class BlockClusterGeometry {
       return same.contains(q[0], q[1], q[2]);
    }
 
-   private static class_243 corner(int[] base, int u, int du, int v, int dv) {
+   private static Vec3 corner(int[] base, int u, int du, int v, int dv) {
       int[] q = (int[])base.clone();
       q[u] += du;
       q[v] += dv;
       return vec(q);
    }
 
-   private static class_243 vec(int[] p) {
-      return new class_243(p[0], p[1], p[2]);
+   private static Vec3 vec(int[] p) {
+      return new Vec3(p[0], p[1], p[2]);
    }
 
    @Environment(EnvType.CLIENT)
-   public record Face(class_243 a, class_243 b, class_243 c, class_243 d) {
+   public record Face(Vec3 a, Vec3 b, Vec3 c, Vec3 d) {
    }
 
    @FunctionalInterface
@@ -191,6 +191,6 @@ public final class BlockClusterGeometry {
    }
 
    @Environment(EnvType.CLIENT)
-   public record Segment(class_243 a, class_243 b) {
+   public record Segment(Vec3 a, Vec3 b) {
    }
 }

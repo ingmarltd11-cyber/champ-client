@@ -16,13 +16,13 @@ import net.champ.client.util.glyph.GlyphShapes;
 import net.champ.client.util.glyph.GlyphTint;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1309;
-import net.minecraft.class_1531;
-import net.minecraft.class_1657;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_5819;
-import net.minecraft.class_638;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.client.multiplayer.ClientLevel;
 
 @Environment(EnvType.CLIENT)
 public final class TargetEspModule extends ClientModule {
@@ -64,7 +64,7 @@ public final class TargetEspModule extends ClientModule {
    private final double[] capZ = new double[4];
    private TargetEspModule.Mark current = new TargetEspModule.Mark();
    private TargetEspModule.Mark previous = new TargetEspModule.Mark();
-   private class_638 boundLevel;
+   private ClientLevel boundLevel;
    private long lastFrame;
    private double phase;
    private int gold;
@@ -99,15 +99,15 @@ public final class TargetEspModule extends ClientModule {
    }
 
    private void onTick(TickEvent event) {
-      if (this.boundLevel != null && class_310.method_1551().field_1687 != this.boundLevel) {
+      if (this.boundLevel != null && Minecraft.getInstance().level != this.boundLevel) {
          this.reset();
       }
    }
 
    private void onRender(Render3DEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_638 level = mc.field_1687;
-      if (level != null && mc.field_1724 != null) {
+      Minecraft mc = Minecraft.getInstance();
+      ClientLevel level = mc.level;
+      if (level != null && mc.player != null) {
          if (level != this.boundLevel) {
             this.reset();
             this.boundLevel = level;
@@ -129,7 +129,7 @@ public final class TargetEspModule extends ClientModule {
          if (this.current.entity != null || this.previous.entity != null) {
             this.palette.resolve(this.colorMode.get(), CosmeticAccent.argb(), this.mainColor.argb(), this.secondColor.argb());
             this.hit = this.colorMode.is("Manual") ? this.hitColor.argb() : this.palette.flash();
-            this.canvas.begin(mc.field_1773.method_19418());
+            this.canvas.begin(mc.gameRenderer.getMainCamera());
             if (this.previous.entity != null) {
                this.draw(this.previous, true);
             }
@@ -147,7 +147,7 @@ public final class TargetEspModule extends ClientModule {
       }
    }
 
-   private void retarget(class_1309 wanted, float partialTick, class_638 level) {
+   private void retarget(LivingEntity wanted, float partialTick, ClientLevel level) {
       if (wanted != this.current.entity) {
          if (wanted != null && wanted == this.previous.entity) {
             TargetEspModule.Mark swap = this.current;
@@ -166,15 +166,15 @@ public final class TargetEspModule extends ClientModule {
       }
    }
 
-   private class_1309 pick(class_310 mc) {
+   private LivingEntity pick(Minecraft mc) {
       long window = (long)(this.memory.get() * 1000.0F);
-      class_1309 target = this.crosshair.get() ? CombatTarget.current(window) : CombatTarget.lastHit(window);
-      if (target == null || target == mc.field_1724 || !target.method_5805() || target.method_7325()) {
+      LivingEntity target = this.crosshair.get() ? CombatTarget.current(window) : CombatTarget.lastHit(window);
+      if (target == null || target == mc.player || !target.isAlive() || target.isSpectator()) {
          return null;
-      } else if (target instanceof class_1531) {
+      } else if (target instanceof ArmorStand) {
          return null;
       } else {
-         return this.playersOnly.get() && !(target instanceof class_1657) ? null : target;
+         return this.playersOnly.get() && !(target instanceof Player) ? null : target;
       }
    }
 
@@ -227,9 +227,9 @@ public final class TargetEspModule extends ClientModule {
 
       for (int i = 0; i < 6; i++) {
          float angle = orbit + i * (float) (Math.PI * 2) / 6.0F;
-         double px = m.x + class_3532.method_15362(angle) * r;
-         double pz = m.z + class_3532.method_15374(angle) * r;
-         double py = m.y + 0.2 * size + 0.045 * size * class_3532.method_15374(this.phase * 2.6 + i * 1.3);
+         double px = m.x + Mth.cos(angle) * r;
+         double pz = m.z + Mth.sin(angle) * r;
+         double py = m.y + 0.2 * size + 0.045 * size * Mth.sin(this.phase * 2.6 + i * 1.3);
          boolean ankh = (i & 1) == 0;
          this.canvas.sprite(GlyphShapes.OCTAGON, px, py, pz, mark * 2.1F, 0.0F, GlyphTint.alpha(ankh ? this.gold : this.lapis, a * 0.14F));
          if (ankh) {
@@ -255,7 +255,7 @@ public final class TargetEspModule extends ClientModule {
       }
 
       float eye = 0.26F * size;
-      double ey = top + 0.52 * size + 0.05 * size * class_3532.method_15374(this.phase * 1.8);
+      double ey = top + 0.52 * size + 0.05 * size * Mth.sin(this.phase * 1.8);
       float lid = this.blink();
       this.canvas.sprite(GlyphShapes.OCTAGON, m.x, ey, m.z, eye * 1.95F, 0.0F, GlyphTint.alpha(this.lapis, a * 0.16F));
       this.canvas.sprite(GlyphShapes.DISK, m.x, ey, m.z, eye * 1.3F, 0.0F, GlyphTint.alpha(GlyphTint.mix(this.lapis, -16777216, 0.45F), a * 0.6F));
@@ -269,7 +269,7 @@ public final class TargetEspModule extends ClientModule {
       double top = m.y + m.height + 0.3 * size;
       double span = top - base;
       double waistY = m.y + m.height * 0.5;
-      float waist = class_3532.method_15363((float)((waistY - base) / span), 0.15F, 0.85F);
+      float waist = Mth.clamp((float)((waistY - base) / span), 0.15F, 0.85F);
       float neck = (m.width * 0.5F + 0.12F) * size;
       float fall = (float)(this.phase * 0.48F % 1.0);
       float turn = (float)(this.phase * 0.8F % (float) (Math.PI * 2));
@@ -292,8 +292,8 @@ public final class TargetEspModule extends ClientModule {
 
       for (int i = 0; i < 3; i++) {
          float angle = turn * 0.5F + i * (float) (Math.PI * 2) / 3.0F;
-         double px = m.x + class_3532.method_15362(angle) * r * 1.04F;
-         double pz = m.z + class_3532.method_15374(angle) * r * 1.04F;
+         double px = m.x + Mth.cos(angle) * r * 1.04F;
+         double pz = m.z + Mth.sin(angle) * r * 1.04F;
          this.canvas.line(px, base, pz, px, top, pz, post, 1.4F);
       }
 
@@ -303,15 +303,15 @@ public final class TargetEspModule extends ClientModule {
          float lead = GRAIN_SEEDS[i * 3];
          float spread = GRAIN_SEEDS[i * 3 + 1];
          float grit = GRAIN_SEEDS[i * 3 + 2];
-         float u = class_3532.method_22450(fall + lead);
+         float u = Mth.frac(fall + lead);
          float drop = u * (0.4F + 0.6F * u);
          float h = 1.0F - drop;
          float k = h >= waist ? (h - waist) / (1.0F - waist) : (waist - h) / waist;
          float bulge = k * (2.0F - k);
          float reach = neck + (r - neck) * bulge;
          float angle = spread * (float) (Math.PI * 2) + turn + drop * 3.1F;
-         double px = m.x + class_3532.method_15362(angle) * reach;
-         double pz = m.z + class_3532.method_15374(angle) * reach;
+         double px = m.x + Mth.cos(angle) * reach;
+         double pz = m.z + Mth.sin(angle) * reach;
          double py = top - drop * span;
          float grainAlpha = a * Math.min(1.0F, u * 10.0F) * Math.min(1.0F, (1.0F - u) * 8.0F);
          float mote = 0.042F * size * (0.7F + 0.6F * grit);
@@ -330,17 +330,17 @@ public final class TargetEspModule extends ClientModule {
 
    private void capstone(TargetEspModule.Mark m, float size, float a) {
       double top = m.y + m.height;
-      double apex = top + 0.28 * size + 0.06 * size * class_3532.method_15374(this.phase * 2.1);
+      double apex = top + 0.28 * size + 0.06 * size * Mth.sin(this.phase * 2.1);
       float depth = 0.34F * size;
-      float half = 0.17F * size * class_3532.field_15724;
+      float half = 0.17F * size * Mth.SQRT_OF_TWO;
       double rim = apex + depth;
       double core = apex + depth * 0.6;
       float spin = (float)(this.phase * 1.3 % (float) (Math.PI * 2));
 
       for (int k = 0; k < 4; k++) {
          float angle = spin + k * (float) (Math.PI / 2);
-         this.capX[k] = m.x + class_3532.method_15362(angle) * half;
-         this.capZ[k] = m.z + class_3532.method_15374(angle) * half;
+         this.capX[k] = m.x + Mth.cos(angle) * half;
+         this.capZ[k] = m.z + Mth.sin(angle) * half;
       }
 
       this.canvas.sprite(GlyphShapes.OCTAGON, m.x, core, m.z, depth * 1.7F, 0.0F, GlyphTint.alpha(this.gold, a * 0.12F));
@@ -406,13 +406,13 @@ public final class TargetEspModule extends ClientModule {
 
       for (int i = 0; i < 4; i++) {
          float angle = orbit + i * (float) (Math.PI / 2) + (float) (Math.PI / 4);
-         float twinkle = 0.6F + 0.4F * class_3532.method_15374(this.phase * 7.0 + i * 2.1);
+         float twinkle = 0.6F + 0.4F * Mth.sin(this.phase * 7.0 + i * 2.1);
          this.canvas
             .sprite(
                GlyphShapes.SPARK,
-               m.x + class_3532.method_15362(angle) * reach,
+               m.x + Mth.cos(angle) * reach,
                rim - depth * 0.15,
-               m.z + class_3532.method_15374(angle) * reach,
+               m.z + Mth.sin(angle) * reach,
                0.06F * size * twinkle,
                angle,
                GlyphTint.alpha(this.light, a * twinkle)
@@ -422,7 +422,7 @@ public final class TargetEspModule extends ClientModule {
 
    private float blink() {
       double cycle = this.phase % 4.6;
-      return cycle > 0.22 ? 1.0F : 1.0F - 0.88F * class_3532.method_15374(cycle / 0.22 * Math.PI);
+      return cycle > 0.22 ? 1.0F : 1.0F - 0.88F * Mth.sin(cycle / 0.22 * Math.PI);
    }
 
    private void ring(double x, double y, double z, float inner, float outer, int segments, int color) {
@@ -430,11 +430,11 @@ public final class TargetEspModule extends ClientModule {
    }
 
    private static float[] scatter(int count, long salt) {
-      class_5819 random = class_5819.method_43049(salt);
+      RandomSource random = RandomSource.create(salt);
       float[] out = new float[count];
 
       for (int i = 0; i < count; i++) {
-         out[i] = random.method_43057();
+         out[i] = random.nextFloat();
       }
 
       return out;
@@ -447,7 +447,7 @@ public final class TargetEspModule extends ClientModule {
 
    @Environment(EnvType.CLIENT)
    private static final class Mark {
-      class_1309 entity;
+      LivingEntity entity;
       double x;
       double y;
       double z;
@@ -456,22 +456,22 @@ public final class TargetEspModule extends ClientModule {
       float presence;
       float hurt;
 
-      void assign(class_1309 target) {
+      void assign(LivingEntity target) {
          this.entity = target;
          this.presence = 0.0F;
          this.hurt = 0.0F;
       }
 
-      void follow(float partialTick, class_638 level) {
-         class_1309 e = this.entity;
+      void follow(float partialTick, ClientLevel level) {
+         LivingEntity e = this.entity;
          if (e != null) {
-            if (!e.method_31481() && e.method_73183() == level) {
-               this.x = class_3532.method_16436(partialTick, e.field_6014, e.method_23317());
-               this.y = class_3532.method_16436(partialTick, e.field_6036, e.method_23318());
-               this.z = class_3532.method_16436(partialTick, e.field_5969, e.method_23321());
-               this.width = e.method_17681();
-               this.height = e.method_17682();
-               this.hurt = e.field_6235 > 0 ? class_3532.method_15363((e.field_6235 - partialTick) / 10.0F, 0.0F, 1.0F) : 0.0F;
+            if (!e.isRemoved() && e.level() == level) {
+               this.x = Mth.lerp(partialTick, e.xo, e.getX());
+               this.y = Mth.lerp(partialTick, e.yo, e.getY());
+               this.z = Mth.lerp(partialTick, e.zo, e.getZ());
+               this.width = e.getBbWidth();
+               this.height = e.getBbHeight();
+               this.hurt = e.hurtTime > 0 ? Mth.clamp((e.hurtTime - partialTick) / 10.0F, 0.0F, 1.0F) : 0.0F;
             } else {
                this.hurt = 0.0F;
             }

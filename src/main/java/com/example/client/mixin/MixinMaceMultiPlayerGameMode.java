@@ -6,22 +6,22 @@ import net.champ.client.module.impl.combat.ShieldBreakerModule;
 import net.champ.client.module.impl.combat.melee.MeleeAttacks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_1657;
-import net.minecraft.class_310;
-import net.minecraft.class_636;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_636.class)
+@Mixin(MultiPlayerGameMode.class)
 public abstract class MixinMaceMultiPlayerGameMode {
-   @Inject(method = "method_2918", at = @At(value = "INVOKE", target = "Lnet/minecraft/class_636;method_2911()V"))
-   private void champ$weaponBeforeAttack(class_1657 player, class_1297 target, CallbackInfo ci) {
-      class_746 self = class_310.method_1551().field_1724;
+   @Inject(method = "attack", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;ensureHasSentCarriedItem()V"))
+   private void champ$weaponBeforeAttack(Player player, Entity target, CallbackInfo ci) {
+      LocalPlayer self = Minecraft.getInstance().player;
       if (player == self && !MeleeAttacks.actedThisTick(self)) {
          ShieldBreakerModule shieldBreaker = ModuleRegistry.get(ShieldBreakerModule.class);
          if (shieldBreaker != null && shieldBreaker.isEnabled()) {

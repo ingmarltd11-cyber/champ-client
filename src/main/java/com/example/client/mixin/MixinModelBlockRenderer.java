@@ -3,17 +3,17 @@ package com.example.client.mixin;
 import net.champ.client.module.impl.render.XrayModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_778;
+import net.minecraft.client.renderer.block.ModelBlockRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_778.class)
+@Mixin(ModelBlockRenderer.class)
 public abstract class MixinModelBlockRenderer {
    @ModifyArg(
-      method = "method_23073",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/class_4588;method_22920(Lnet/minecraft/class_4587$class_4665;Lnet/minecraft/class_777;[FFFFF[II)V"),
+      method = "putQuadData",
+      at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/VertexConsumer;putBulkData(Lcom/mojang/blaze3d/vertex/PoseStack$Pose;Lnet/minecraft/client/renderer/block/model/BakedQuad;[FFFFF[II)V"),
       index = 6
    )
    private float champ$xrayAlpha(float alpha) {

@@ -2,10 +2,10 @@ package net.champ.client.util;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_408;
-import net.minecraft.class_4184;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.Camera;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 import org.joml.Vector3f;
@@ -16,8 +16,8 @@ import org.joml.Vector4f;
 public final class TracerEngine {
    private static final float WIDTH = 1.5F;
    private static boolean active;
-   private static class_243 cameraPos = class_243.field_1353;
-   private static class_243 origin = class_243.field_1353;
+   private static Vec3 cameraPos = Vec3.ZERO;
+   private static Vec3 origin = Vec3.ZERO;
    private static FoglessLines lines;
    private static final Matrix4f viewProjection = new Matrix4f();
    private static final Matrix4f mobileInverse = new Matrix4f();
@@ -31,27 +31,27 @@ public final class TracerEngine {
    public static void beginFrame(Matrix4fc viewRotation, Matrix4fc projection) {
       active = false;
       lines = null;
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null && mc.field_1687 != null) {
-         if (mc.field_1755 == null || mc.field_1755 instanceof class_408) {
-            class_4184 camera = mc.field_1773.method_19418();
-            if (camera != null && camera.method_19332()) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.level != null) {
+         if (mc.screen == null || mc.screen instanceof ChatScreen) {
+            Camera camera = mc.gameRenderer.getMainCamera();
+            if (camera != null && camera.isInitialized()) {
                viewProjection.set(projection).mul(viewRotation);
                boolean mobile = MobilePerformance.active();
                Matrix4f inverse = viewProjection.invert(mobile ? mobileInverse : new Matrix4f());
                Vector4f centre = inverse.transform(mobile ? mobileCentre.set(0.0F, 0.0F, 0.0F, 1.0F) : new Vector4f(0.0F, 0.0F, 0.0F, 1.0F));
                Vector4f eye = inverse.transform(mobile ? mobileEye.set(0.0F, 0.0F, -1.0F, 0.0F) : new Vector4f(0.0F, 0.0F, -1.0F, 0.0F));
-               cameraPos = camera.method_71156();
-               origin = cameraPos.method_1031(centre.x / centre.w, centre.y / centre.w, centre.z / centre.w);
-               class_243 eyePos = cameraPos.method_1031(eye.x / eye.w, eye.y / eye.w, eye.z / eye.w);
+               cameraPos = camera.position();
+               origin = cameraPos.add(centre.x / centre.w, centre.y / centre.w, centre.z / centre.w);
+               Vec3 eyePos = cameraPos.add(eye.x / eye.w, eye.y / eye.w, eye.z / eye.w);
                Vector3fc forward = (mobile ? mobileForward : new Vector3f())
                   .set(
-                     (float)(origin.field_1352 - eyePos.field_1352),
-                     (float)(origin.field_1351 - eyePos.field_1351),
-                     (float)(origin.field_1350 - eyePos.field_1350)
+                     (float)(origin.x - eyePos.x),
+                     (float)(origin.y - eyePos.y),
+                     (float)(origin.z - eyePos.z)
                   )
                   .normalize();
-               double pixel = 2.0 / (projection.m11() * Math.max(1, mc.method_22683().method_4506()));
+               double pixel = 2.0 / (projection.m11() * Math.max(1, mc.getWindow().getHeight()));
                lines = FoglessLines.forView(eyePos, forward, pixel);
                active = true;
             }
@@ -59,7 +59,7 @@ public final class TracerEngine {
       }
    }
 
-   public static void draw(class_243 target, int argb) {
+   public static void draw(Vec3 target, int argb) {
       if (active) {
          lines.line(origin, target, argb, 1.5F);
       }
@@ -68,61 +68,61 @@ public final class TracerEngine {
    public static void draw(double x, double y, double z, int argb) {
       if (active) {
          if (MobilePerformance.active()) {
-            lines.line(origin.field_1352, origin.field_1351, origin.field_1350, x, y, z, argb, 1.5F);
+            lines.line(origin.x, origin.y, origin.z, x, y, z, argb, 1.5F);
          } else {
-            lines.line(origin, new class_243(x, y, z), argb, 1.5F);
+            lines.line(origin, new Vec3(x, y, z), argb, 1.5F);
          }
       }
    }
 
-   public static void stem(class_243 feet, double height, int argb) {
+   public static void stem(Vec3 feet, double height, int argb) {
       if (active) {
          if (MobilePerformance.active()) {
-            lines.line(feet.field_1352, feet.field_1351, feet.field_1350, feet.field_1352, feet.field_1351 + height, feet.field_1350, argb, 1.5F);
+            lines.line(feet.x, feet.y, feet.z, feet.x, feet.y + height, feet.z, argb, 1.5F);
          } else {
-            lines.line(feet, feet.method_1031(0.0, height, 0.0), argb, 1.5F);
+            lines.line(feet, feet.add(0.0, height, 0.0), argb, 1.5F);
          }
       }
    }
 
-   public static Vector4f clip(class_243 world) {
+   public static Vector4f clip(Vec3 world) {
       return !active
          ? null
          : viewProjection.transform(
             new Vector4f(
-               (float)(world.field_1352 - cameraPos.field_1352),
-               (float)(world.field_1351 - cameraPos.field_1351),
-               (float)(world.field_1350 - cameraPos.field_1350),
+               (float)(world.x - cameraPos.x),
+               (float)(world.y - cameraPos.y),
+               (float)(world.z - cameraPos.z),
                1.0F
             )
          );
    }
 
-   public static Vector4f clip(class_243 world, Vector4f output) {
+   public static Vector4f clip(Vec3 world, Vector4f output) {
       return !active
          ? null
          : viewProjection.transform(
             output.set(
-               (float)(world.field_1352 - cameraPos.field_1352),
-               (float)(world.field_1351 - cameraPos.field_1351),
-               (float)(world.field_1350 - cameraPos.field_1350),
+               (float)(world.x - cameraPos.x),
+               (float)(world.y - cameraPos.y),
+               (float)(world.z - cameraPos.z),
                1.0F
             )
          );
    }
 
-   public static boolean isInFront(class_4184 camera, class_243 target) {
+   public static boolean isInFront(Camera camera, Vec3 target) {
       if (MobilePerformance.active()) {
-         class_243 position = camera.method_71156();
-         Vector3fc fwd = camera.method_19335();
-         return (target.field_1352 - position.field_1352) * fwd.x()
-               + (target.field_1351 - position.field_1351) * fwd.y()
-               + (target.field_1350 - position.field_1350) * fwd.z()
+         Vec3 position = camera.position();
+         Vector3fc fwd = camera.forwardVector();
+         return (target.x - position.x) * fwd.x()
+               + (target.y - position.y) * fwd.y()
+               + (target.z - position.z) * fwd.z()
             > 0.05;
       } else {
-         class_243 delta = target.method_1020(camera.method_71156());
-         Vector3fc fwd = camera.method_19335();
-         return delta.field_1352 * fwd.x() + delta.field_1351 * fwd.y() + delta.field_1350 * fwd.z() > 0.05;
+         Vec3 delta = target.subtract(camera.position());
+         Vector3fc fwd = camera.forwardVector();
+         return delta.x * fwd.x() + delta.y * fwd.y() + delta.z * fwd.z() > 0.05;
       }
    }
 }

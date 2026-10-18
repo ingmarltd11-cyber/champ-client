@@ -12,15 +12,15 @@ import net.champ.client.imgui.ImGuiManager;
 import net.champ.client.module.impl.client.HudModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1661;
-import net.minecraft.class_1792;
-import net.minecraft.class_1796;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
-import net.minecraft.class_7923;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemCooldowns;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 final class CooldownTray {
@@ -48,16 +48,16 @@ final class CooldownTray {
    private final List<CooldownTray.Slot> pool = new ArrayList<>();
    private final CooldownTray.Slot[] samples = new CooldownTray.Slot[]{new CooldownTray.Slot(), new CooldownTray.Slot()};
    private final List<CooldownTray.Slot> sampleView = List.of(this.samples);
-   private class_746 owner;
+   private LocalPlayer owner;
    private boolean sampling;
    private boolean sandbar;
    private float clock;
    private float tickRate = 20.0F;
 
    CooldownTray() {
-      this.samples[0].item = class_1802.field_8634;
+      this.samples[0].item = Items.ENDER_PEARL;
       this.samples[0].total = 20.0F;
-      this.samples[1].item = class_1802.field_49098;
+      this.samples[1].item = Items.WIND_CHARGE;
       this.samples[1].total = 10.0F;
 
       for (CooldownTray.Slot sample : this.samples) {
@@ -80,12 +80,12 @@ final class CooldownTray {
       return this.sampling || !this.slots.isEmpty();
    }
 
-   void update(class_310 mc, HudModule hud, boolean active, boolean editMode, float dt) {
+   void update(Minecraft mc, HudModule hud, boolean active, boolean editMode, float dt) {
       this.clock += dt;
       this.sandbar = hud.cooldownSandbar();
-      float rate = mc.field_1687 == null ? 20.0F : mc.field_1687.method_54719().method_54748();
+      float rate = mc.level == null ? 20.0F : mc.level.tickRateManager().tickrate();
       this.tickRate = rate > 0.0F ? rate : 20.0F;
-      class_746 player = mc.field_1724;
+      LocalPlayer player = mc.player;
       if (player != this.owner) {
          this.reset();
          this.owner = player;
@@ -137,13 +137,13 @@ final class CooldownTray {
       }
    }
 
-   private void collect(class_310 mc, class_746 player) {
-      class_1796 cooldowns = player.method_7357();
+   private void collect(Minecraft mc, LocalPlayer player) {
+      ItemCooldowns cooldowns = player.getCooldowns();
       AccessorHudItemCooldowns access = (AccessorHudItemCooldowns)cooldowns;
       int tick = access.champ$hudTickCount();
-      float partial = mc.method_61966().method_60637(true);
+      float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
 
-      for (Entry<class_2960, ?> entry : access.champ$hudCooldowns().entrySet()) {
+      for (Entry<Identifier, ?> entry : access.champ$hudCooldowns().entrySet()) {
          AccessorHudCooldownInstance span = (AccessorHudCooldownInstance)entry.getValue();
          int start = span.champ$hudStartTime();
          int end = span.champ$hudEndTime();
@@ -163,7 +163,7 @@ final class CooldownTray {
       }
    }
 
-   private CooldownTray.Slot find(class_2960 group) {
+   private CooldownTray.Slot find(Identifier group) {
       for (CooldownTray.Slot slot : this.slots) {
          if (slot.group.equals(group)) {
             return slot;
@@ -173,7 +173,7 @@ final class CooldownTray {
       return null;
    }
 
-   private CooldownTray.Slot open(class_2960 group) {
+   private CooldownTray.Slot open(Identifier group) {
       CooldownTray.Slot slot = this.pool.isEmpty() ? new CooldownTray.Slot() : this.pool.remove(this.pool.size() - 1);
       slot.group = group;
       slot.item = null;
@@ -185,18 +185,18 @@ final class CooldownTray {
       return slot;
    }
 
-   private static class_1792 resolve(class_746 player, class_2960 group) {
-      class_1661 inventory = player.method_31548();
-      class_1796 cooldowns = player.method_7357();
+   private static Item resolve(LocalPlayer player, Identifier group) {
+      Inventory inventory = player.getInventory();
+      ItemCooldowns cooldowns = player.getCooldowns();
 
-      for (int i = 0; i < inventory.method_5439(); i++) {
-         class_1799 stack = inventory.method_5438(i);
-         if (!stack.method_7960() && group.equals(cooldowns.method_62836(stack))) {
-            return stack.method_7909();
+      for (int i = 0; i < inventory.getContainerSize(); i++) {
+         ItemStack stack = inventory.getItem(i);
+         if (!stack.isEmpty() && group.equals(cooldowns.getCooldownGroup(stack))) {
+            return stack.getItem();
          }
       }
 
-      return class_7923.field_41178.method_10250(group) ? (class_1792)class_7923.field_41178.method_63535(group) : null;
+      return BuiltInRegistries.ITEM.containsKey(group) ? (Item)BuiltInRegistries.ITEM.getValue(group) : null;
    }
 
    float planWidth(float s) {
@@ -369,8 +369,8 @@ final class CooldownTray {
 
    @Environment(EnvType.CLIENT)
    private static final class Slot {
-      class_2960 group;
-      class_1792 item;
+      Identifier group;
+      Item item;
       float lookupAt;
       float remaining;
       float total;

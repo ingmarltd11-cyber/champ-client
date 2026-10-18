@@ -9,7 +9,7 @@ import net.champ.client.module.impl.render.NoRenderModule;
 import net.champ.client.module.impl.render.XrayModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_765;
+import net.minecraft.client.renderer.LightTexture;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -20,31 +20,31 @@ import org.spongepowered.asm.mixin.injection.At.Shift;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_765.class)
+@Mixin(LightTexture.class)
 public abstract class MixinLightTexture {
    @Shadow
    @Final
    private GpuTexture field_57927;
 
    @Inject(
-      method = "method_3313",
-      at = @At(value = "FIELD", target = "Lnet/minecraft/class_765;field_4135:Z", opcode = 181, shift = Shift.AFTER),
+      method = "updateLightTexture",
+      at = @At(value = "FIELD", target = "Lnet/minecraft/client/renderer/LightTexture;updateLightTexture:Z", opcode = 181, shift = Shift.AFTER),
       cancellable = true
    )
    private void champ$xrayFullbright(float partialTick, CallbackInfo ci) {
       if (XrayModule.active != null) {
-         RenderSystem.getDevice().createCommandEncoder().clearColorTexture(this.field_57927, -1);
+         RenderSystem.getDevice().createCommandEncoder().clearColorTexture(this.texture, -1);
          ci.cancel();
       }
    }
 
-   @ModifyExpressionValue(method = "method_3313", at = @At(value = "INVOKE", target = "Lnet/minecraft/class_746;method_66279(Lnet/minecraft/class_6880;F)F"))
+   @ModifyExpressionValue(method = "updateLightTexture", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;getEffectBlendFactor(Lnet/minecraft/core/Holder;F)F"))
    private float champ$hideDarknessPulse(float blendFactor) {
       return NoRenderModule.hideBlindnessDarkness() ? 0.0F : blendFactor;
    }
 
    @ModifyArg(
-      method = "method_3313",
+      method = "updateLightTexture",
       at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/buffers/Std140Builder;putFloat(F)Lcom/mojang/blaze3d/buffers/Std140Builder;", ordinal = 6),
       index = 0
    )

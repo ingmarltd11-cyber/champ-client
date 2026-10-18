@@ -3,26 +3,26 @@ package com.example.client.mixin;
 import net.champ.client.module.impl.render.NoRenderModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_11401;
-import net.minecraft.class_4184;
-import net.minecraft.class_638;
-import net.minecraft.class_7285;
-import net.minecraft.class_9779;
+import net.minecraft.client.renderer.fog.environment.LavaFogEnvironment;
+import net.minecraft.client.Camera;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.fog.FogData;
+import net.minecraft.client.DeltaTracker;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_11401.class)
+@Mixin(LavaFogEnvironment.class)
 public abstract class MixinNoRenderLavaFog {
-   @Inject(method = "method_42591", at = @At("TAIL"))
-   private void champ$clearLavaFog(class_7285 fog, class_4184 camera, class_638 level, float renderDistance, class_9779 deltaTracker, CallbackInfo ci) {
+   @Inject(method = "setupFog", at = @At("TAIL"))
+   private void champ$clearLavaFog(FogData fog, Camera camera, ClientLevel level, float renderDistance, DeltaTracker deltaTracker, CallbackInfo ci) {
       if (NoRenderModule.hideLavaFog()) {
-         fog.field_60582 = -8.0F;
-         fog.field_60584 = renderDistance;
-         fog.field_60099 = renderDistance;
-         fog.field_60100 = renderDistance;
+         fog.environmentalStart = -8.0F;
+         fog.environmentalEnd = renderDistance;
+         fog.skyEnd = renderDistance;
+         fog.cloudEnd = renderDistance;
       }
    }
 }

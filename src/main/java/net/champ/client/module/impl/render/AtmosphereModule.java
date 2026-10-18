@@ -10,17 +10,17 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12076;
-import net.minecraft.class_1937;
-import net.minecraft.class_1959;
-import net.minecraft.class_2338;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_4184;
-import net.minecraft.class_4587;
-import net.minecraft.class_638;
-import net.minecraft.class_7833;
-import net.minecraft.class_9848;
+import net.minecraft.client.renderer.state.SkyRenderState;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.core.BlockPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.client.Camera;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.multiplayer.ClientLevel;
+import com.mojang.math.Axis;
+import net.minecraft.util.ARGB;
 import org.joml.Vector3fc;
 import org.joml.Vector4f;
 
@@ -74,7 +74,7 @@ public final class AtmosphereModule extends ClientModule {
    private final AtmosphereStars starField = new AtmosphereStars();
    private final AtmosphereAurora auroraMesh = new AtmosphereAurora();
    private final AtmosphereShaderSky shaderSky = new AtmosphereShaderSky();
-   private final class_4587 world = new class_4587();
+   private final PoseStack world = new PoseStack();
    private float night;
    private float rainBrightness = 1.0F;
    private float auroraHere;
@@ -119,15 +119,15 @@ public final class AtmosphereModule extends ClientModule {
       this.auroraHere = 0.0F;
    }
 
-   public void extract(class_638 level, float partialTick, class_12076 state) {
+   public void extract(ClientLevel level, float partialTick, SkyRenderState state) {
       this.shaderRendered = false;
-      this.night = class_3532.method_15363(state.field_63094 * 2.0F, 0.0F, 1.0F);
-      float rain = 1.0F - state.field_63093;
-      float thunder = level.method_8478(partialTick);
+      this.night = Mth.clamp(state.starBrightness * 2.0F, 0.0F, 1.0F);
+      float rain = 1.0F - state.rainBrightness;
+      float thunder = level.getThunderLevel(partialTick);
       if (this.keepInRain.get()) {
-         this.night = Math.max(this.night, clearNight(state.field_63091) * rain);
-         state.field_63094 = Math.max(state.field_63094, this.night * 0.5F);
-         state.field_63093 = 1.0F;
+         this.night = Math.max(this.night, clearNight(state.sunAngle) * rain);
+         state.starBrightness = Math.max(state.starBrightness, this.night * 0.5F);
+         state.rainBrightness = 1.0F;
          rain = 0.0F;
          thunder = 0.0F;
       }
@@ -137,8 +137,8 @@ public final class AtmosphereModule extends ClientModule {
       int flashTicks = ((AccessorAtmosphereClientLevel)level).champ$atmosphereSkyFlash();
       this.sky
          .update(
-            state.field_63091,
-            state.field_64465,
+            state.sunAngle,
+            state.moonAngle,
             rain,
             thunder,
             flashTicks > 0 ? Math.min(1.0F, (flashTicks - partialTick) / 2.0F) : 0.0F,
@@ -153,7 +153,7 @@ public final class AtmosphereModule extends ClientModule {
    }
 
    private static float clearNight(float sunAngle) {
-      float dark = class_3532.method_15363(0.75F - 2.0F * class_3532.method_15362(sunAngle), 0.0F, 1.0F);
+      float dark = Mth.clamp(0.75F - 2.0F * Mth.cos(sunAngle), 0.0F, 1.0F);
       return dark * dark;
    }
 
@@ -210,14 +210,14 @@ public final class AtmosphereModule extends ClientModule {
    }
 
    private float shaderVisibility() {
-      return class_3532.method_16439(this.night, this.shaderDaytime.get(), 1.0F) * (0.4F + 0.6F * this.rainBrightness);
+      return Mth.lerp(this.night, this.shaderDaytime.get(), 1.0F) * (0.4F + 0.6F * this.rainBrightness);
    }
 
    public boolean replacesSunrise() {
       return this.gradientSky.get() && this.sky.ready();
    }
 
-   public boolean stars(class_4587 pose) {
+   public boolean stars(PoseStack pose) {
       if (this.shaderRendered) {
          return true;
       }
@@ -235,17 +235,17 @@ public final class AtmosphereModule extends ClientModule {
       return true;
    }
 
-   public void beforeMoon(class_4587 pose) {
+   public void beforeMoon(PoseStack pose) {
       this.moonScaled = this.celestialGlow.get();
       if (this.moonScaled) {
-         pose.method_22903();
-         pose.method_22905(1.4F, 1.0F, 1.4F);
+         pose.pushPose();
+         pose.scale(1.4F, 1.0F, 1.4F);
       }
    }
 
-   public void afterMoon(class_4587 pose) {
+   public void afterMoon(PoseStack pose) {
       if (this.moonScaled) {
-         pose.method_22909();
+         pose.popPose();
       }
 
       this.moonScaled = false;
@@ -283,19 +283,19 @@ public final class AtmosphereModule extends ClientModule {
          return 1.0F;
       }
 
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 == null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level == null) {
          return 0.0F;
       }
 
-      class_2338 at = class_2338.method_49638(mc.field_1773.method_19418().method_71156());
-      return ((class_1959)mc.field_1687.method_23753(at).comp_349()).method_33599(at, mc.field_1687.method_8615()) ? 1.0F : 0.0F;
+      BlockPos at = BlockPos.containing(mc.gameRenderer.getMainCamera().position());
+      return ((Biome)mc.level.getBiome(at).comp_349()).coldEnoughToSnow(at, mc.level.getSeaLevel()) ? 1.0F : 0.0F;
    }
 
-   public void fog(class_4184 camera, class_638 level, Vector4f color) {
-      if (level.method_27983() == class_1937.field_25179) {
+   public void fog(Camera camera, ClientLevel level, Vector4f color) {
+      if (level.dimension() == Level.OVERWORLD) {
          if (this.gradientSky.get() && this.sky.ready()) {
-            Vector3fc look = camera.method_19335();
+            Vector3fc look = camera.forwardVector();
             int rgb = this.sky.horizonToward(look.x(), look.z());
             color.x = (rgb >> 16 & 0xFF) / 255.0F;
             color.y = (rgb >> 8 & 0xFF) / 255.0F;
@@ -305,11 +305,11 @@ public final class AtmosphereModule extends ClientModule {
          if (this.shaderOn()) {
             this.shaderFog(color);
          }
-      } else if (level.method_27983() == class_1937.field_25180 && this.netherColors.get()) {
+      } else if (level.dimension() == Level.NETHER && this.netherColors.get()) {
          float luma = 0.2126F * color.x + 0.7152F * color.y + 0.0722F * color.z;
-         color.x = class_3532.method_15363((luma + (color.x - luma) * 1.45F) * 1.12F, 0.0F, 1.0F);
-         color.y = class_3532.method_15363((luma + (color.y - luma) * 1.45F) * 1.12F, 0.0F, 1.0F);
-         color.z = class_3532.method_15363((luma + (color.z - luma) * 1.45F) * 1.12F, 0.0F, 1.0F);
+         color.x = Mth.clamp((luma + (color.x - luma) * 1.45F) * 1.12F, 0.0F, 1.0F);
+         color.y = Mth.clamp((luma + (color.y - luma) * 1.45F) * 1.12F, 0.0F, 1.0F);
+         color.z = Mth.clamp((luma + (color.z - luma) * 1.45F) * 1.12F, 0.0F, 1.0F);
       }
    }
 
@@ -317,17 +317,17 @@ public final class AtmosphereModule extends ClientModule {
       int horizon = this.currentTheme().nightHorizon;
       float scale = this.shaderAurora() ? 0.85F : 0.3F;
       float amount = this.shaderVisibility() * 0.85F;
-      color.x = class_3532.method_16439(amount, color.x, (horizon >> 16 & 0xFF) / 255.0F * scale);
-      color.y = class_3532.method_16439(amount, color.y, (horizon >> 8 & 0xFF) / 255.0F * scale);
-      color.z = class_3532.method_16439(amount, color.z, (horizon & 0xFF) / 255.0F * scale);
+      color.x = Mth.lerp(amount, color.x, (horizon >> 16 & 0xFF) / 255.0F * scale);
+      color.y = Mth.lerp(amount, color.y, (horizon >> 8 & 0xFF) / 255.0F * scale);
+      color.z = Mth.lerp(amount, color.z, (horizon & 0xFF) / 255.0F * scale);
    }
 
    public int clouds(int argb) {
-      class_310 mc = class_310.method_1551();
-      if (this.cloudColors.get() && this.sky.ready() && mc.field_1687 != null && mc.field_1687.method_27983() == class_1937.field_25179) {
+      Minecraft mc = Minecraft.getInstance();
+      if (this.cloudColors.get() && this.sky.ready() && mc.level != null && mc.level.dimension() == Level.OVERWORLD) {
          float golden = this.sky.golden();
          float dark = this.sky.nightness();
-         int target = class_9848.method_61319(golden, class_9848.method_61319(dark, 16777215, this.currentTheme().nightHorizon), this.sky.twilightGlow());
+         int target = ARGB.srgbLerp(golden, ARGB.srgbLerp(dark, 16777215, this.currentTheme().nightHorizon), this.sky.twilightGlow());
          float amount = Math.max(golden * 0.75F, dark * 0.55F);
          return keepBrightness(argb, target, amount);
       } else {
@@ -342,8 +342,8 @@ public final class AtmosphereModule extends ClientModule {
 
       long now = System.nanoTime();
       this.sky.renderEndDome(this.world);
-      class_4587 turning = new class_4587();
-      turning.method_22907(class_7833.field_40716.rotationDegrees((float)(now % 1200000000000L) / 1.0E9F * 0.3F));
+      PoseStack turning = new PoseStack();
+      turning.mulPose(Axis.YP.rotationDegrees((float)(now % 1200000000000L) / 1.0E9F * 0.3F));
       this.starField.renderNebulae(turning, 1.0F);
       this.starField.renderStars(turning, 1.0F, 1.2F);
       return true;
@@ -374,9 +374,9 @@ public final class AtmosphereModule extends ClientModule {
       float tg = (target >> 8 & 0xFF) / 255.0F;
       float tb = (target & 0xFF) / 255.0F;
       float scale = luminance(r, g, b) / Math.max(luminance(tr, tg, tb), 0.001F);
-      r = class_3532.method_16439(amount, r, Math.min(1.0F, tr * scale));
-      g = class_3532.method_16439(amount, g, Math.min(1.0F, tg * scale));
-      b = class_3532.method_16439(amount, b, Math.min(1.0F, tb * scale));
+      r = Mth.lerp(amount, r, Math.min(1.0F, tr * scale));
+      g = Mth.lerp(amount, g, Math.min(1.0F, tg * scale));
+      b = Mth.lerp(amount, b, Math.min(1.0F, tb * scale));
       return argb & 0xFF000000 | channel(r) << 16 | channel(g) << 8 | channel(b);
    }
 
@@ -385,7 +385,7 @@ public final class AtmosphereModule extends ClientModule {
    }
 
    private static int channel(float value) {
-      return class_3532.method_15340(Math.round(value * 255.0F), 0, 255);
+      return Mth.clamp(Math.round(value * 255.0F), 0, 255);
    }
 
    @Environment(EnvType.CLIENT)

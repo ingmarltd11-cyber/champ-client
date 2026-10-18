@@ -24,16 +24,16 @@ import net.champ.client.util.BlockEntityLeakTracker;
 import net.champ.client.util.MobilePerformance;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12179;
-import net.minecraft.class_12180;
-import net.minecraft.class_2246;
-import net.minecraft.class_2248;
-import net.minecraft.class_2338;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_2626;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class BlockEntityDebugModule extends ClientModule {
@@ -50,14 +50,14 @@ public final class BlockEntityDebugModule extends ClientModule {
    private final BlockLayer layer = new BlockLayer(new BlockLayer.Palette() {
       @Override
       public int color(Object kind) {
-         return BlockEntityDebugModule.this.sBlockColors.colorArgb((class_2248)kind);
+         return BlockEntityDebugModule.this.sBlockColors.colorArgb((Block)kind);
       }
 
       @Override
       public int tracerColor(Object kind) {
-         return BlockEntityDebugModule.this.tracerColorOf((class_2248)kind);
+         return BlockEntityDebugModule.this.tracerColorOf((Block)kind);
       }
-   }, () -> class_310.method_1551().field_1687 == null ? null : class_310.method_1551().field_1687.method_27983());
+   }, () -> Minecraft.getInstance().level == null ? null : Minecraft.getInstance().level.dimension());
    private final LongOpenHashSet spawners = new LongOpenHashSet();
    private List<BlockEntityDebugModule.SpawnerBeam> mobileBeams;
    private HorizontalCandidates<BlockEntityDebugModule.SpawnerBeam> beamCandidates;
@@ -95,7 +95,7 @@ public final class BlockEntityDebugModule extends ClientModule {
       }
    }
 
-   private int tracerColorOf(class_2248 block) {
+   private int tracerColorOf(Block block) {
       int own = this.sBlockColors.isEnabled(block) ? this.sBlockColors.tracerColorArgb(block) : this.sBlockColors.colorArgb(block);
       if (own == 0) {
          return 0;
@@ -139,7 +139,7 @@ public final class BlockEntityDebugModule extends ClientModule {
          while (BlockEntityLeakTracker.pollAdded() != null) {
          }
 
-         for (Entry<class_2338, BlockEntityLeakTracker.Entry> entry : BlockEntityLeakTracker.view().entrySet()) {
+         for (Entry<BlockPos, BlockEntityLeakTracker.Entry> entry : BlockEntityLeakTracker.view().entrySet()) {
             this.accept(entry.getKey(), entry.getValue().block());
          }
       }
@@ -150,7 +150,7 @@ public final class BlockEntityDebugModule extends ClientModule {
       if (BlockEntityLeakTracker.generation() != this.seenGeneration) {
          this.resync();
       } else {
-         class_2338 pos;
+         BlockPos pos;
          while ((pos = BlockEntityLeakTracker.pollAdded()) != null) {
             BlockEntityLeakTracker.Entry entry = BlockEntityLeakTracker.view().get(pos);
             if (entry != null) {
@@ -160,32 +160,32 @@ public final class BlockEntityDebugModule extends ClientModule {
       }
    }
 
-   private void accept(class_2338 pos, class_2248 block) {
+   private void accept(BlockPos pos, Block block) {
       if (this.passesDetection(pos)) {
-         if (!this.sBlockFilter.get() || block == class_2246.field_10124 || this.sBlockColors.isEnabled(block)) {
-            this.layer.put(pos.method_10063(), block);
-            if (block == class_2246.field_10260 && this.spawners.add(pos.method_10063())) {
+         if (!this.sBlockFilter.get() || block == Blocks.AIR || this.sBlockColors.isEnabled(block)) {
+            this.layer.put(pos.asLong(), block);
+            if (block == Blocks.SPAWNER && this.spawners.add(pos.asLong())) {
                this.mobileBeams = null;
             }
          }
       }
    }
 
-   private boolean passesDetection(class_2338 pos) {
+   private boolean passesDetection(BlockPos pos) {
       return switch (this.sDetection.get()) {
-         case "Below Zero" -> pos.method_10264() < 0;
-         case "Below -20" -> pos.method_10264() < -20;
-         case "Below -30" -> pos.method_10264() < -30;
+         case "Below Zero" -> pos.getY() < 0;
+         case "Below -20" -> pos.getY() < -20;
+         case "Below -30" -> pos.getY() < -30;
          default -> true;
       };
    }
 
    @EventHandler
    public void onPacketReceiveNetty(PacketReceiveNettyEvent event) {
-      if (event.packet instanceof class_2626 packet) {
-         if (BlockEntityLeakTracker.contains(packet.method_11309())) {
-            class_2680 state = packet.method_11308();
-            if (state.method_26215() || state.method_27852(class_2246.field_10340) || state.method_27852(class_2246.field_28888)) {
+      if (event.packet instanceof ClientboundBlockUpdatePacket packet) {
+         if (BlockEntityLeakTracker.contains(packet.getPos())) {
+            BlockState state = packet.getBlockState();
+            if (state.isAir() || state.is(Blocks.STONE) || state.is(Blocks.DEEPSLATE)) {
                event.setCancelled(true);
             }
          }
@@ -200,12 +200,12 @@ public final class BlockEntityDebugModule extends ClientModule {
       }
 
       if (!this.spawners.isEmpty()) {
-         class_310 mc = class_310.method_1551();
-         if (mc.field_1724 != null) {
-            class_243 eye = mc.field_1724.method_5836(event.partialTick);
+         Minecraft mc = Minecraft.getInstance();
+         if (mc.player != null) {
+            Vec3 eye = mc.player.getEyePosition(event.partialTick);
             double rangeSq = (double)this.style.range.get() * this.style.range.get();
-            int color = this.sBlockColors.colorArgb(class_2246.field_10260);
-            class_12179 beam = class_12179.method_75536(color, this.style.lineWidth.get());
+            int color = this.sBlockColors.colorArgb(Blocks.SPAWNER);
+            GizmoStyle beam = GizmoStyle.stroke(color, this.style.lineWidth.get());
             if (MobilePerformance.active()) {
                this.renderMobileBeams(eye, rangeSq, beam);
             } else {
@@ -216,20 +216,20 @@ public final class BlockEntityDebugModule extends ClientModule {
 
                while (var8.hasNext()) {
                   long packed = (Long)var8.next();
-                  class_2338 pos = class_2338.method_10092(packed);
-                  if (!(eye.method_1028(pos.method_10263() + 0.5, pos.method_10264() + 1.0, pos.method_10260() + 0.5) > rangeSq)) {
-                     class_12180.method_75541(
-                           new class_238(
-                              pos.method_10263() + 0.3,
-                              pos.method_10264() + 1.0,
-                              pos.method_10260() + 0.3,
-                              pos.method_10263() + 0.7,
-                              pos.method_10264() + 257.0,
-                              pos.method_10260() + 0.7
+                  BlockPos pos = BlockPos.of(packed);
+                  if (!(eye.distanceToSqr(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5) > rangeSq)) {
+                     Gizmos.cuboid(
+                           new AABB(
+                              pos.getX() + 0.3,
+                              pos.getY() + 1.0,
+                              pos.getZ() + 0.3,
+                              pos.getX() + 0.7,
+                              pos.getY() + 257.0,
+                              pos.getZ() + 0.7
                            ),
                            beam
                         )
-                        .method_75533();
+                        .setAlwaysOnTop();
                   }
                }
             }
@@ -237,7 +237,7 @@ public final class BlockEntityDebugModule extends ClientModule {
       }
    }
 
-   private void renderMobileBeams(class_243 eye, double rangeSq, class_12179 style) {
+   private void renderMobileBeams(Vec3 eye, double rangeSq, GizmoStyle style) {
       if (this.mobileBeams == null) {
          this.mobileBeams = new ArrayList<>(this.spawners.size());
          LongIterator var5 = this.spawners.iterator();
@@ -250,7 +250,7 @@ public final class BlockEntityDebugModule extends ClientModule {
 
       if (this.beamCandidates == null) {
          this.beamCandidates = new HorizontalCandidates<>(
-            beamx -> class_2338.method_10061(beamx.position()) + 0.5, beamx -> class_2338.method_10083(beamx.position()) + 0.5
+            beamx -> BlockPos.getX(beamx.position()) + 0.5, beamx -> BlockPos.getZ(beamx.position()) + 0.5
          );
       }
 
@@ -260,19 +260,19 @@ public final class BlockEntityDebugModule extends ClientModule {
 
       this.beamBoxes.beginFrame(1.0F);
 
-      for (BlockEntityDebugModule.SpawnerBeam beam : this.beamCandidates.select(this.mobileBeams, eye.field_1352, eye.field_1350, Math.sqrt(rangeSq))) {
+      for (BlockEntityDebugModule.SpawnerBeam beam : this.beamCandidates.select(this.mobileBeams, eye.x, eye.z, Math.sqrt(rangeSq))) {
          long packed = beam.position();
-         if (!(eye.method_1028(class_2338.method_10061(packed) + 0.5, class_2338.method_10071(packed) + 1.0, class_2338.method_10083(packed) + 0.5) > rangeSq)) {
-            class_12180.method_75541(this.beamBoxes.box(packed), style).method_75533();
+         if (!(eye.distanceToSqr(BlockPos.getX(packed) + 0.5, BlockPos.getY(packed) + 1.0, BlockPos.getZ(packed) + 0.5) > rangeSq)) {
+            Gizmos.cuboid(this.beamBoxes.box(packed), style).setAlwaysOnTop();
          }
       }
    }
 
-   private static class_238 beamBounds(long packed) {
-      int x = class_2338.method_10061(packed);
-      int y = class_2338.method_10071(packed);
-      int z = class_2338.method_10083(packed);
-      return new class_238(x + 0.3, y + 1.0, z + 0.3, x + 0.7, y + 257.0, z + 0.7);
+   private static AABB beamBounds(long packed) {
+      int x = BlockPos.getX(packed);
+      int y = BlockPos.getY(packed);
+      int z = BlockPos.getZ(packed);
+      return new AABB(x + 0.3, y + 1.0, z + 0.3, x + 0.7, y + 257.0, z + 0.7);
    }
 
    @Environment(EnvType.CLIENT)

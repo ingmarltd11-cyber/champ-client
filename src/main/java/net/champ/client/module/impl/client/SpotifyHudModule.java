@@ -28,7 +28,7 @@ import net.champ.client.util.spotify.NowPlaying;
 import net.champ.client.util.spotify.SpotifyWindow;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -261,8 +261,8 @@ public final class SpotifyHudModule extends ClientModule {
    }
 
    private void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      boolean accept = this.mediaKeys.get() && mc.field_1755 == null && mc.method_1569() && mc.field_1724 != null;
+      Minecraft mc = Minecraft.getInstance();
+      boolean accept = this.mediaKeys.get() && mc.screen == null && mc.isWindowActive() && mc.player != null;
 
       for (int i = 0; i < this.keys.length; i++) {
          boolean down = isDown(mc, this.keys[i].value());
@@ -291,11 +291,11 @@ public final class SpotifyHudModule extends ClientModule {
       }
    }
 
-   private static boolean isDown(class_310 mc, int key) {
+   private static boolean isDown(Minecraft mc, int key) {
       if (!ModuleKeybinds.isBindable(key)) {
          return false;
       } else {
-         return key >= 1000 ? GLFW.glfwGetMouseButton(mc.method_22683().method_4490(), key - 1000) == 1 : ChampKeyPolling.isKeyDown(mc.method_22683(), key);
+         return key >= 1000 ? GLFW.glfwGetMouseButton(mc.getWindow().handle(), key - 1000) == 1 : ChampKeyPolling.isKeyDown(mc.getWindow(), key);
       }
    }
 

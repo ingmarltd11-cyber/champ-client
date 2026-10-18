@@ -7,20 +7,20 @@ import java.util.Map;
 import java.util.function.LongPredicate;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2248;
-import net.minecraft.class_2680;
-import net.minecraft.class_2841;
-import net.minecraft.class_6563;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.PalettedContainer;
+import net.minecraft.world.level.chunk.Strategy;
 
 @Environment(EnvType.CLIENT)
 public final class ChunkSnapshotStore {
    public static final int MIN_SECTION_INDEX = 6;
    public static final int MAX_SECTION_INDEX = 23;
-   private static final class_6563<class_2680> STRATEGY = class_6563.method_74162(class_2248.field_10651);
-   private final Map<Long, class_2841<class_2680>[]> snapshots = new HashMap<>();
-   private final class_2680 air;
+   private static final Strategy<BlockState> STRATEGY = Strategy.createForBlockStates(Block.BLOCK_STATE_REGISTRY);
+   private final Map<Long, PalettedContainer<BlockState>[]> snapshots = new HashMap<>();
+   private final BlockState air;
 
-   public ChunkSnapshotStore(class_2680 air) {
+   public ChunkSnapshotStore(BlockState air) {
       this.air = air;
    }
 
@@ -28,7 +28,7 @@ public final class ChunkSnapshotStore {
       return (long)chunkX << 32 | chunkZ & 4294967295L;
    }
 
-   public void store(int chunkX, int chunkZ, class_2841<class_2680>[] sections) {
+   public void store(int chunkX, int chunkZ, PalettedContainer<BlockState>[] sections) {
       this.snapshots.put(chunkKey(chunkX, chunkZ), sections);
    }
 
@@ -40,43 +40,43 @@ public final class ChunkSnapshotStore {
       this.snapshots.clear();
    }
 
-   public void update(int chunkX, int chunkZ, int sectionIndex, int localX, int localY, int localZ, class_2680 state) {
+   public void update(int chunkX, int chunkZ, int sectionIndex, int localX, int localY, int localZ, BlockState state) {
       if (sectionIndex >= 6 && sectionIndex <= 23) {
-         class_2841<class_2680>[] sections = this.snapshots.get(chunkKey(chunkX, chunkZ));
+         PalettedContainer<BlockState>[] sections = this.snapshots.get(chunkKey(chunkX, chunkZ));
          if (sections != null && sectionIndex < sections.length) {
-            class_2841<class_2680> section = sections[sectionIndex];
+            PalettedContainer<BlockState> section = sections[sectionIndex];
             if (section == null) {
                if (state == this.air) {
                   return;
                }
 
-               section = new class_2841(this.air, STRATEGY);
+               section = new PalettedContainer(this.air, STRATEGY);
                sections[sectionIndex] = section;
             }
 
-            section.method_35321(localX, localY, localZ, state);
+            section.set(localX, localY, localZ, state);
          }
       }
    }
 
-   public List<ChunkSnapshotStore.BlockChange> compare(int chunkX, int chunkZ, class_2841<class_2680>[] current, int minSectionY) {
+   public List<ChunkSnapshotStore.BlockChange> compare(int chunkX, int chunkZ, PalettedContainer<BlockState>[] current, int minSectionY) {
       List<ChunkSnapshotStore.BlockChange> changes = new ArrayList<>();
-      class_2841<class_2680>[] old = this.snapshots.get(chunkKey(chunkX, chunkZ));
+      PalettedContainer<BlockState>[] old = this.snapshots.get(chunkKey(chunkX, chunkZ));
       if (this.isAllAir(old)) {
          return changes;
       }
 
       for (int index = 6; index <= 23; index++) {
-         class_2841<class_2680> before = index < old.length ? old[index] : null;
-         class_2841<class_2680> after = index < current.length ? current[index] : null;
+         PalettedContainer<BlockState> before = index < old.length ? old[index] : null;
+         PalettedContainer<BlockState> after = index < current.length ? current[index] : null;
          if (before != null || after != null) {
             int baseY = (index + minSectionY) * 16;
 
             for (int y = 0; y < 16; y++) {
                for (int z = 0; z < 16; z++) {
                   for (int x = 0; x < 16; x++) {
-                     class_2680 oldState = before != null ? (class_2680)before.method_12321(x, y, z) : this.air;
-                     class_2680 newState = after != null ? (class_2680)after.method_12321(x, y, z) : this.air;
+                     BlockState oldState = before != null ? (BlockState)before.get(x, y, z) : this.air;
+                     BlockState newState = after != null ? (BlockState)after.get(x, y, z) : this.air;
                      if (oldState != newState) {
                         changes.add(new ChunkSnapshotStore.BlockChange(chunkX * 16 + x, baseY + y, chunkZ * 16 + z, newState, oldState));
                      }
@@ -89,7 +89,7 @@ public final class ChunkSnapshotStore {
       return changes;
    }
 
-   private boolean isAllAir(class_2841<class_2680>[] sections) {
+   private boolean isAllAir(PalettedContainer<BlockState>[] sections) {
       if (sections == null) {
          return true;
       }
@@ -104,6 +104,6 @@ public final class ChunkSnapshotStore {
    }
 
    @Environment(EnvType.CLIENT)
-   public record BlockChange(int worldX, int worldY, int worldZ, class_2680 newState, class_2680 oldState) {
+   public record BlockChange(int worldX, int worldY, int worldZ, BlockState newState, BlockState oldState) {
    }
 }

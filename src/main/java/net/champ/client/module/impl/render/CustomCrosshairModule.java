@@ -15,21 +15,21 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_11631;
-import net.minecraft.class_12392;
-import net.minecraft.class_1309;
-import net.minecraft.class_1934;
-import net.minecraft.class_2338;
-import net.minecraft.class_239;
-import net.minecraft.class_310;
-import net.minecraft.class_3908;
-import net.minecraft.class_3965;
-import net.minecraft.class_3966;
-import net.minecraft.class_4061;
-import net.minecraft.class_408;
-import net.minecraft.class_746;
-import net.minecraft.class_9334;
-import net.minecraft.class_239.class_240;
+import net.minecraft.client.gui.components.debug.DebugScreenEntries;
+import net.minecraft.world.item.component.AttackRange;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.GameType;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.client.AttackIndicatorStatus;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.phys.HitResult.Type;
 
 @Environment(EnvType.CLIENT)
 public final class CustomCrosshairModule extends ClientModule implements HudOverlayProvider {
@@ -97,8 +97,8 @@ public final class CustomCrosshairModule extends ClientModule implements HudOver
 
    @Override
    public void renderHudOverlay(ImDrawList dl, float screenW, float screenH) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       if (player != null && isVisible(mc)) {
          float dt = Math.min(Math.max(ImGui.getIO().getDeltaTime(), 0.0F), 0.1F);
          float scale = ImGuiManager.getInstance().uiScale();
@@ -116,38 +116,38 @@ public final class CustomCrosshairModule extends ClientModule implements HudOver
       }
    }
 
-   private static boolean isVisible(class_310 mc) {
-      if (mc.field_1687 == null || mc.field_1761 == null || mc.field_1690.field_1842) {
+   private static boolean isVisible(Minecraft mc) {
+      if (mc.level == null || mc.gameMode == null || mc.options.hideGui) {
          return false;
-      } else if (mc.field_1755 != null && !(mc.field_1755 instanceof class_408)) {
+      } else if (mc.screen != null && !(mc.screen instanceof ChatScreen)) {
          return false;
-      } else if (!mc.field_1690.method_31044().method_31034()) {
+      } else if (!mc.options.getCameraType().isFirstPerson()) {
          return false;
       } else {
-         return mc.field_61504.method_72772(class_11631.field_61583) ? false : mc.field_1761.method_2920() != class_1934.field_9219 || spectatorCanInteract(mc);
+         return mc.debugEntries.isCurrentlyEnabled(DebugScreenEntries.THREE_DIMENSIONAL_CROSSHAIR) ? false : mc.gameMode.getPlayerMode() != GameType.SPECTATOR || spectatorCanInteract(mc);
       }
    }
 
-   private static boolean spectatorCanInteract(class_310 mc) {
-      class_239 hit = mc.field_1765;
-      if (hit instanceof class_3966 entityHit) {
-         return entityHit.method_17782() instanceof class_3908;
-      } else if (hit instanceof class_3965 blockHit && hit.method_17783() == class_240.field_1332) {
-         class_2338 pos = blockHit.method_17777();
-         return mc.field_1687.method_8320(pos).method_26196(mc.field_1687, pos) != null;
+   private static boolean spectatorCanInteract(Minecraft mc) {
+      HitResult hit = mc.hitResult;
+      if (hit instanceof EntityHitResult entityHit) {
+         return entityHit.getEntity() instanceof MenuProvider;
+      } else if (hit instanceof BlockHitResult blockHit && hit.getType() == Type.BLOCK) {
+         BlockPos pos = blockHit.getBlockPos();
+         return mc.level.getBlockState(pos).getMenuProvider(mc.level, pos) != null;
       } else {
          return false;
       }
    }
 
-   private void updateMotion(class_310 mc, class_746 player, float dt) {
-      boolean onTarget = this.targetTint.get() && mc.field_1692 instanceof class_1309 living && living.method_5805();
+   private void updateMotion(Minecraft mc, LocalPlayer player, float dt) {
+      boolean onTarget = this.targetTint.get() && mc.crosshairPickEntity instanceof LivingEntity living && living.isAlive();
       this.tint = approach(this.tint, onTarget ? 1.0F : 0.0F, 14.0F, dt);
       float wanted = 0.0F;
       if (this.dynamicGap.get()) {
-         double moved = Math.hypot(player.method_23317() - player.field_6014, player.method_23321() - player.field_5969);
+         double moved = Math.hypot(player.getX() - player.xo, player.getZ() - player.zo);
          float moving = (float)Math.min(1.0, moved / 0.28);
-         float swing = 1.0F - player.method_7261(0.0F);
+         float swing = 1.0F - player.getAttackStrengthScale(0.0F);
          wanted = this.spread.get() * Math.max(moving, swing);
       }
 
@@ -253,9 +253,9 @@ public final class CustomCrosshairModule extends ClientModule implements HudOver
       dl.addRectFilled(x0 - grow, y0 - grow, x1 + grow, y1 + grow, color);
    }
 
-   private void drawCooldown(ImDrawList dl, class_310 mc, class_746 player, CustomCrosshairModule.Geometry g, int fill, float edge, float scale, float dt) {
-      boolean wanted = mc.field_1690.method_42565().method_41753() == class_4061.field_18152;
-      float charge = player.method_7261(0.0F);
+   private void drawCooldown(ImDrawList dl, Minecraft mc, LocalPlayer player, CustomCrosshairModule.Geometry g, int fill, float edge, float scale, float dt) {
+      boolean wanted = mc.options.attackIndicator().get() == AttackIndicatorStatus.CROSSHAIR;
+      float charge = player.getAttackStrengthScale(0.0F);
       boolean ready = wanted && readyOnTarget(mc, player, charge);
       this.barFill = ready ? 1.0F : Math.min(1.0F, charge);
       this.barAlpha = approach(this.barAlpha, !wanted || !ready && !(charge < 1.0F) ? 0.0F : 1.0F, 18.0F, dt);
@@ -277,17 +277,17 @@ public final class CustomCrosshairModule extends ClientModule implements HudOver
       }
    }
 
-   private static boolean readyOnTarget(class_310 mc, class_746 player, float charge) {
-      if (charge < 1.0F || !(mc.field_1692 instanceof class_1309 target && target.method_5805())) {
+   private static boolean readyOnTarget(Minecraft mc, LocalPlayer player, float charge) {
+      if (charge < 1.0F || !(mc.crosshairPickEntity instanceof LivingEntity target && target.isAlive())) {
          return false;
       }
 
-      if (player.method_7279() <= 5.0F) {
+      if (player.getCurrentItemAttackStrengthDelay() <= 5.0F) {
          return false;
       }
 
-      class_12392 range = (class_12392)player.method_76694().method_58694(class_9334.field_64680);
-      return range == null || mc.field_1765 == null || range.method_76736(player, mc.field_1765.method_17784());
+      AttackRange range = (AttackRange)player.getActiveItem().get(DataComponents.ATTACK_RANGE);
+      return range == null || mc.hitResult == null || range.isInRange(player, mc.hitResult.getLocation());
    }
 
    @Environment(EnvType.CLIENT)

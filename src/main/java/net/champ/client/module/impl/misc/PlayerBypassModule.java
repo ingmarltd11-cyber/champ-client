@@ -22,17 +22,17 @@ import net.champ.client.util.playerbypass.PlayerBypassLightTracker;
 import net.champ.client.util.playerbypass.VisibleChunkCache;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12179;
-import net.minecraft.class_12180;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_1923;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_2561;
-import net.minecraft.class_310;
-import net.minecraft.class_634;
-import net.minecraft.class_9848;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.chat.Component;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.util.ARGB;
 
 @Environment(EnvType.CLIENT)
 public final class PlayerBypassModule extends ClientModule {
@@ -78,36 +78,36 @@ public final class PlayerBypassModule extends ClientModule {
    }
 
    private void onChunkSpotted(int chunkX, int chunkZ) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       int x = (chunkX << 4) + 8;
       int z = (chunkZ << 4) + 8;
       boolean showPos = this.showCoordinates.get();
       if (this.notificationsOn()) {
          ChallengeToast.addOrUpdate(
-            new class_1799(class_1802.field_8575),
+            new ItemStack(Items.PLAYER_HEAD),
             "Player Chunk Detected",
-            showPos ? class_2561.method_43470("at " + x + ", " + z) : class_2561.method_43473(),
+            showPos ? Component.literal("at " + x + ", " + z) : Component.empty(),
             this.sound.get()
          );
       }
 
       if (this.disconnect.get()) {
-         class_634 connection = mc.method_1562();
+         ClientPacketListener connection = mc.getConnection();
          if (connection != null) {
             ModuleChat.send(this, ModuleChat.body().text("Auto Disconnect ").warn("triggered"));
-            connection.method_48296().method_10747(class_2561.method_43470("[Player Bypass] Base detected" + (showPos ? " at " + x + ", " + z : "")));
+            connection.getConnection().disconnect(Component.literal("[Player Bypass] Base detected" + (showPos ? " at " + x + ", " + z : "")));
          }
       }
    }
 
    @EventHandler
    public void onRender3D(Render3DEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 != null && mc.field_1724 != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level != null && mc.player != null) {
          Long2ObjectMap<ChunkLightSnapshot> snapshots = PlayerBypassLightTracker.snapshots();
          if (!snapshots.isEmpty()) {
-            int centerX = mc.field_1724.method_24515().method_10263() >> 4;
-            int centerZ = mc.field_1724.method_24515().method_10260() >> 4;
+            int centerX = mc.player.blockPosition().getX() >> 4;
+            int centerZ = mc.player.blockPosition().getZ() >> 4;
             LongOpenHashSet bases;
             LongOpenHashSet suspects;
             boolean changed;
@@ -133,8 +133,8 @@ public final class PlayerBypassModule extends ClientModule {
                while (base.hasNext()) {
                   Entry<ChunkLightSnapshot> entry = (Entry<ChunkLightSnapshot>)base.next();
                   long key = entry.getLongKey();
-                  if (Math.abs(class_1923.method_8325(key) - centerX) <= 16
-                     && Math.abs(class_1923.method_8332(key) - centerZ) <= 16
+                  if (Math.abs(ChunkPos.getX(key) - centerX) <= 16
+                     && Math.abs(ChunkPos.getZ(key) - centerZ) <= 16
                      && PlayerBypassLightTracker.isFlagged(key, (ChunkLightSnapshot)entry.getValue())) {
                      (PlayerBypassLightTracker.isSuspect(key) ? suspects : bases).add(key);
                   }
@@ -153,8 +153,8 @@ public final class PlayerBypassModule extends ClientModule {
                FoglessLines lines = FoglessLines.forFrame(event.partialTick);
                this.drawZones(lines, base, suspect);
                if (this.tracers.get()) {
-                  this.chunkAreas.drawTracers(bases, 64.0, class_9848.method_61334(base));
-                  this.suspectAreas.drawTracers(suspects, 64.0, class_9848.method_61334(suspect));
+                  this.chunkAreas.drawTracers(bases, 64.0, ARGB.opaque(base));
+                  this.suspectAreas.drawTracers(suspects, 64.0, ARGB.opaque(suspect));
                }
             }
          }
@@ -167,13 +167,13 @@ public final class PlayerBypassModule extends ClientModule {
 
       while (var2.hasNext()) {
          long key = (Long)var2.next();
-         int cx = class_1923.method_8325(key);
-         int cz = class_1923.method_8332(key);
+         int cx = ChunkPos.getX(key);
+         int cz = ChunkPos.getZ(key);
 
          for (int dx = -5; dx <= 5; dx++) {
             for (int dz = -5; dz <= 5; dz++) {
                float weight = falloff(Math.max(Math.abs(dx), Math.abs(dz)));
-               long area = class_1923.method_8331(cx + dx, cz + dz);
+               long area = ChunkPos.asLong(cx + dx, cz + dz);
                if (weight > into.get(area)) {
                   into.put(area, weight);
                }
@@ -203,36 +203,36 @@ public final class PlayerBypassModule extends ClientModule {
          float b = this.baseWeight.get(key);
          float s = this.suspectWeight.get(key);
          float mix = b * b / (b * b + s * s);
-         int color = class_9848.method_61319(mix, suspect, base);
+         int color = ARGB.srgbLerp(mix, suspect, base);
          float strength = 0.25F + 0.75F * Math.max(b, s);
-         int fill = class_9848.method_61330(Math.round(maxAlpha * 0.45F * strength * class_9848.method_65100(color)), color);
-         int cx = class_1923.method_8325(key);
-         int cz = class_1923.method_8332(key);
+         int fill = ARGB.color(Math.round(maxAlpha * 0.45F * strength * ARGB.alphaFloat(color)), color);
+         int cx = ChunkPos.getX(key);
+         int cz = ChunkPos.getZ(key);
          double x0 = cx << 4;
          double z0 = cz << 4;
          double x1 = x0 + 16.0;
          double z1 = z0 + 16.0;
-         class_12180.method_75541(new class_238(x0, 64.0, z0, x1, 64.0, z1), class_12179.method_75539(fill)).method_75533();
-         int edge = class_9848.method_61330(Math.round(maxAlpha * class_9848.method_65100(color)), class_9848.method_61321(color, 0.8F));
-         if (!this.zone.contains(class_1923.method_8331(cx, cz - 1))) {
+         Gizmos.cuboid(new AABB(x0, 64.0, z0, x1, 64.0, z1), GizmoStyle.fill(fill)).setAlwaysOnTop();
+         int edge = ARGB.color(Math.round(maxAlpha * ARGB.alphaFloat(color)), ARGB.scaleRGB(color, 0.8F));
+         if (!this.zone.contains(ChunkPos.asLong(cx, cz - 1))) {
             edge(lines, x0, z0, x1, z0, edge);
          }
 
-         if (!this.zone.contains(class_1923.method_8331(cx, cz + 1))) {
+         if (!this.zone.contains(ChunkPos.asLong(cx, cz + 1))) {
             edge(lines, x0, z1, x1, z1, edge);
          }
 
-         if (!this.zone.contains(class_1923.method_8331(cx - 1, cz))) {
+         if (!this.zone.contains(ChunkPos.asLong(cx - 1, cz))) {
             edge(lines, x0, z0, x0, z1, edge);
          }
 
-         if (!this.zone.contains(class_1923.method_8331(cx + 1, cz))) {
+         if (!this.zone.contains(ChunkPos.asLong(cx + 1, cz))) {
             edge(lines, x1, z0, x1, z1, edge);
          }
       }
    }
 
    private static void edge(FoglessLines lines, double ax, double az, double bx, double bz, int color) {
-      lines.line(new class_243(ax, 64.0, az), new class_243(bx, 64.0, bz), color, 1.5F);
+      lines.line(new Vec3(ax, 64.0, az), new Vec3(bx, 64.0, bz), color, 1.5F);
    }
 }

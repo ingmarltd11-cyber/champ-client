@@ -4,19 +4,19 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import net.champ.client.module.impl.misc.NameProtectModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2561;
-import net.minecraft.class_897;
+import net.minecraft.network.chat.Component;
+import net.minecraft.client.renderer.entity.EntityRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_897.class)
+@Mixin(EntityRenderer.class)
 public abstract class MixinNameProtectEntityRenderer {
    @ModifyExpressionValue(
-      method = "method_62354",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/class_897;method_62426(Lnet/minecraft/class_1297;)Lnet/minecraft/class_2561;")
+      method = "extractRenderState",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/EntityRenderer;getNameTag(Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/network/chat/Component;")
    )
-   private class_2561 champ$nameProtectNameTag(class_2561 original) {
+   private Component champ$nameProtectNameTag(Component original) {
       return NameProtectModule.protect(original);
    }
 }

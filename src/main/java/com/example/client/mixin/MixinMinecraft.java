@@ -8,17 +8,17 @@ import net.champ.client.util.PerformanceBudget;
 import net.champ.client.util.pvp.ServerRotation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_239.class_240;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.HitResult.Type;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_310.class)
+@Mixin(Minecraft.class)
 public abstract class MixinMinecraft {
-   @Inject(method = "method_1574", at = @At("HEAD"))
+   @Inject(method = "tick", at = @At("HEAD"))
    private void champ$onTickStart(CallbackInfo ci) {
       PerformanceBudget.beginTick();
       EventBus.INSTANCE.drainAsync();
@@ -26,16 +26,16 @@ public abstract class MixinMinecraft {
       TickEvent.dispatch();
    }
 
-   @Inject(method = "method_1574", at = @At("RETURN"))
+   @Inject(method = "tick", at = @At("RETURN"))
    private void champ$onTickEnd(CallbackInfo ci) {
       TickEvent.dispatchPost();
    }
 
    @ModifyExpressionValue(
-      method = "method_1583",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/class_239;method_17783()Lnet/minecraft/class_239$class_240;")
+      method = "startUseItem",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/world/phys/HitResult;getType()Lnet/minecraft/world/phys/HitResult$Type;")
    )
-   private class_240 champ$autoEatIgnoreCrosshair(class_240 type) {
-      return AutoEatModule.isEating() ? class_240.field_1333 : type;
+   private Type champ$autoEatIgnoreCrosshair(Type type) {
+      return AutoEatModule.isEating() ? Type.MISS : type;
    }
 }

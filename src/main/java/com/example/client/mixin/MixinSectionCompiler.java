@@ -5,71 +5,71 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.champ.client.module.impl.render.XrayModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_11515;
-import net.minecraft.class_2246;
-import net.minecraft.class_2338;
-import net.minecraft.class_2680;
-import net.minecraft.class_3610;
-import net.minecraft.class_4076;
-import net.minecraft.class_750;
-import net.minecraft.class_8251;
-import net.minecraft.class_853;
-import net.minecraft.class_9810;
-import net.minecraft.class_9810.class_9811;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.core.SectionPos;
+import net.minecraft.client.renderer.SectionBufferBuilderPack;
+import com.mojang.blaze3d.vertex.VertexSorting;
+import net.minecraft.client.renderer.chunk.RenderSectionRegion;
+import net.minecraft.client.renderer.chunk.SectionCompiler;
+import net.minecraft.client.renderer.chunk.SectionCompiler.Results;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_9810.class)
+@Mixin(SectionCompiler.class)
 public abstract class MixinSectionCompiler {
    @WrapOperation(
-      method = "method_60904",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/class_853;method_8320(Lnet/minecraft/class_2338;)Lnet/minecraft/class_2680;")
+      method = "compile",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/chunk/RenderSectionRegion;getBlockState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;")
    )
-   private class_2680 champ$xrayBlockState(class_853 region, class_2338 pos, Operation<class_2680> original) {
-      class_2680 state = (class_2680)original.call(new Object[]{region, pos});
+   private BlockState champ$xrayBlockState(RenderSectionRegion region, BlockPos pos, Operation<BlockState> original) {
+      BlockState state = (BlockState)original.call(new Object[]{region, pos});
       XrayModule.Snapshot snapshot = XrayModule.active;
-      if (snapshot != null && !state.method_26215()) {
+      if (snapshot != null && !state.isAir()) {
          float[] alphaSlot = XrayModule.CURRENT_ALPHA.get();
          float alpha = snapshot.alphaFor(region, state, pos);
          alphaSlot[0] = alpha;
-         return alpha <= 0.0F ? class_2246.field_10124.method_9564() : state;
+         return alpha <= 0.0F ? Blocks.AIR.defaultBlockState() : state;
       } else {
          return state;
       }
    }
 
    @WrapOperation(
-      method = "method_60904",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/class_4696;method_23679(Lnet/minecraft/class_2680;)Lnet/minecraft/class_11515;")
+      method = "compile",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ItemBlockRenderTypes;getChunkRenderType(Lnet/minecraft/world/level/block/state/BlockState;)Lnet/minecraft/client/renderer/chunk/ChunkSectionLayer;")
    )
-   private class_11515 champ$xrayBlockLayer(class_2680 state, Operation<class_11515> original) {
+   private ChunkSectionLayer champ$xrayBlockLayer(BlockState state, Operation<ChunkSectionLayer> original) {
       if (XrayModule.active == null) {
-         return (class_11515)original.call(new Object[]{state});
+         return (ChunkSectionLayer)original.call(new Object[]{state});
       }
 
       float alpha = XrayModule.CURRENT_ALPHA.get()[0];
-      return alpha > 0.0F && alpha < 1.0F ? class_11515.field_60926 : (class_11515)original.call(new Object[]{state});
+      return alpha > 0.0F && alpha < 1.0F ? ChunkSectionLayer.TRANSLUCENT : (ChunkSectionLayer)original.call(new Object[]{state});
    }
 
    @WrapOperation(
-      method = "method_60904",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/class_4696;method_23680(Lnet/minecraft/class_3610;)Lnet/minecraft/class_11515;")
+      method = "compile",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ItemBlockRenderTypes;getRenderLayer(Lnet/minecraft/world/level/material/FluidState;)Lnet/minecraft/client/renderer/chunk/ChunkSectionLayer;")
    )
-   private class_11515 champ$xrayFluidLayer(class_3610 fluidState, Operation<class_11515> original) {
+   private ChunkSectionLayer champ$xrayFluidLayer(FluidState fluidState, Operation<ChunkSectionLayer> original) {
       if (XrayModule.active == null) {
-         return (class_11515)original.call(new Object[]{fluidState});
+         return (ChunkSectionLayer)original.call(new Object[]{fluidState});
       }
 
       float alpha = XrayModule.CURRENT_ALPHA.get()[0];
-      return alpha > 0.0F && alpha < 1.0F ? class_11515.field_60926 : (class_11515)original.call(new Object[]{fluidState});
+      return alpha > 0.0F && alpha < 1.0F ? ChunkSectionLayer.TRANSLUCENT : (ChunkSectionLayer)original.call(new Object[]{fluidState});
    }
 
-   @Inject(method = "method_60904", at = @At("RETURN"))
+   @Inject(method = "compile", at = @At("RETURN"))
    private void champ$xrayResetAlpha(
-      class_4076 sectionPos, class_853 region, class_8251 vertexSorting, class_750 bufferPack, CallbackInfoReturnable<class_9811> cir
+      SectionPos sectionPos, RenderSectionRegion region, VertexSorting vertexSorting, SectionBufferBuilderPack bufferPack, CallbackInfoReturnable<Results> cir
    ) {
       XrayModule.CURRENT_ALPHA.get()[0] = 1.0F;
    }

@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.util.tinyfd.TinyFileDialogs;
@@ -105,7 +105,7 @@ final class FileDialogs {
                   lastFolder = path.getParent();
                }
 
-               class_310.method_1551().execute(() -> picked.accept(path));
+               Minecraft.getInstance().execute(() -> picked.accept(path));
             }
          }, "Champ Client file dialog");
          thread.setDaemon(true);

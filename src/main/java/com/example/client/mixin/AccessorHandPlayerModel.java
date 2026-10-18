@@ -2,13 +2,13 @@ package com.example.client.mixin;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_591;
+import net.minecraft.client.model.player.PlayerModel;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_591.class)
+@Mixin(PlayerModel.class)
 public interface AccessorHandPlayerModel {
-   @Accessor("field_3480")
+   @Accessor("slim")
    boolean champ$handSlim();
 }

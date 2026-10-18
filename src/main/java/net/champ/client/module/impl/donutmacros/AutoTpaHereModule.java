@@ -37,20 +37,20 @@ import net.champ.client.util.pvp.RotationUtils;
 import net.champ.client.util.pvp.ServerRotation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1661;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_3966;
-import net.minecraft.class_418;
-import net.minecraft.class_634;
-import net.minecraft.class_640;
-import net.minecraft.class_742;
-import net.minecraft.class_7439;
-import net.minecraft.class_746;
-import net.minecraft.class_7923;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.client.gui.screens.DeathScreen;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 public final class AutoTpaHereModule extends ClientModule {
@@ -210,7 +210,7 @@ public final class AutoTpaHereModule extends ClientModule {
       this.neverSell.visibleWhen(this.autoSell::get);
       this.autoSell.onChange(() -> {
          if (!this.autoSell.get()) {
-            this.sell.abort(class_310.method_1551());
+            this.sell.abort(Minecraft.getInstance());
          }
       });
       this.neverRequest.privateValue();
@@ -246,8 +246,8 @@ public final class AutoTpaHereModule extends ClientModule {
 
    @Override
    protected void onDisable() {
-      this.sell.abort(class_310.method_1551());
-      this.stopEating(class_310.method_1551());
+      this.sell.abort(Minecraft.getInstance());
+      this.stopEating(Minecraft.getInstance());
       this.completions.clear();
       this.chatLines.clear();
       this.delivery = null;
@@ -292,8 +292,8 @@ public final class AutoTpaHereModule extends ClientModule {
       this.prefixCache.clear();
       this.joinQueue.clear();
       this.joinQueued.clear();
-      class_310 mc = class_310.method_1551();
-      this.selfName = mc.method_1548() == null ? "" : normalizeIgn(mc.method_1548().method_1676());
+      Minecraft mc = Minecraft.getInstance();
+      this.selfName = mc.getUser() == null ? "" : normalizeIgn(mc.getUser().getName());
       this.onlineCheckOff = false;
       this.probeMisses = 0;
       this.lastSendAt = 0L;
@@ -322,17 +322,17 @@ public final class AutoTpaHereModule extends ClientModule {
    public void onPacket(PacketReceiveNettyEvent event) {
       if (this.completions.ingest(event.packet)) {
          event.setCancelled(true);
-      } else if (event.packet instanceof class_7439 chat && chat.comp_763() != null && this.chatLines.size() < 256) {
+      } else if (event.packet instanceof ClientboundSystemChatPacket chat && chat.comp_763() != null && this.chatLines.size() < 256) {
          this.chatLines.offer(chat.comp_763().getString());
       }
    }
 
    @EventHandler
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      class_634 connection = mc.method_1562();
-      if (player != null && mc.field_1687 != null && connection != null && mc.field_1761 != null) {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      ClientPacketListener connection = mc.getConnection();
+      if (player != null && mc.level != null && connection != null && mc.gameMode != null) {
          this.teleportConfirm.tick(mc);
          long now = System.currentTimeMillis();
          this.drainChat(now);
@@ -377,7 +377,7 @@ public final class AutoTpaHereModule extends ClientModule {
       }
    }
 
-   private void step(class_634 connection, long now) {
+   private void step(ClientPacketListener connection, long now) {
       switch (this.phase) {
          case DETECT:
             this.stepDetect(now);
@@ -428,7 +428,7 @@ public final class AutoTpaHereModule extends ClientModule {
       this.phase = AutoTpaHereModule.Phase.COLLECT;
    }
 
-   private void stepCollect(class_634 connection, long now) {
+   private void stepCollect(ClientPacketListener connection, long now) {
       if (this.collector.step(connection, now)) {
          AutoTpaHereModule.Collector done = this.collector;
          this.collector = null;
@@ -470,7 +470,7 @@ public final class AutoTpaHereModule extends ClientModule {
       }
    }
 
-   private void stepSend(class_634 connection, long now) {
+   private void stepSend(ClientPacketListener connection, long now) {
       if (this.delivery == null) {
          this.delivery = this.nextPriority();
       }
@@ -492,7 +492,7 @@ public final class AutoTpaHereModule extends ClientModule {
       }
    }
 
-   private void stepPick(class_634 connection, long now) {
+   private void stepPick(ClientPacketListener connection, long now) {
       if (this.delivery == null) {
          this.delivery = this.nextPriority();
       }
@@ -632,11 +632,11 @@ public final class AutoTpaHereModule extends ClientModule {
       return null;
    }
 
-   private void send(class_634 connection, String name, boolean joiner, long now) {
+   private void send(ClientPacketListener connection, String name, boolean joiner, long now) {
       this.lastTarget = name;
       this.lastTargetAt = now;
       this.lastTargetCounted = false;
-      connection.method_45730(this.command.get() + " " + name);
+      connection.sendCommand(this.command.get() + " " + name);
       this.lastSendAt = now;
       this.totalSent++;
       if (joiner) {
@@ -677,11 +677,11 @@ public final class AutoTpaHereModule extends ClientModule {
       }
    }
 
-   private List<String> localNames(class_634 connection, String prefix) {
+   private List<String> localNames(ClientPacketListener connection, String prefix) {
       List<String> out = new ArrayList<>();
 
-      for (class_640 info : connection.method_2880()) {
-         String name = info.method_2966() == null ? null : info.method_2966().name();
+      for (PlayerInfo info : connection.getOnlinePlayers()) {
+         String name = info.getProfile() == null ? null : info.getProfile().name();
          if (name != null && validName(name) && this.matchesLetter(name, prefix)) {
             out.add(name);
          }
@@ -880,8 +880,8 @@ public final class AutoTpaHereModule extends ClientModule {
       this.completions.prune(now);
    }
 
-   private boolean handleDeath(class_310 mc, class_746 player, long now) {
-      if (player.method_29504()) {
+   private boolean handleDeath(Minecraft mc, LocalPlayer player, long now) {
+      if (player.isDeadOrDying()) {
          if (!this.wasDead) {
             this.wasDead = true;
             this.deadSince = now;
@@ -893,7 +893,7 @@ public final class AutoTpaHereModule extends ClientModule {
 
          if (this.autoRespawn.get() && now - this.deadSince >= 700L && now - this.respawnTriedAt >= 600L) {
             this.respawnTriedAt = now;
-            player.method_7331();
+            player.respawn();
          }
 
          return true;
@@ -902,8 +902,8 @@ public final class AutoTpaHereModule extends ClientModule {
             this.wasDead = false;
             this.nearList.clear();
             this.lastNearAt = 0L;
-            if (mc.field_1755 instanceof class_418) {
-               mc.method_1507(null);
+            if (mc.screen instanceof DeathScreen) {
+               mc.setScreen(null);
             }
 
             this.info(ModuleChat.body().good("Respawned."));
@@ -916,7 +916,7 @@ public final class AutoTpaHereModule extends ClientModule {
       }
    }
 
-   private void tickRespawnCommand(class_634 connection) {
+   private void tickRespawnCommand(ClientPacketListener connection) {
       if (this.respawnCommandIn > 0 && --this.respawnCommandIn <= 0) {
          String text = this.respawnCommand.get().trim();
 
@@ -925,20 +925,20 @@ public final class AutoTpaHereModule extends ClientModule {
          }
 
          if (!text.isEmpty()) {
-            connection.method_45730(text);
+            connection.sendCommand(text);
          }
       }
    }
 
-   private void scanNear(class_310 mc, class_746 player) {
+   private void scanNear(Minecraft mc, LocalPlayer player) {
       this.nearList.clear();
       double radius = this.pauseRadius.get();
 
-      for (class_742 other : mc.field_1687.method_18456()) {
-         if (other != player && !other.method_5667().equals(player.method_5667())) {
-            String name = other.method_7334().name();
+      for (AbstractClientPlayer other : mc.level.players()) {
+         if (other != player && !other.getUUID().equals(player.getUUID())) {
+            String name = other.getGameProfile().name();
             if (name != null && !this.isSelf(name) && !isFriend(name)) {
-               double distance = player.method_73189().method_1022(other.method_73189());
+               double distance = player.position().distanceTo(other.position());
                if (distance <= radius) {
                   this.nearList.add(new AutoTpaHereModule.Near(other, name, distance));
                }
@@ -987,9 +987,9 @@ public final class AutoTpaHereModule extends ClientModule {
       return resting;
    }
 
-   private void fight(class_310 mc, class_746 player) {
+   private void fight(Minecraft mc, LocalPlayer player) {
       if (this.attack.get() && !this.eating && canFight(mc, player)) {
-         class_742 target = null;
+         AbstractClientPlayer target = null;
 
          for (AutoTpaHereModule.Near near : this.nearList) {
             if (near.distance() > this.attackRadius.get()) {
@@ -1004,9 +1004,9 @@ public final class AutoTpaHereModule extends ClientModule {
 
          if (target != null) {
             if (!this.equipSword(player)) {
-               class_243 eye = player.method_33571();
-               class_238 box = target.method_5829();
-               Rotation aim = RotationUtils.fromTo(eye, box.method_1005());
+               Vec3 eye = player.getEyePosition();
+               AABB box = target.getBoundingBox();
+               Rotation aim = RotationUtils.fromTo(eye, box.getCenter());
                if (MeleeAttacks.charge(player) < 1.0F) {
                   if (MeleeAttacks.ticksToFull(player) <= 1) {
                      ServerRotation.request(aim);
@@ -1017,11 +1017,11 @@ public final class AutoTpaHereModule extends ClientModule {
                      look = RotationUtils.entityRotation(player);
                   }
 
-                  class_243 at = hitPoint(player, eye, box, look);
+                  Vec3 at = hitPoint(player, eye, box, look);
                   if (at == null) {
                      ServerRotation.request(aim);
                   } else {
-                     if (MeleeAttacks.attack(mc, new class_3966(target, at))) {
+                     if (MeleeAttacks.attack(mc, new EntityHitResult(target, at))) {
                         MeleeAttacks.claimTick(mc);
                         this.totalHits++;
                      }
@@ -1032,19 +1032,19 @@ public final class AutoTpaHereModule extends ClientModule {
       }
    }
 
-   private static boolean canFight(class_310 mc, class_746 player) {
-      return mc.field_1687 != null && mc.field_1761 != null && !player.method_7325() && player.field_7512 == player.field_7498 && !AutoEatModule.isEating();
+   private static boolean canFight(Minecraft mc, LocalPlayer player) {
+      return mc.level != null && mc.gameMode != null && !player.isSpectator() && player.containerMenu == player.inventoryMenu && !AutoEatModule.isEating();
    }
 
-   private static class_243 hitPoint(class_746 player, class_243 eye, class_238 box, Rotation look) {
-      double reach = player.method_55755();
-      class_243 direction = class_243.method_1030(look.pitch(), look.yaw());
-      class_243 at = box.method_992(eye, eye.method_1019(direction.method_1021(reach))).orElse(box.method_1006(eye) ? eye : null);
-      return at != null && eye.method_1022(at) <= reach && MeleeAttacks.lineIsClear(player, eye, at) ? at : null;
+   private static Vec3 hitPoint(LocalPlayer player, Vec3 eye, AABB box, Rotation look) {
+      double reach = player.entityInteractionRange();
+      Vec3 direction = Vec3.directionFromRotation(look.pitch(), look.yaw());
+      Vec3 at = box.clip(eye, eye.add(direction.scale(reach))).orElse(box.contains(eye) ? eye : null);
+      return at != null && eye.distanceTo(at) <= reach && MeleeAttacks.lineIsClear(player, eye, at) ? at : null;
    }
 
-   private boolean equipSword(class_746 player) {
-      class_1661 inventory = player.method_31548();
+   private boolean equipSword(LocalPlayer player) {
+      Inventory inventory = player.getInventory();
       int slot = this.findSword(inventory);
       if (slot < 0) {
          if (!this.warnedNoSword) {
@@ -1054,16 +1054,16 @@ public final class AutoTpaHereModule extends ClientModule {
 
          return false;
       } else {
-         if (inventory.method_67532() == slot) {
+         if (inventory.getSelectedSlot() == slot) {
             return false;
          }
 
-         inventory.method_61496(slot);
+         inventory.setSelectedSlot(slot);
          return true;
       }
    }
 
-   private int findSword(class_1661 inventory) {
+   private int findSword(Inventory inventory) {
       if (this.swordSlot.getInt() >= 1) {
          return this.swordSlot.getInt() - 1;
       }
@@ -1071,8 +1071,8 @@ public final class AutoTpaHereModule extends ClientModule {
       int best = -1;
       int bestRank = Integer.MAX_VALUE;
 
-      for (int slot = 0; slot < class_1661.method_7368(); slot++) {
-         String path = itemPath(inventory.method_5438(slot));
+      for (int slot = 0; slot < Inventory.getSelectionSize(); slot++) {
+         String path = itemPath(inventory.getItem(slot));
          if (path.endsWith("_sword")) {
             int rank = SWORD_RANK.length;
 
@@ -1093,7 +1093,7 @@ public final class AutoTpaHereModule extends ClientModule {
       return best;
    }
 
-   private int findApple(class_1661 inventory) {
+   private int findApple(Inventory inventory) {
       if (this.appleSlot.getInt() >= 1) {
          return this.appleSlot.getInt() - 1;
       }
@@ -1101,11 +1101,11 @@ public final class AutoTpaHereModule extends ClientModule {
       int normal = -1;
       int enchanted = -1;
 
-      for (int slot = 0; slot < class_1661.method_7368(); slot++) {
-         class_1799 stack = inventory.method_5438(slot);
-         if (stack.method_31574(class_1802.field_8367) && enchanted < 0) {
+      for (int slot = 0; slot < Inventory.getSelectionSize(); slot++) {
+         ItemStack stack = inventory.getItem(slot);
+         if (stack.is(Items.ENCHANTED_GOLDEN_APPLE) && enchanted < 0) {
             enchanted = slot;
-         } else if (stack.method_31574(class_1802.field_8463) && normal < 0) {
+         } else if (stack.is(Items.GOLDEN_APPLE) && normal < 0) {
             normal = slot;
          }
       }
@@ -1117,24 +1117,24 @@ public final class AutoTpaHereModule extends ClientModule {
       }
    }
 
-   private static String itemPath(class_1799 stack) {
-      return stack.method_7960() ? "" : class_7923.field_41178.method_10221(stack.method_7909()).method_12832();
+   private static String itemPath(ItemStack stack) {
+      return stack.isEmpty() ? "" : BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
    }
 
-   private boolean wantsToEat(class_746 player, long now) {
-      float health = player.method_6032();
+   private boolean wantsToEat(LocalPlayer player, long now) {
+      float health = player.getHealth();
       return this.eatBelow.get() > 0.0F
          && health > 0.0F
          && health < this.eatBelow.get() * 2.0F
          && now - this.lastEatAt >= (long)(this.eatCooldown.get() * 1000.0F)
-         && this.findApple(player.method_31548()) >= 0;
+         && this.findApple(player.getInventory()) >= 0;
    }
 
-   private boolean keepForBot(int index, class_1799 stack) {
-      class_746 player = class_310.method_1551().field_1724;
-      return this.attack.get() && player != null && index == this.findSword(player.method_31548())
+   private boolean keepForBot(int index, ItemStack stack) {
+      LocalPlayer player = Minecraft.getInstance().player;
+      return this.attack.get() && player != null && index == this.findSword(player.getInventory())
          ? true
-         : this.eatBelow.get() > 0.0F && (stack.method_31574(class_1802.field_8463) || stack.method_31574(class_1802.field_8367));
+         : this.eatBelow.get() > 0.0F && (stack.is(Items.GOLDEN_APPLE) || stack.is(Items.ENCHANTED_GOLDEN_APPLE));
    }
 
    private void onSellCommand() {
@@ -1142,12 +1142,12 @@ public final class AutoTpaHereModule extends ClientModule {
       this.lastTargetCounted = true;
    }
 
-   private boolean startEating(class_310 mc, class_746 player, long now) {
-      if (!this.eating && !(this.eatBelow.get() <= 0.0F) && mc.field_1755 == null) {
-         float health = player.method_6032();
+   private boolean startEating(Minecraft mc, LocalPlayer player, long now) {
+      if (!this.eating && !(this.eatBelow.get() <= 0.0F) && mc.screen == null) {
+         float health = player.getHealth();
          if (!(health <= 0.0F) && !(health >= this.eatBelow.get() * 2.0F) && now - this.lastEatAt >= (long)(this.eatCooldown.get() * 1000.0F)) {
             this.lastEatAt = now;
-            int slot = this.findApple(player.method_31548());
+            int slot = this.findApple(player.getInventory());
             if (slot < 0) {
                if (!this.warnedNoApple) {
                   this.warnedNoApple = true;
@@ -1156,12 +1156,12 @@ public final class AutoTpaHereModule extends ClientModule {
 
                return false;
             } else {
-               player.method_31548().method_61496(slot);
+               player.getInventory().setSelectedSlot(slot);
                this.eating = true;
                this.eatTicks = 0;
                this.eatStarted = false;
                this.eatStartHealth = health;
-               mc.field_1690.field_1904.method_23481(true);
+               mc.options.keyUse.setDown(true);
                return true;
             }
          } else {
@@ -1172,20 +1172,20 @@ public final class AutoTpaHereModule extends ClientModule {
       }
    }
 
-   private boolean tickEating(class_310 mc, class_746 player, long now) {
+   private boolean tickEating(Minecraft mc, LocalPlayer player, long now) {
       if (!this.eating) {
          return false;
       }
 
       this.eatTicks++;
-      if (player.method_6115()) {
+      if (player.isUsingItem()) {
          this.eatStarted = true;
          if (this.eatTicks < 40) {
-            mc.field_1690.field_1904.method_23481(true);
+            mc.options.keyUse.setDown(true);
             return true;
          }
       } else if (!this.eatStarted && this.eatTicks < 40) {
-         mc.field_1690.field_1904.method_23481(true);
+         mc.options.keyUse.setDown(true);
          return true;
       }
 
@@ -1198,7 +1198,7 @@ public final class AutoTpaHereModule extends ClientModule {
                .text("Ate a golden apple (")
                .value(String.format(Locale.ROOT, "%.1f", this.eatStartHealth / 2.0F))
                .text(" -> ")
-               .value(String.format(Locale.ROOT, "%.1f", player.method_6032() / 2.0F))
+               .value(String.format(Locale.ROOT, "%.1f", player.getHealth() / 2.0F))
                .text(" hearts).")
          );
       }
@@ -1210,10 +1210,10 @@ public final class AutoTpaHereModule extends ClientModule {
       return false;
    }
 
-   private void stopEating(class_310 mc) {
+   private void stopEating(Minecraft mc) {
       if (this.eating) {
          this.eating = false;
-         mc.field_1690.field_1904.method_23481(Crystals.isPhysicallyDown(mc, mc.field_1690.field_1904));
+         mc.options.keyUse.setDown(Crystals.isPhysicallyDown(mc, mc.options.keyUse));
       }
    }
 
@@ -1489,7 +1489,7 @@ public final class AutoTpaHereModule extends ClientModule {
          this.letter = letter;
       }
 
-      boolean step(class_634 connection, long now) {
+      boolean step(ClientPacketListener connection, long now) {
          if (!this.started) {
             this.started = true;
             this.split = AutoTpaHereModule.this.splitLetters.contains(this.letter);
@@ -1587,7 +1587,7 @@ public final class AutoTpaHereModule extends ClientModule {
          this.joiner = joiner;
       }
 
-      AutoTpaHereModule.Result step(class_634 connection, long now) {
+      AutoTpaHereModule.Result step(ClientPacketListener connection, long now) {
          if (this.stale) {
             this.stale = false;
             AutoTpaHereModule.this.completions.forget(this.probeId);
@@ -1655,7 +1655,7 @@ public final class AutoTpaHereModule extends ClientModule {
    }
 
    @Environment(EnvType.CLIENT)
-   private record Near(class_742 player, String name, double distance) {
+   private record Near(AbstractClientPlayer player, String name, double distance) {
    }
 
    @Environment(EnvType.CLIENT)

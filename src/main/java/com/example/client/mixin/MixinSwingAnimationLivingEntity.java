@@ -4,27 +4,27 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import net.champ.client.module.impl.render.SwingAnimationModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1268;
-import net.minecraft.class_1309;
-import net.minecraft.class_310;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_1309.class)
+@Mixin(LivingEntity.class)
 public abstract class MixinSwingAnimationLivingEntity {
-   @ModifyExpressionValue(method = {"method_6119", "method_23667"}, at = @At(value = "INVOKE", target = "Lnet/minecraft/class_1309;method_6028()I"))
+   @ModifyExpressionValue(method = {"updateSwingTime", "swing"}, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;getCurrentSwingDuration()I"))
    private int champ$swingTempo(int ticks) {
       SwingAnimationModule module = SwingAnimationModule.active;
-      return module != null && this == class_310.method_1551().field_1724 ? module.swingTicks(ticks) : ticks;
+      return module != null && this == Minecraft.getInstance().player ? module.swingTicks(ticks) : ticks;
    }
 
-   @Inject(method = "method_23667", at = @At(value = "FIELD", target = "Lnet/minecraft/class_1309;field_6252:Z", opcode = 181))
-   private void champ$latchSwing(class_1268 hand, boolean broadcast, CallbackInfo ci) {
+   @Inject(method = "swing", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/LivingEntity;swinging:Z", opcode = 181))
+   private void champ$latchSwing(InteractionHand hand, boolean broadcast, CallbackInfo ci) {
       SwingAnimationModule module = SwingAnimationModule.active;
-      if (module != null && this == class_310.method_1551().field_1724) {
+      if (module != null && this == Minecraft.getInstance().player) {
          module.latch();
       }
    }

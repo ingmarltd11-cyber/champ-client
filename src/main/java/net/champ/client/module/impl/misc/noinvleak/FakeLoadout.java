@@ -4,88 +4,88 @@ import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 @Environment(EnvType.CLIENT)
 public final class FakeLoadout {
    public static final int UNKNOWN = 41;
-   private static final class_1792[] HOTBAR = new class_1792[]{
-      class_1802.field_8371,
-      class_1802.field_8802,
-      class_1802.field_22022,
-      class_1802.field_8403,
-      class_1802.field_8377,
-      class_1802.field_22024,
-      class_1802.field_8475,
-      class_1802.field_8556,
-      class_1802.field_22025,
-      class_1802.field_8699,
-      class_1802.field_8250,
-      class_1802.field_22023,
-      class_1802.field_8102,
-      class_1802.field_8705,
-      class_1802.field_20412,
-      class_1802.field_8810,
-      class_1802.field_8176,
-      class_1802.field_8071,
-      class_1802.field_8229,
-      class_1802.field_8634,
-      class_1802.field_8118,
-      class_1802.field_8831,
-      class_1802.field_8884
+   private static final Item[] HOTBAR = new Item[]{
+      Items.IRON_SWORD,
+      Items.DIAMOND_SWORD,
+      Items.NETHERITE_SWORD,
+      Items.IRON_PICKAXE,
+      Items.DIAMOND_PICKAXE,
+      Items.NETHERITE_PICKAXE,
+      Items.IRON_AXE,
+      Items.DIAMOND_AXE,
+      Items.NETHERITE_AXE,
+      Items.IRON_SHOVEL,
+      Items.DIAMOND_SHOVEL,
+      Items.NETHERITE_SHOVEL,
+      Items.BOW,
+      Items.WATER_BUCKET,
+      Items.COBBLESTONE,
+      Items.TORCH,
+      Items.COOKED_BEEF,
+      Items.GOLDEN_CARROT,
+      Items.BREAD,
+      Items.ENDER_PEARL,
+      Items.OAK_PLANKS,
+      Items.DIRT,
+      Items.FLINT_AND_STEEL
    };
-   private static final class_1792[] MAIN = new class_1792[]{
-      class_1802.field_20412,
-      class_1802.field_20391,
-      class_1802.field_8831,
-      class_1802.field_8583,
-      class_1802.field_8118,
-      class_1802.field_8600,
-      class_1802.field_8713,
-      class_1802.field_8620,
-      class_1802.field_8695,
-      class_1802.field_8477,
-      class_1802.field_8725,
-      class_1802.field_8759,
-      class_1802.field_8107,
-      class_1802.field_8276,
-      class_1802.field_8606,
-      class_1802.field_8511,
-      class_1802.field_8054,
-      class_1802.field_8858,
-      class_1802.field_8110,
-      class_1802.field_8317,
-      class_1802.field_8861,
-      class_1802.field_8121,
-      class_1802.field_8281,
-      class_1802.field_8280,
-      class_1802.field_8745,
-      class_1802.field_8153,
-      class_1802.field_8145,
-      class_1802.field_8680,
-      class_1802.field_8279,
-      class_1802.field_8261,
-      class_1802.field_8550,
-      class_1802.field_8529,
-      class_1802.field_8407,
-      class_1802.field_17531,
-      class_1802.field_8465,
-      class_1802.field_8106,
-      class_1802.field_8732
+   private static final Item[] MAIN = new Item[]{
+      Items.COBBLESTONE,
+      Items.STONE,
+      Items.DIRT,
+      Items.OAK_LOG,
+      Items.OAK_PLANKS,
+      Items.STICK,
+      Items.COAL,
+      Items.IRON_INGOT,
+      Items.GOLD_INGOT,
+      Items.DIAMOND,
+      Items.REDSTONE,
+      Items.LAPIS_LAZULI,
+      Items.ARROW,
+      Items.STRING,
+      Items.BONE,
+      Items.ROTTEN_FLESH,
+      Items.GUNPOWDER,
+      Items.SAND,
+      Items.GRAVEL,
+      Items.WHEAT_SEEDS,
+      Items.WHEAT,
+      Items.LADDER,
+      Items.OBSIDIAN,
+      Items.GLASS,
+      Items.LEATHER,
+      Items.FEATHER,
+      Items.FLINT,
+      Items.SPIDER_EYE,
+      Items.APPLE,
+      Items.COOKED_PORKCHOP,
+      Items.BUCKET,
+      Items.BOOK,
+      Items.PAPER,
+      Items.SUGAR_CANE,
+      Items.CRAFTING_TABLE,
+      Items.CHEST,
+      Items.FURNACE
    };
-   private static final class_1792[] OFFHAND = new class_1792[]{
-      class_1802.field_8255, class_1802.field_8810, class_1802.field_8705, class_1802.field_8107, class_1802.field_8176, class_1802.field_8463
+   private static final Item[] OFFHAND = new Item[]{
+      Items.SHIELD, Items.TORCH, Items.WATER_BUCKET, Items.ARROW, Items.COOKED_BEEF, Items.GOLDEN_APPLE
    };
-   private static final class_1792[][] ARMOR = new class_1792[][]{
-      {class_1802.field_8660, class_1802.field_8313, class_1802.field_8285, class_1802.field_22030},
-      {class_1802.field_8396, class_1802.field_8218, class_1802.field_8348, class_1802.field_22029},
-      {class_1802.field_8523, class_1802.field_8873, class_1802.field_8058, class_1802.field_22028},
-      {class_1802.field_8743, class_1802.field_8283, class_1802.field_8805, class_1802.field_22027}
+   private static final Item[][] ARMOR = new Item[][]{
+      {Items.IRON_BOOTS, Items.CHAINMAIL_BOOTS, Items.DIAMOND_BOOTS, Items.NETHERITE_BOOTS},
+      {Items.IRON_LEGGINGS, Items.CHAINMAIL_LEGGINGS, Items.DIAMOND_LEGGINGS, Items.NETHERITE_LEGGINGS},
+      {Items.IRON_CHESTPLATE, Items.CHAINMAIL_CHESTPLATE, Items.DIAMOND_CHESTPLATE, Items.NETHERITE_CHESTPLATE},
+      {Items.IRON_HELMET, Items.CHAINMAIL_HELMET, Items.DIAMOND_HELMET, Items.NETHERITE_HELMET}
    };
    private static final int FIRST_ARMOR = 36;
-   private final class_1799[] stacks = new class_1799[42];
+   private final ItemStack[] stacks = new ItemStack[42];
    private long seed;
 
    public void reseed() {
@@ -93,12 +93,12 @@ public final class FakeLoadout {
       Arrays.fill(this.stacks, null);
    }
 
-   public class_1799 get(int slot) {
+   public ItemStack get(int slot) {
       if (slot < 0 || slot > 41) {
          slot = 41;
       }
 
-      class_1799 stack = this.stacks[slot];
+      ItemStack stack = this.stacks[slot];
       if (stack == null) {
          this.stacks[slot] = stack = this.roll(slot);
       }
@@ -106,8 +106,8 @@ public final class FakeLoadout {
       return stack;
    }
 
-   private class_1799 roll(int slot) {
-      class_1792 item;
+   private ItemStack roll(int slot) {
+      Item item;
       if (slot < 9) {
          item = this.pick(HOTBAR, slot);
       } else if (slot < 36 || slot == 41) {
@@ -118,17 +118,17 @@ public final class FakeLoadout {
          item = ARMOR[slot - 36][(int)Long.remainderUnsigned(mix(this.seed ^ 167L), ARMOR[0].length)];
       }
 
-      class_1799 stack = new class_1799(item);
-      if (stack.method_7914() > 1) {
-         stack.method_7939(1 + (int)Long.remainderUnsigned(mix(this.seed ^ slot ^ 81L), stack.method_7914()));
-      } else if (stack.method_7963()) {
-         stack.method_7974((int)Long.remainderUnsigned(mix(this.seed ^ slot ^ 82L), stack.method_7936() / 2));
+      ItemStack stack = new ItemStack(item);
+      if (stack.getMaxStackSize() > 1) {
+         stack.setCount(1 + (int)Long.remainderUnsigned(mix(this.seed ^ slot ^ 81L), stack.getMaxStackSize()));
+      } else if (stack.isDamageableItem()) {
+         stack.setDamageValue((int)Long.remainderUnsigned(mix(this.seed ^ slot ^ 82L), stack.getMaxDamage() / 2));
       }
 
       return stack;
    }
 
-   private class_1792 pick(class_1792[] pool, int slot) {
+   private Item pick(Item[] pool, int slot) {
       return pool[(int)Long.remainderUnsigned(mix(this.seed ^ slot * -7046029254386353131L), pool.length)];
    }
 

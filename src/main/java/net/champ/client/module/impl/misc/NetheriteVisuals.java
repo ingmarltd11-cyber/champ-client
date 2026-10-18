@@ -15,14 +15,14 @@ import net.champ.client.util.glyph.GlyphSwarm;
 import net.champ.client.util.glyph.GlyphTint;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1109;
-import net.minecraft.class_2338;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_3417;
-import net.minecraft.class_3532;
-import net.minecraft.class_5819;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
 
 @Environment(EnvType.CLIENT)
 final class NetheriteVisuals {
@@ -45,7 +45,7 @@ final class NetheriteVisuals {
    private static final float[] SHELL_ALPHA = new float[]{0.16F, 0.08F, 0.04F};
    private final GlyphCanvas canvas = new GlyphCanvas();
    private final GlyphSwarm swarm = new GlyphSwarm(128);
-   private final class_5819 random = class_5819.method_43047();
+   private final RandomSource random = RandomSource.create();
    private final List<NetheriteVisuals.Wave> waves = new ArrayList<>();
    private final List<NetheriteVisuals.Label> labels = new ArrayList<>();
    private long lastFrame;
@@ -58,10 +58,10 @@ final class NetheriteVisuals {
       this.lastFrame = 0L;
    }
 
-   void burst(class_2338 pos, int rgb) {
-      double x = pos.method_10263() + 0.5;
-      double y = pos.method_10264() + 0.5;
-      double z = pos.method_10260() + 0.5;
+   void burst(BlockPos pos, int rgb) {
+      double x = pos.getX() + 0.5;
+      double y = pos.getY() + 0.5;
+      double z = pos.getZ() + 0.5;
       if (this.waves.size() >= 12) {
          this.waves.removeFirst();
       }
@@ -83,44 +83,44 @@ final class NetheriteVisuals {
                0.22F,
                this.jitter(0.3F),
                this.jitter(0.5F),
-               this.random.method_43057(),
+               this.random.nextFloat(),
                light,
                128
             );
       }
 
       for (int i = 0; i < 10; i++) {
-         float angle = this.random.method_43057() * (float) (Math.PI * 2);
-         float speed = 2.2F + this.random.method_43057() * 1.6F;
-         int color = GlyphTint.mix(rgb, -1, this.random.method_43057() * 0.5F);
+         float angle = this.random.nextFloat() * (float) (Math.PI * 2);
+         float speed = 2.2F + this.random.nextFloat() * 1.6F;
+         int color = GlyphTint.mix(rgb, -1, this.random.nextFloat() * 0.5F);
          this.swarm
             .spawn(
                (byte)3,
                x,
                y,
                z,
-               class_3532.method_15362(angle) * speed,
-               1.2F + this.random.method_43057() * 1.5F,
-               class_3532.method_15374(angle) * speed,
+               Mth.cos(angle) * speed,
+               1.2F + this.random.nextFloat() * 1.5F,
+               Mth.sin(angle) * speed,
                0.8F,
                0.09F,
                angle,
                2.8F,
-               this.random.method_43057(),
+               this.random.nextFloat(),
                color,
                128
             );
       }
 
-      class_310.method_1551().method_1483().method_4873(class_1109.method_4757(class_3417.field_26980, 1.3F, 0.9F));
+      Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.AMETHYST_BLOCK_CHIME, 1.3F, 0.9F));
    }
 
    void render(
-      class_310 mc,
+      Minecraft mc,
       float partialTick,
-      class_243 eye,
+      Vec3 eye,
       List<NetheriteVisuals.Section> sections,
-      List<class_2338> revealed,
+      List<BlockPos> revealed,
       AdvancedFinder finder,
       NetheriteVisuals.Options options
    ) {
@@ -128,11 +128,11 @@ final class NetheriteVisuals {
       float dt = this.lastFrame == 0L ? 0.0F : Math.min(0.1F, (float)(now - this.lastFrame) / 1.0E9F);
       this.lastFrame = now;
       this.swarm.step(dt);
-      this.canvas.begin(mc.field_1773.method_19418());
+      this.canvas.begin(mc.gameRenderer.getMainCamera());
       this.pixel = FoglessLines.pixelScale(partialTick);
       int accent = GlyphTint.alpha(options.near(), 1.0F);
       int light = GlyphTint.lift(accent, 0.55F);
-      float pulse = 0.5F + 0.5F * class_3532.method_15374((float)(now % 1400000000L) / 1.4E9F * (float) (Math.PI * 2));
+      float pulse = 0.5F + 0.5F * Mth.sin((float)(now % 1400000000L) / 1.4E9F * (float) (Math.PI * 2));
       this.labels.clear();
       this.drawRevealed(eye, revealed, options, accent, light, pulse);
       this.drawWaves(now, accent, light);
@@ -147,7 +147,7 @@ final class NetheriteVisuals {
    }
 
    void overlay(ImDrawList dl, float screenW, float screenH) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
 
       for (NetheriteVisuals.Label label : this.labels) {
          float[] screen = WorldLabel.project(mc, label.pos(), screenW, screenH);
@@ -162,7 +162,7 @@ final class NetheriteVisuals {
    }
 
    private static int tint(NetheriteVisuals.Options options, double distance) {
-      float t = (float)class_3532.method_15350(distance / options.fade(), 0.0, 1.0);
+      float t = (float)Mth.clamp(distance / options.fade(), 0.0, 1.0);
       return GlyphTint.alpha(GlyphTint.mix(options.near(), options.far(), t), 1.0F);
    }
 
@@ -181,31 +181,31 @@ final class NetheriteVisuals {
    }
 
    private void drawCandidate(NetheriteVisuals.Section section, NetheriteVisuals.Options options) {
-      double far = class_3532.method_15350(section.distance() / options.fade(), 0.0, 1.0);
+      double far = Mth.clamp(section.distance() / options.fade(), 0.0, 1.0);
       int base = tint(options, section.distance());
       this.box(section.box(), GlyphTint.alpha(base, (float)(0.95 - 0.3 * far)), (float)(2.4 - 0.8 * far));
       this.faces(section.box(), GlyphTint.alpha(base, (float)(0.07 - 0.03 * far)));
    }
 
    private void drawScanning(NetheriteVisuals.Section section, int light, float pulse) {
-      class_238 box = section.box();
+      AABB box = section.box();
       this.box(box, GlyphTint.alpha(light, 0.6F + 0.4F * pulse), 3.2F);
       this.faces(box, GlyphTint.alpha(light, 0.05F));
-      double y = box.field_1322 + (box.field_1325 - box.field_1322) * section.progress();
+      double y = box.minY + (box.maxY - box.minY) * section.progress();
       int plane = GlyphTint.alpha(light, 0.2F);
       this.canvas
          .quad(
-            box.field_1323, y, box.field_1321, box.field_1320, y, box.field_1321, box.field_1320, y, box.field_1324, box.field_1323, y, box.field_1324, plane
+            box.minX, y, box.minZ, box.maxX, y, box.minZ, box.maxX, y, box.maxZ, box.minX, y, box.maxZ, plane
          );
       this.canvas
          .quad(
-            box.field_1323, y, box.field_1321, box.field_1323, y, box.field_1324, box.field_1320, y, box.field_1324, box.field_1320, y, box.field_1321, plane
+            box.minX, y, box.minZ, box.minX, y, box.maxZ, box.maxX, y, box.maxZ, box.maxX, y, box.minZ, plane
          );
       int rim = GlyphTint.alpha(light, 0.95F);
-      this.line(box.field_1323, y, box.field_1321, box.field_1320, y, box.field_1321, rim, 2.4F);
-      this.line(box.field_1320, y, box.field_1321, box.field_1320, y, box.field_1324, rim, 2.4F);
-      this.line(box.field_1320, y, box.field_1324, box.field_1323, y, box.field_1324, rim, 2.4F);
-      this.line(box.field_1323, y, box.field_1324, box.field_1323, y, box.field_1321, rim, 2.4F);
+      this.line(box.minX, y, box.minZ, box.maxX, y, box.minZ, rim, 2.4F);
+      this.line(box.maxX, y, box.minZ, box.maxX, y, box.maxZ, rim, 2.4F);
+      this.line(box.maxX, y, box.maxZ, box.minX, y, box.maxZ, rim, 2.4F);
+      this.line(box.minX, y, box.maxZ, box.minX, y, box.minZ, rim, 2.4F);
    }
 
    private void drawTracers(List<NetheriteVisuals.Section> sections, NetheriteVisuals.Options options) {
@@ -217,7 +217,7 @@ final class NetheriteVisuals {
          }
 
          if (!(section.distance() < 1.0)) {
-            class_243 center = section.box().method_1005();
+            Vec3 center = section.box().getCenter();
             TracerEngine.draw(center, GlyphTint.alpha(tint(options, section.distance()), 0.85F));
             String pct = section.progress() >= 0.0F ? Math.round(section.progress() * 100.0F) + "%" : null;
             this.labels.add(new NetheriteVisuals.Label(center, String.format(Locale.ROOT, "%.0fm", section.distance()), pct));
@@ -226,7 +226,7 @@ final class NetheriteVisuals {
       }
    }
 
-   private void drawProbes(class_243 eye, AdvancedFinder finder, NetheriteVisuals.Options options, int accent, int light, float pulse) {
+   private void drawProbes(Vec3 eye, AdvancedFinder finder, NetheriteVisuals.Options options, int accent, int light, float pulse) {
       int missing = GlyphTint.mix(light, -1, 0.5F);
       finder.forEachMissing(
          eye,
@@ -247,7 +247,7 @@ final class NetheriteVisuals {
          double cz = z + 0.5;
          if ("Cubes".equals(style)) {
             double half = 0.2 - 0.1 * t;
-            this.faces(new class_238(cx - half, cy - half, cz - half, cx + half, cy + half, cz + half), GlyphTint.alpha(color, 0.65F - 0.3F * t));
+            this.faces(new AABB(cx - half, cy - half, cz - half, cx + half, cy + half, cz + half), GlyphTint.alpha(color, 0.65F - 0.3F * t));
          } else {
             this.canvas.sprite(GlyphShapes.DIAMOND, cx, cy, cz, 0.13F - 0.06F * t, 0.0F, GlyphTint.alpha(color, 0.95F - 0.5F * t));
             if ("Pulses".equals(style) && t < 1.0F) {
@@ -257,33 +257,33 @@ final class NetheriteVisuals {
       });
    }
 
-   private void drawRevealed(class_243 eye, List<class_2338> revealed, NetheriteVisuals.Options options, int accent, int light, float pulse) {
-      List<class_2338> sorted = new ArrayList<>(revealed);
-      sorted.sort(Comparator.comparingDouble(posx -> posx.method_19770(eye)));
+   private void drawRevealed(Vec3 eye, List<BlockPos> revealed, NetheriteVisuals.Options options, int accent, int light, float pulse) {
+      List<BlockPos> sorted = new ArrayList<>(revealed);
+      sorted.sort(Comparator.comparingDouble(posx -> posx.distToCenterSqr(eye)));
 
       for (int i = 0; i < sorted.size(); i++) {
-         class_2338 pos = sorted.get(i);
-         double distance = Math.sqrt(pos.method_19770(eye));
+         BlockPos pos = sorted.get(i);
+         double distance = Math.sqrt(pos.distToCenterSqr(eye));
          if (distance > options.range()) {
             break;
          }
 
-         class_238 box = new class_238(pos);
+         AABB box = new AABB(pos);
          if (i < 32) {
             for (int s = 0; s < SHELL_INFLATE.length; s++) {
-               this.faces(box.method_1014(SHELL_INFLATE[s]), GlyphTint.alpha(accent, SHELL_ALPHA[s] * (0.7F + 0.3F * pulse)));
+               this.faces(box.inflate(SHELL_INFLATE[s]), GlyphTint.alpha(accent, SHELL_ALPHA[s] * (0.7F + 0.3F * pulse)));
             }
          }
 
          this.faces(box, GlyphTint.alpha(accent, 0.3F));
          this.box(box, GlyphTint.alpha(light, 0.95F), 2.6F);
-         class_243 center = box.method_1005();
+         Vec3 center = box.getCenter();
          if (i < 3) {
             TracerEngine.draw(center, GlyphTint.alpha(accent, 0.8F));
          }
 
          if (i < 8) {
-            this.labels.add(new NetheriteVisuals.Label(center.method_1031(0.0, 0.9, 0.0), String.format(Locale.ROOT, "%.0fm", distance), null));
+            this.labels.add(new NetheriteVisuals.Label(center.add(0.0, 0.9, 0.0), String.format(Locale.ROOT, "%.0fm", distance), null));
          }
       }
    }
@@ -310,110 +310,110 @@ final class NetheriteVisuals {
       this.canvas.ribbon(ax, ay, az, bx, by, bz, argb, width, this.pixel);
    }
 
-   private void box(class_238 b, int argb, float width) {
-      this.line(b.field_1323, b.field_1322, b.field_1321, b.field_1320, b.field_1322, b.field_1321, argb, width);
-      this.line(b.field_1320, b.field_1322, b.field_1321, b.field_1320, b.field_1322, b.field_1324, argb, width);
-      this.line(b.field_1320, b.field_1322, b.field_1324, b.field_1323, b.field_1322, b.field_1324, argb, width);
-      this.line(b.field_1323, b.field_1322, b.field_1324, b.field_1323, b.field_1322, b.field_1321, argb, width);
-      this.line(b.field_1323, b.field_1325, b.field_1321, b.field_1320, b.field_1325, b.field_1321, argb, width);
-      this.line(b.field_1320, b.field_1325, b.field_1321, b.field_1320, b.field_1325, b.field_1324, argb, width);
-      this.line(b.field_1320, b.field_1325, b.field_1324, b.field_1323, b.field_1325, b.field_1324, argb, width);
-      this.line(b.field_1323, b.field_1325, b.field_1324, b.field_1323, b.field_1325, b.field_1321, argb, width);
-      this.line(b.field_1323, b.field_1322, b.field_1321, b.field_1323, b.field_1325, b.field_1321, argb, width);
-      this.line(b.field_1320, b.field_1322, b.field_1321, b.field_1320, b.field_1325, b.field_1321, argb, width);
-      this.line(b.field_1320, b.field_1322, b.field_1324, b.field_1320, b.field_1325, b.field_1324, argb, width);
-      this.line(b.field_1323, b.field_1322, b.field_1324, b.field_1323, b.field_1325, b.field_1324, argb, width);
+   private void box(AABB b, int argb, float width) {
+      this.line(b.minX, b.minY, b.minZ, b.maxX, b.minY, b.minZ, argb, width);
+      this.line(b.maxX, b.minY, b.minZ, b.maxX, b.minY, b.maxZ, argb, width);
+      this.line(b.maxX, b.minY, b.maxZ, b.minX, b.minY, b.maxZ, argb, width);
+      this.line(b.minX, b.minY, b.maxZ, b.minX, b.minY, b.minZ, argb, width);
+      this.line(b.minX, b.maxY, b.minZ, b.maxX, b.maxY, b.minZ, argb, width);
+      this.line(b.maxX, b.maxY, b.minZ, b.maxX, b.maxY, b.maxZ, argb, width);
+      this.line(b.maxX, b.maxY, b.maxZ, b.minX, b.maxY, b.maxZ, argb, width);
+      this.line(b.minX, b.maxY, b.maxZ, b.minX, b.maxY, b.minZ, argb, width);
+      this.line(b.minX, b.minY, b.minZ, b.minX, b.maxY, b.minZ, argb, width);
+      this.line(b.maxX, b.minY, b.minZ, b.maxX, b.maxY, b.minZ, argb, width);
+      this.line(b.maxX, b.minY, b.maxZ, b.maxX, b.maxY, b.maxZ, argb, width);
+      this.line(b.minX, b.minY, b.maxZ, b.minX, b.maxY, b.maxZ, argb, width);
    }
 
-   private void faces(class_238 b, int argb) {
+   private void faces(AABB b, int argb) {
       this.face(
-         b.field_1323,
-         b.field_1322,
-         b.field_1321,
-         b.field_1320,
-         b.field_1322,
-         b.field_1321,
-         b.field_1320,
-         b.field_1322,
-         b.field_1324,
-         b.field_1323,
-         b.field_1322,
-         b.field_1324,
+         b.minX,
+         b.minY,
+         b.minZ,
+         b.maxX,
+         b.minY,
+         b.minZ,
+         b.maxX,
+         b.minY,
+         b.maxZ,
+         b.minX,
+         b.minY,
+         b.maxZ,
          argb
       );
       this.face(
-         b.field_1323,
-         b.field_1325,
-         b.field_1321,
-         b.field_1320,
-         b.field_1325,
-         b.field_1321,
-         b.field_1320,
-         b.field_1325,
-         b.field_1324,
-         b.field_1323,
-         b.field_1325,
-         b.field_1324,
+         b.minX,
+         b.maxY,
+         b.minZ,
+         b.maxX,
+         b.maxY,
+         b.minZ,
+         b.maxX,
+         b.maxY,
+         b.maxZ,
+         b.minX,
+         b.maxY,
+         b.maxZ,
          argb
       );
       this.face(
-         b.field_1323,
-         b.field_1322,
-         b.field_1321,
-         b.field_1320,
-         b.field_1322,
-         b.field_1321,
-         b.field_1320,
-         b.field_1325,
-         b.field_1321,
-         b.field_1323,
-         b.field_1325,
-         b.field_1321,
+         b.minX,
+         b.minY,
+         b.minZ,
+         b.maxX,
+         b.minY,
+         b.minZ,
+         b.maxX,
+         b.maxY,
+         b.minZ,
+         b.minX,
+         b.maxY,
+         b.minZ,
          argb
       );
       this.face(
-         b.field_1323,
-         b.field_1322,
-         b.field_1324,
-         b.field_1320,
-         b.field_1322,
-         b.field_1324,
-         b.field_1320,
-         b.field_1325,
-         b.field_1324,
-         b.field_1323,
-         b.field_1325,
-         b.field_1324,
+         b.minX,
+         b.minY,
+         b.maxZ,
+         b.maxX,
+         b.minY,
+         b.maxZ,
+         b.maxX,
+         b.maxY,
+         b.maxZ,
+         b.minX,
+         b.maxY,
+         b.maxZ,
          argb
       );
       this.face(
-         b.field_1323,
-         b.field_1322,
-         b.field_1321,
-         b.field_1323,
-         b.field_1322,
-         b.field_1324,
-         b.field_1323,
-         b.field_1325,
-         b.field_1324,
-         b.field_1323,
-         b.field_1325,
-         b.field_1321,
+         b.minX,
+         b.minY,
+         b.minZ,
+         b.minX,
+         b.minY,
+         b.maxZ,
+         b.minX,
+         b.maxY,
+         b.maxZ,
+         b.minX,
+         b.maxY,
+         b.minZ,
          argb
       );
       this.face(
-         b.field_1320,
-         b.field_1322,
-         b.field_1321,
-         b.field_1320,
-         b.field_1322,
-         b.field_1324,
-         b.field_1320,
-         b.field_1325,
-         b.field_1324,
-         b.field_1320,
-         b.field_1325,
-         b.field_1321,
+         b.maxX,
+         b.minY,
+         b.minZ,
+         b.maxX,
+         b.minY,
+         b.maxZ,
+         b.maxX,
+         b.maxY,
+         b.maxZ,
+         b.maxX,
+         b.maxY,
+         b.minZ,
          argb
       );
    }
@@ -426,11 +426,11 @@ final class NetheriteVisuals {
    }
 
    private float jitter(float amount) {
-      return (this.random.method_43057() * 2.0F - 1.0F) * amount;
+      return (this.random.nextFloat() * 2.0F - 1.0F) * amount;
    }
 
    @Environment(EnvType.CLIENT)
-   private record Label(class_243 pos, String primary, String secondary) {
+   private record Label(Vec3 pos, String primary, String secondary) {
    }
 
    @Environment(EnvType.CLIENT)
@@ -438,7 +438,7 @@ final class NetheriteVisuals {
    }
 
    @Environment(EnvType.CLIENT)
-   record Section(class_238 box, double distance, float progress) {
+   record Section(AABB box, double distance, float progress) {
    }
 
    @Environment(EnvType.CLIENT)

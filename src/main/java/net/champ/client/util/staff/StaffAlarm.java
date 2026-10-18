@@ -3,14 +3,14 @@ package net.champ.client.util.staff;
 import java.util.ArrayDeque;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1109;
-import net.minecraft.class_1113;
-import net.minecraft.class_1144;
-import net.minecraft.class_310;
-import net.minecraft.class_3414;
-import net.minecraft.class_3417;
-import net.minecraft.class_3419;
-import net.minecraft.class_1113.class_1114;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.client.sounds.SoundManager;
+import net.minecraft.client.Minecraft;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.client.resources.sounds.SoundInstance.Attenuation;
 
 @Environment(EnvType.CLIENT)
 public final class StaffAlarm {
@@ -31,7 +31,7 @@ public final class StaffAlarm {
    private float volume;
    private int ticksLeft;
    private int step;
-   private final ArrayDeque<class_1113> ringing = new ArrayDeque<>(8);
+   private final ArrayDeque<SoundInstance> ringing = new ArrayDeque<>(8);
 
    public void start(String mode, float seconds, float volume) {
       if (mode != null && !"Off".equals(mode) && !(volume <= 0.0F) && !(seconds <= 0.0F)) {
@@ -66,7 +66,7 @@ public final class StaffAlarm {
       this.ticksLeft = 0;
       this.step = 0;
       if (!this.ringing.isEmpty()) {
-         class_1144 sounds = class_310.method_1551().method_1483();
+         SoundManager sounds = Minecraft.getInstance().getSoundManager();
          if (sounds != null) {
             this.ringing.forEach(sounds::method_4870);
          }
@@ -80,37 +80,37 @@ public final class StaffAlarm {
    }
 
    private void play(int note) {
-      class_1144 sounds = class_310.method_1551().method_1483();
+      SoundManager sounds = Minecraft.getInstance().getSoundManager();
       if (sounds != null) {
-         class_3414 sound;
+         SoundEvent sound;
          float pitch;
          switch (this.mode) {
             case "Beep":
-               sound = (class_3414)class_3417.field_18311.comp_349();
+               sound = (SoundEvent)SoundEvents.NOTE_BLOCK_BIT.comp_349();
                pitch = 1.6F;
                break;
             case "Bell":
-               sound = class_3417.field_17265;
+               sound = SoundEvents.BELL_BLOCK;
                pitch = 1.0F;
                break;
             case "Guardian":
-               sound = class_3417.field_15203;
+               sound = SoundEvents.ELDER_GUARDIAN_CURSE;
                pitch = 1.0F;
                break;
             default:
-               sound = (class_3414)class_3417.field_14622.comp_349();
+               sound = (SoundEvent)SoundEvents.NOTE_BLOCK_PLING.comp_349();
                pitch = note % 2 == 0 ? 1.5F : 1.0F;
          }
 
-         class_1113 instance = new class_1109(
-            sound.comp_3319(), class_3419.field_15250, this.volume, pitch, class_1113.method_43221(), false, 0, class_1114.field_5478, 0.0, 0.0, 0.0, true
+         SoundInstance instance = new SimpleSoundInstance(
+            sound.comp_3319(), SoundSource.MASTER, this.volume, pitch, SoundInstance.createUnseededRandom(), false, 0, Attenuation.NONE, 0.0, 0.0, 0.0, true
          );
          if (this.ringing.size() >= 8) {
             this.ringing.removeFirst();
          }
 
          this.ringing.addLast(instance);
-         sounds.method_4873(instance);
+         sounds.play(instance);
       }
    }
 

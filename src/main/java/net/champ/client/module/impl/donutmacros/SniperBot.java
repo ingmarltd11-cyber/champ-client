@@ -10,16 +10,16 @@ import java.util.regex.Pattern;
 import net.champ.client.chat.ModuleChat;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1713;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_2561;
-import net.minecraft.class_2583;
-import net.minecraft.class_5251;
-import net.minecraft.class_746;
-import net.minecraft.class_7923;
-import net.minecraft.class_9290;
-import net.minecraft.class_9334;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.core.component.DataComponents;
 
 @Environment(EnvType.CLIENT)
 final class SniperBot {
@@ -89,7 +89,7 @@ final class SniperBot {
          this.worker.check();
 
          try {
-            if (!this.worker.call(() -> Gui.mc().field_1724 != null && Gui.mc().method_1562() != null)) {
+            if (!this.worker.call(() -> Gui.mc().player != null && Gui.mc().getConnection() != null)) {
                this.worker.sleep(2000L);
             } else {
                if (this.stock != null && this.unsold > 0) {
@@ -161,14 +161,14 @@ final class SniperBot {
          return false;
       }
 
-      String title = ServerText.normalize(Gui.mc().field_1755.method_25440());
+      String title = ServerText.normalize(Gui.mc().screen.getTitle());
       return title.contains("order") ? false : title.contains("auction") || refreshSlot(Gui.containerNow()) >= 0;
    }
 
    private void ensureRecent() {
       for (int attempt = 0; attempt < 4; attempt++) {
          int[] state = this.worker.call(() -> {
-            List<class_1799> stacks = Gui.containerNow();
+            List<ItemStack> stacks = Gui.containerNow();
             int slot = filterSlot(stacks);
             return new int[]{slot, slot < 0 ? SniperBot.Sort.UNKNOWN.ordinal() : selectedSort(stacks.get(slot)).ordinal()};
          });
@@ -188,39 +188,39 @@ final class SniperBot {
          }
 
          String before = this.gui.fingerprint();
-         this.gui.click(state[0], 0, class_1713.field_7790);
+         this.gui.click(state[0], 0, ClickType.PICKUP);
          this.gui.waitChange(before, 2000L);
          this.worker.sleep(250L);
       }
    }
 
-   private static int filterSlot(List<class_1799> stacks) {
+   private static int filterSlot(List<ItemStack> stacks) {
       for (int i = 45; i < stacks.size(); i++) {
-         class_1799 stack = stacks.get(i);
-         if (!stack.method_7960() && (stack.method_31574(class_1802.field_8239) || Gui.nameOf(stack).contains("filter"))) {
+         ItemStack stack = stacks.get(i);
+         if (!stack.isEmpty() && (stack.is(Items.HOPPER) || Gui.nameOf(stack).contains("filter"))) {
             return i;
          }
       }
 
-      return stacks.size() > 47 && !stacks.get(47).method_7960() ? 47 : -1;
+      return stacks.size() > 47 && !stacks.get(47).isEmpty() ? 47 : -1;
    }
 
-   private static int refreshSlot(List<class_1799> stacks) {
+   private static int refreshSlot(List<ItemStack> stacks) {
       for (int i = 45; i < stacks.size(); i++) {
-         class_1799 stack = stacks.get(i);
-         if (!stack.method_7960() && stack.method_31574(class_1802.field_8782)) {
+         ItemStack stack = stacks.get(i);
+         if (!stack.isEmpty() && stack.is(Items.ANVIL)) {
             return i;
          }
       }
 
-      return stacks.size() > 49 && stacks.get(49).method_31574(class_1802.field_8782) ? 49 : -1;
+      return stacks.size() > 49 && stacks.get(49).is(Items.ANVIL) ? 49 : -1;
    }
 
-   static SniperBot.Sort selectedSort(class_1799 filter) {
+   static SniperBot.Sort selectedSort(ItemStack filter) {
       List<SniperBot.Sort> options = new ArrayList<>();
       List<Integer> colors = new ArrayList<>();
 
-      for (class_2561 line : ((class_9290)filter.method_58695(class_9334.field_49632, class_9290.field_49340)).comp_2400()) {
+      for (Component line : ((ItemLore)filter.getOrDefault(DataComponents.LORE, ItemLore.EMPTY)).comp_2400()) {
          String text = ServerText.normalize(Dialogs.visibleText(line));
          SniperBot.Sort option = text.contains("recent")
             ? SniperBot.Sort.RECENT
@@ -276,53 +276,53 @@ final class SniperBot {
       return pick;
    }
 
-   private static int color(class_2561 line) {
+   private static int color(Component line) {
       int[] value = new int[]{-1};
-      line.method_27658((style, text) -> {
+      line.visit((style, text) -> {
          if (value[0] < 0 && !text.isBlank() && !text.trim().equals("•") && !text.trim().equals("▪")) {
-            class_5251 color = style.method_10973();
-            value[0] = color == null ? 11141290 : color.method_27716();
+            TextColor color = style.getColor();
+            value[0] = color == null ? 11141290 : color.getValue();
             return Optional.empty();
          } else {
             return Optional.empty();
          }
-      }, class_2583.field_24360);
+      }, Style.EMPTY);
       return value[0];
    }
 
    private void clickRefresh() {
-      class_746 player = Gui.mc().field_1724;
+      LocalPlayer player = Gui.mc().player;
       if (player != null && auctionOpenNow()) {
          int slot = refreshSlot(Gui.containerNow());
          if (slot >= 0) {
-            Gui.mc().field_1761.method_2906(player.field_7512.field_7763, slot, 0, class_1713.field_7790, player);
+            Gui.mc().gameMode.handleInventoryMouseClick(player.containerMenu.containerId, slot, 0, ClickType.PICKUP, player);
          }
       }
    }
 
    private SniperBot.Hit scanAndClick() {
-      class_746 player = Gui.mc().field_1724;
+      LocalPlayer player = Gui.mc().player;
       if (player != null && auctionOpenNow()) {
-         String title = ServerText.normalize(Gui.mc().field_1755.method_25440());
+         String title = ServerText.normalize(Gui.mc().screen.getTitle());
          if (title.contains("(page") && !title.contains("(page 1)")) {
             return null;
          }
 
          long now = System.currentTimeMillis();
          this.skip.values().removeIf(until -> until < now);
-         List<class_1799> stacks = Gui.containerNow();
+         List<ItemStack> stacks = Gui.containerNow();
 
          for (int i = 0; i < 45 && i < stacks.size(); i++) {
-            class_1799 stack = stacks.get(i);
-            if (!stack.method_7960() && this.target.matches(stack)) {
+            ItemStack stack = stacks.get(i);
+            if (!stack.isEmpty() && this.target.matches(stack)) {
                double total = ServerText.listingPrice(stack);
                if (!(total <= 0.0)) {
-                  long unit = Math.round(total / Math.max(1, stack.method_7947()));
+                  long unit = Math.round(total / Math.max(1, stack.getCount()));
                   if (unit <= this.target.maxPrice) {
                      String fingerprint = fingerprint(stack, total);
                      if (!this.skip.containsKey(fingerprint)) {
-                        Gui.mc().field_1761.method_2906(player.field_7512.field_7763, i, 0, class_1713.field_7790, player);
-                        return new SniperBot.Hit(i, unit, fingerprint, stack.method_7964().getString());
+                        Gui.mc().gameMode.handleInventoryMouseClick(player.containerMenu.containerId, i, 0, ClickType.PICKUP, player);
+                        return new SniperBot.Hit(i, unit, fingerprint, stack.getHoverName().getString());
                      }
                   }
                }
@@ -335,14 +335,14 @@ final class SniperBot {
       }
    }
 
-   private static String fingerprint(class_1799 stack, double total) {
-      return class_7923.field_41178.method_10221(stack.method_7909())
+   private static String fingerprint(ItemStack stack, double total) {
+      return BuiltInRegistries.ITEM.getKey(stack.getItem())
          + "|"
-         + stack.method_7964().getString()
+         + stack.getHoverName().getString()
          + "|"
          + Math.round(total)
          + "|"
-         + stack.method_7919()
+         + stack.getDamageValue()
          + "|"
          + String.join("/", ServerText.lore(stack));
    }
@@ -379,16 +379,16 @@ final class SniperBot {
          this.worker.run(() -> {
             Dialogs.View view = Dialogs.current(Gui.mc());
             if (view == null) {
-               class_746 player = Gui.mc().field_1724;
+               LocalPlayer player = Gui.mc().player;
                if (player != null && Gui.containerOpenNow() && !auctionOpenNow()) {
-                  int sync = player.field_7512.field_7763;
+                  int sync = player.containerMenu.containerId;
                   if (sync != pressedChest[0]) {
-                     List<class_1799> stacks = Gui.containerNow();
+                     List<ItemStack> stacks = Gui.containerNow();
 
                      for (int i = 0; i < stacks.size(); i++) {
-                        class_1799 stack = stacks.get(i);
-                        if (!stack.method_7960() && class_7923.field_41178.method_10221(stack.method_7909()).method_12832().contains("lime")) {
-                           Gui.mc().field_1761.method_2906(sync, i, 0, class_1713.field_7790, player);
+                        ItemStack stack = stacks.get(i);
+                        if (!stack.isEmpty() && BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath().contains("lime")) {
+                           Gui.mc().gameMode.handleInventoryMouseClick(sync, i, 0, ClickType.PICKUP, player);
                            pressedChest[0] = sync;
                            return;
                         }

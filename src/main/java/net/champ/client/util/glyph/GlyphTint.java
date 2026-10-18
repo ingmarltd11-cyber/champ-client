@@ -2,8 +2,8 @@ package net.champ.client.util.glyph;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_3532;
-import net.minecraft.class_9848;
+import net.minecraft.util.Mth;
+import net.minecraft.util.ARGB;
 
 @Environment(EnvType.CLIENT)
 public final class GlyphTint {
@@ -24,10 +24,10 @@ public final class GlyphTint {
 
    public GlyphTint resolve(String mode, int accent, int manualMain, int manualSecond) {
       boolean manual = "Manual".equals(mode);
-      this.primary = class_9848.method_61334(manual ? manualMain : accent);
+      this.primary = ARGB.opaque(manual ? manualMain : accent);
       this.split(this.primary);
       if (manual) {
-         this.secondary = class_9848.method_61334(manualSecond);
+         this.secondary = ARGB.opaque(manualSecond);
          this.companion = mix(this.primary, this.secondary, 0.5F);
       } else {
          this.secondary = hsv(toward(this.hue, 0.6666667F, 0.025F), this.saturation * 1.05F, this.value * 0.66F);
@@ -41,9 +41,9 @@ public final class GlyphTint {
    }
 
    private void split(int rgb) {
-      int r = class_9848.method_61327(rgb);
-      int g = class_9848.method_61329(rgb);
-      int b = class_9848.method_61331(rgb);
+      int r = ARGB.red(rgb);
+      int g = ARGB.green(rgb);
+      int b = ARGB.blue(rgb);
       int max = Math.max(r, Math.max(g, b));
       int min = Math.min(r, Math.min(g, b));
       float range = max - min;
@@ -52,7 +52,7 @@ public final class GlyphTint {
       if (range == 0.0F) {
          this.hue = 0.0F;
       } else if (max == r) {
-         this.hue = class_3532.method_22450((g - b) / range / 6.0F);
+         this.hue = Mth.frac((g - b) / range / 6.0F);
       } else if (max == g) {
          this.hue = (2.0F + (b - r) / range) / 6.0F;
       } else {
@@ -62,17 +62,17 @@ public final class GlyphTint {
 
    private static float toward(float from, float target, float step) {
       float delta = target - from;
-      delta -= class_3532.method_15375(delta + 0.5F);
+      delta -= Mth.floor(delta + 0.5F);
       return Math.abs(delta) <= step ? target : from + Math.copySign(step, delta);
    }
 
    private static int hsv(float h, float s, float v) {
-      float wrapped = class_3532.method_22450(h);
+      float wrapped = Mth.frac(h);
       if (wrapped >= 1.0F) {
          wrapped = 0.0F;
       }
 
-      return class_3532.method_60599(wrapped, class_3532.method_15363(s, 0.0F, 1.0F), class_3532.method_15363(v, 0.0F, 1.0F), 255);
+      return Mth.hsvToArgb(wrapped, Mth.clamp(s, 0.0F, 1.0F), Mth.clamp(v, 0.0F, 1.0F), 255);
    }
 
    public int primary() {
@@ -105,10 +105,10 @@ public final class GlyphTint {
    }
 
    public static int mix(int from, int to, float k) {
-      return class_9848.method_61319(Math.max(0.0F, Math.min(1.0F, k)), from, to);
+      return ARGB.srgbLerp(Math.max(0.0F, Math.min(1.0F, k)), from, to);
    }
 
    public static int lift(int rgb, float amount) {
-      return mix(class_9848.method_61334(rgb), -1, amount);
+      return mix(ARGB.opaque(rgb), -1, amount);
    }
 }

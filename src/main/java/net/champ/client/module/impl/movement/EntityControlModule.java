@@ -7,10 +7,10 @@ import net.champ.client.module.impl.movement.entitycontrol.EntityControlVehicleH
 import net.champ.client.module.setting.BooleanSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10255;
-import net.minecraft.class_1297;
-import net.minecraft.class_1299;
-import net.minecraft.class_2692;
+import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
 
 @Environment(EnvType.CLIENT)
 public final class EntityControlModule extends ClientModule {
@@ -45,7 +45,7 @@ public final class EntityControlModule extends ClientModule {
    }
 
    private void onPacketReceive(PacketReceiveNettyEvent event) {
-      if (this.cancelServerPackets.get() && event.packet instanceof class_2692) {
+      if (this.cancelServerPackets.get() && event.packet instanceof ClientboundMoveVehiclePacket) {
          event.setCancelled(true);
       }
    }
@@ -60,31 +60,31 @@ public final class EntityControlModule extends ClientModule {
       return module != null && module.maxJump.get();
    }
 
-   public boolean locksYaw(class_1297 vehicle) {
+   public boolean locksYaw(Entity vehicle) {
       return this.lockYaw.get() && this.isTarget(vehicle);
    }
 
-   private boolean isTarget(class_1297 entity) {
-      if (entity instanceof class_10255) {
+   private boolean isTarget(Entity entity) {
+      if (entity instanceof AbstractBoat) {
          return this.boats.get();
       } else {
-         class_1299<?> type = entity.method_5864();
-         if (type == class_1299.field_6139
-            || type == class_1299.field_6067
-            || type == class_1299.field_6057
-            || type == class_1299.field_6075
-            || type == class_1299.field_6048) {
+         EntityType<?> type = entity.getType();
+         if (type == EntityType.HORSE
+            || type == EntityType.DONKEY
+            || type == EntityType.MULE
+            || type == EntityType.SKELETON_HORSE
+            || type == EntityType.ZOMBIE_HORSE) {
             return this.horses.get();
-         } else if (type == class_1299.field_40116 || type == class_1299.field_64132) {
+         } else if (type == EntityType.CAMEL || type == EntityType.CAMEL_HUSK) {
             return this.camels.get();
-         } else if (type == class_1299.field_6093) {
+         } else if (type == EntityType.PIG) {
             return this.pigs.get();
-         } else if (type == class_1299.field_23214) {
+         } else if (type == EntityType.STRIDER) {
             return this.striders.get();
-         } else if (type == class_1299.field_63289 || type == class_1299.field_63290) {
+         } else if (type == EntityType.NAUTILUS || type == EntityType.ZOMBIE_NAUTILUS) {
             return this.nautiluses.get();
          } else {
-            return type == class_1299.field_59668 ? this.happyGhasts.get() : false;
+            return type == EntityType.HAPPY_GHAST ? this.happyGhasts.get() : false;
          }
       }
    }

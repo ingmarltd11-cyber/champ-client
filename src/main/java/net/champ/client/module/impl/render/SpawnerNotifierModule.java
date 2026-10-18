@@ -15,14 +15,14 @@ import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.ColorSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1109;
-import net.minecraft.class_1297;
-import net.minecraft.class_2246;
-import net.minecraft.class_2338;
-import net.minecraft.class_243;
-import net.minecraft.class_2636;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class SpawnerNotifierModule extends ClientModule implements ChunkScanner.Consumer {
@@ -41,7 +41,7 @@ public final class SpawnerNotifierModule extends ClientModule implements ChunkSc
       public int tracerColor(Object kind) {
          return 0;
       }
-   }, () -> class_310.method_1551().field_1687 == null ? null : class_310.method_1551().field_1687.method_27983());
+   }, () -> Minecraft.getInstance().level == null ? null : Minecraft.getInstance().level.dimension());
    private final LongOpenHashSet notified = new LongOpenHashSet();
 
    public SpawnerNotifierModule() {
@@ -62,15 +62,15 @@ public final class SpawnerNotifierModule extends ClientModule implements ChunkSc
    }
 
    @Override
-   public boolean wants(class_2680 state) {
-      return state.method_27852(class_2246.field_10260);
+   public boolean wants(BlockState state) {
+      return state.is(Blocks.SPAWNER);
    }
 
    @Override
-   public void found(long pos, class_2680 state) {
+   public void found(long pos, BlockState state) {
       this.layer.put(pos, "Spawner");
       if (this.notified.add(pos)) {
-         this.notify(class_2338.method_10092(pos));
+         this.notify(BlockPos.of(pos));
       }
    }
 
@@ -90,33 +90,33 @@ public final class SpawnerNotifierModule extends ClientModule implements ChunkSc
       this.layer.retainChunk(chunkKey, stillThere);
    }
 
-   private void notify(class_2338 pos) {
-      class_310 mc = class_310.method_1551();
+   private void notify(BlockPos pos) {
+      Minecraft mc = Minecraft.getInstance();
       if (this.notificationsOn()) {
          ModuleChat.send(this, foundMessage(mc, pos));
       }
 
-      if (this.sSound.get() && mc.field_1724 != null && mc.field_1687 != null) {
-         mc.method_1483().method_4873(class_1109.method_4757(ChampClientMod.SPAWNER_NOTIFY_SOUND, 1.0F, 1.0F));
+      if (this.sSound.get() && mc.player != null && mc.level != null) {
+         mc.getSoundManager().play(SimpleSoundInstance.forUI(ChampClientMod.SPAWNER_NOTIFY_SOUND, 1.0F, 1.0F));
       }
    }
 
-   private static ModuleChat.Body foundMessage(class_310 mc, class_2338 pos) {
+   private static ModuleChat.Body foundMessage(Minecraft mc, BlockPos pos) {
       String mob = entityName(mc, pos);
       ModuleChat.Body body = mob == null ? ModuleChat.body().warn("Unknown") : ModuleChat.body().name(mob);
-      body.text(" spawner ").good("found").text(" at ").coords(pos.method_10263(), pos.method_10264(), pos.method_10260());
-      if (mc.field_1724 != null) {
-         long distance = Math.round(mc.field_1724.method_73189().method_1022(class_243.method_24953(pos)));
+      body.text(" spawner ").good("found").text(" at ").coords(pos.getX(), pos.getY(), pos.getZ());
+      if (mc.player != null) {
+         long distance = Math.round(mc.player.position().distanceTo(Vec3.atCenterOf(pos)));
          body.text(" (").value(distance + "m").text(")");
       }
 
       return body;
    }
 
-   private static String entityName(class_310 mc, class_2338 pos) {
-      if (mc.field_1687 != null && mc.field_1687.method_8321(pos) instanceof class_2636 spawner) {
-         class_1297 entity = spawner.method_11390().method_8283(mc.field_1687, pos);
-         return entity == null ? null : entity.method_5864().method_5897().getString();
+   private static String entityName(Minecraft mc, BlockPos pos) {
+      if (mc.level != null && mc.level.getBlockEntity(pos) instanceof SpawnerBlockEntity spawner) {
+         Entity entity = spawner.getSpawner().getOrCreateDisplayEntity(mc.level, pos);
+         return entity == null ? null : entity.getType().getDescription().getString();
       } else {
          return null;
       }

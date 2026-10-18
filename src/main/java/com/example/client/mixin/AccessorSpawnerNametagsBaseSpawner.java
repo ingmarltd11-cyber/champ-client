@@ -2,17 +2,17 @@ package com.example.client.mixin;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1917;
-import net.minecraft.class_1952;
+import net.minecraft.world.level.BaseSpawner;
+import net.minecraft.world.level.SpawnData;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_1917.class)
+@Mixin(BaseSpawner.class)
 public interface AccessorSpawnerNametagsBaseSpawner {
-   @Accessor("field_9155")
-   class_1952 champ$spawnerNametagsNextSpawnData();
+   @Accessor("nextSpawnData")
+   SpawnData champ$spawnerNametagsNextSpawnData();
 
-   @Accessor("field_9158")
+   @Accessor("requiredPlayerRange")
    int champ$spawnerNametagsRequiredPlayerRange();
 }

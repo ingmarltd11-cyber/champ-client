@@ -16,26 +16,26 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.StringSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2561;
-import net.minecraft.class_2583;
-import net.minecraft.class_266;
-import net.minecraft.class_268;
-import net.minecraft.class_269;
-import net.minecraft.class_274;
-import net.minecraft.class_310;
-import net.minecraft.class_5223;
-import net.minecraft.class_5250;
-import net.minecraft.class_5348;
-import net.minecraft.class_746;
-import net.minecraft.class_8646;
-import net.minecraft.class_9011;
-import net.minecraft.class_9013;
-import net.minecraft.class_9014;
-import net.minecraft.class_9015;
-import net.minecraft.class_9021;
-import net.minecraft.class_9022;
-import net.minecraft.class_9025;
-import net.minecraft.class_274.class_275;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.scores.criteria.ObjectiveCriteria;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.StringDecomposer;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.PlayerScoreEntry;
+import net.minecraft.world.scores.ReadOnlyScoreInfo;
+import net.minecraft.world.scores.ScoreAccess;
+import net.minecraft.world.scores.ScoreHolder;
+import net.minecraft.network.chat.numbers.FixedFormat;
+import net.minecraft.network.chat.numbers.NumberFormat;
+import net.minecraft.network.chat.numbers.StyledFormat;
+import net.minecraft.world.scores.criteria.ObjectiveCriteria.RenderType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,9 +45,9 @@ public final class FakeStats extends ClientModule {
    private static final String OBJECTIVE = "champ_fs";
    private static final String SHOWN_BY_DEFAULT = ".gg/champ";
    private static final int LINES = 15;
-   private static final Comparator<class_9011> ORDER = Comparator.<class_9011>comparingInt(class_9011::comp_2128)
+   private static final Comparator<PlayerScoreEntry> ORDER = Comparator.<PlayerScoreEntry>comparingInt(PlayerScoreEntry::comp_2128)
       .reversed()
-      .thenComparing(class_9011::comp_2127, String.CASE_INSENSITIVE_ORDER);
+      .thenComparing(PlayerScoreEntry::comp_2127, String.CASE_INSENSITIVE_ORDER);
    private static final Pattern MONEY = Pattern.compile("\\$\\s?(\\d[\\d.,]*[KkMmBbTtQq]?)");
    private static final String SMALL_CAPS = "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘǫʀꜱᴛᴜᴠᴡxʏᴢ";
    private static volatile FakeStats active;
@@ -63,9 +63,9 @@ public final class FakeStats extends ClientModule {
    );
    private long seed;
    private boolean applying;
-   private class_269 board;
-   private class_266 fake;
-   private class_266 serverSidebar;
+   private Scoreboard board;
+   private Objective fake;
+   private Objective serverSidebar;
    private String sidebarMoney;
    private boolean nameReported;
 
@@ -82,13 +82,13 @@ public final class FakeStats extends ClientModule {
       return true;
    }
 
-   public static boolean redirect(class_269 board, class_8646 slot, class_266 objective) {
+   public static boolean redirect(Scoreboard board, DisplaySlot slot, Objective objective) {
       FakeStats module = active;
-      if (module == null || module.applying || slot != class_8646.field_45157) {
+      if (module == null || module.applying || slot != DisplaySlot.SIDEBAR) {
          return false;
       }
 
-      if (objective != null && "champ_fs".equals(objective.method_1113())) {
+      if (objective != null && "champ_fs".equals(objective.getName())) {
          return false;
       }
 
@@ -97,7 +97,7 @@ public final class FakeStats extends ClientModule {
          return false;
       }
 
-      class_266 shown = module.install(board);
+      Objective shown = module.install(board);
       if (shown == null) {
          return false;
       }
@@ -105,7 +105,7 @@ public final class FakeStats extends ClientModule {
       module.applying = true;
 
       try {
-         board.method_1158(class_8646.field_45157, shown);
+         board.setDisplayObjective(DisplaySlot.SIDEBAR, shown);
       } finally {
          module.applying = false;
       }
@@ -113,34 +113,34 @@ public final class FakeStats extends ClientModule {
       return true;
    }
 
-   public static class_2561 tabName(UUID player, class_2561 name) {
+   public static Component tabName(UUID player, Component name) {
       FakeStats module = active;
       return module != null && name != null && isSelf(player) ? module.fakeTabMoney(name) : name;
    }
 
-   public static class_5348 tabText(class_5348 text) {
+   public static FormattedText tabText(FormattedText text) {
       FakeStats module = active;
-      return (class_5348)(module != null && text instanceof class_2561 line ? module.fakeTabMoney(line) : text);
+      return (FormattedText)(module != null && text instanceof Component line ? module.fakeTabMoney(line) : text);
    }
 
-   public static class_9013 tabScore(class_9015 holder, class_9013 real) {
+   public static ReadOnlyScoreInfo tabScore(ScoreHolder holder, ReadOnlyScoreInfo real) {
       final FakeStats module = active;
-      class_746 player = class_310.method_1551().field_1724;
-      return module != null && real != null && player != null && player.method_5820().equals(holder.method_5820()) ? new class_9013() {
+      LocalPlayer player = Minecraft.getInstance().player;
+      return module != null && real != null && player != null && player.getScoreboardName().equals(holder.getScoreboardName()) ? new ReadOnlyScoreInfo() {
          public int method_55397() {
-            return real.method_55397();
+            return real.value();
          }
 
          public boolean method_1131() {
-            return real.method_1131();
+            return real.isLocked();
          }
 
-         public class_9022 method_55400() {
-            return real.method_55400();
+         public NumberFormat method_55400() {
+            return real.numberFormat();
          }
 
-         public class_5250 method_55399(class_9022 fallback) {
-            return class_2561.method_43473().method_10852(module.fakeTabMoney(real.method_55399(fallback)));
+         public MutableComponent method_55399(NumberFormat fallback) {
+            return Component.empty().append(module.fakeTabMoney(real.formatValue(fallback)));
          }
       } : real;
    }
@@ -160,23 +160,23 @@ public final class FakeStats extends ClientModule {
    }
 
    private void refresh() {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 == null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level == null) {
          this.board = null;
          this.fake = null;
          this.serverSidebar = null;
          this.sidebarMoney = null;
       } else {
-         class_269 current = mc.field_1687.method_8428();
+         Scoreboard current = mc.level.getScoreboard();
          if (current != this.board) {
             this.board = current;
             this.fake = null;
             this.serverSidebar = null;
          }
 
-         class_266 shown = current.method_1189(class_8646.field_45157);
-         if (this.serverSidebar == null || this.serverSidebar.method_1117() != current) {
-            this.serverSidebar = shown != null && !"champ_fs".equals(shown.method_1113()) ? shown : null;
+         Objective shown = current.getDisplayObjective(DisplaySlot.SIDEBAR);
+         if (this.serverSidebar == null || this.serverSidebar.getScoreboard() != current) {
+            this.serverSidebar = shown != null && !"champ_fs".equals(shown.getName()) ? shown : null;
          }
 
          if (this.serverSidebar == null) {
@@ -185,19 +185,19 @@ public final class FakeStats extends ClientModule {
                this.applying = true;
 
                try {
-                  current.method_1158(class_8646.field_45157, null);
+                  current.setDisplayObjective(DisplaySlot.SIDEBAR, null);
                } finally {
                   this.applying = false;
                }
             }
          } else {
-            class_266 installed = this.install(current);
+            Objective installed = this.install(current);
             if (installed != null) {
-               if (current.method_1189(class_8646.field_45157) != installed) {
+               if (current.getDisplayObjective(DisplaySlot.SIDEBAR) != installed) {
                   this.applying = true;
 
                   try {
-                     current.method_1158(class_8646.field_45157, installed);
+                     current.setDisplayObjective(DisplaySlot.SIDEBAR, installed);
                   } finally {
                      this.applying = false;
                   }
@@ -207,17 +207,17 @@ public final class FakeStats extends ClientModule {
       }
    }
 
-   private class_266 install(class_269 current) {
-      class_266 server = this.serverSidebar;
-      if (server != null && server.method_1117() == current) {
-         class_266 objective = current.method_1170("champ_fs");
+   private Objective install(Scoreboard current) {
+      Objective server = this.serverSidebar;
+      if (server != null && server.getScoreboard() == current) {
+         Objective objective = current.getObjective("champ_fs");
          if (objective == null) {
-            objective = current.method_1168("champ_fs", class_274.field_1468, class_2561.method_43473(), class_275.field_1472, false, server.method_55384());
+            objective = current.addObjective("champ_fs", ObjectiveCriteria.DUMMY, Component.empty(), RenderType.INTEGER, false, server.numberFormat());
          }
 
          this.fake = objective;
          this.board = current;
-         objective.method_55382(server.method_55384());
+         objective.setNumberFormat(server.numberFormat());
          this.writeRows(current, objective, server);
          return objective;
       } else {
@@ -225,11 +225,11 @@ public final class FakeStats extends ClientModule {
       }
    }
 
-   private void writeRows(class_269 current, class_266 objective, class_266 server) {
-      List<class_9011> rows = new ArrayList<>();
+   private void writeRows(Scoreboard current, Objective objective, Objective server) {
+      List<PlayerScoreEntry> rows = new ArrayList<>();
 
-      for (class_9011 entry : current.method_1184(server)) {
-         if (!entry.method_55385()) {
+      for (PlayerScoreEntry entry : current.listPlayerScores(server)) {
+         if (!entry.isHidden()) {
             rows.add(entry);
          }
       }
@@ -239,18 +239,18 @@ public final class FakeStats extends ClientModule {
          rows.subList(15, rows.size()).clear();
       }
 
-      class_2561 title = visible(server.method_1114());
-      class_2561 renamedTitle = this.renamed(title);
-      objective.method_1121(renamedTitle != null ? renamedTitle : this.mask(title, 0));
+      Component title = visible(server.getDisplayName());
+      Component renamedTitle = this.renamed(title);
+      objective.setDisplayName(renamedTitle != null ? renamedTitle : this.mask(title, 0));
       boolean nameShown = renamedTitle != null;
-      class_9022 format = server.method_55380(class_9025.field_47567);
+      NumberFormat format = server.numberFormatOrDefault(StyledFormat.SIDEBAR_DEFAULT);
       this.sidebarMoney = null;
 
       for (int i = 0; i < rows.size(); i++) {
-         class_9011 row = rows.get(i);
-         class_2561 name = visible(class_268.method_1142(current.method_1164(row.comp_2127()), row.method_55387()));
-         class_2561 number = visible(row.method_55386(format));
-         class_2561 renamed = this.renamed(name);
+         PlayerScoreEntry row = rows.get(i);
+         Component name = visible(PlayerTeam.formatNameForTeam(current.getPlayersTeam(row.comp_2127()), row.ownerName()));
+         Component number = visible(row.formatValue(format));
+         Component renamed = this.renamed(name);
          FakeStats.Hit hit = renamed == null ? this.find(name.getString(), number.getString()) : null;
          String custom = hit != null ? hit.stat().value().get().strip() : "";
          String shown = null;
@@ -264,9 +264,9 @@ public final class FakeStats extends ClientModule {
                shown = (hit.inNumber() ? number : name).getString().substring(hit.start(), hit.end());
             }
          } else {
-            class_2561 target = hit.inNumber() ? number : name;
+            Component target = hit.inNumber() ? number : name;
             shown = fit(target.getString().substring(hit.start(), hit.end()), custom);
-            class_2561 swapped = replace(target, List.of(new int[]{hit.start(), hit.end()}), shown);
+            Component swapped = replace(target, List.of(new int[]{hit.start(), hit.end()}), shown);
             name = hit.inNumber() ? this.mask(name, i + 1) : swapped;
             number = hit.inNumber() ? swapped : this.mask(number, i + 1);
          }
@@ -275,18 +275,18 @@ public final class FakeStats extends ClientModule {
             this.sidebarMoney = shown;
          }
 
-         class_9015 holder = class_9015.method_55422(holderName(i));
-         current.method_1195(holder.method_5820());
-         class_9014 access = current.method_1180(holder, objective);
-         access.method_55410(row.comp_2128());
-         access.method_55411(name);
-         access.method_55412(new class_9021(number));
+         ScoreHolder holder = ScoreHolder.forNameOnly(holderName(i));
+         current.removePlayerFromTeam(holder.getScoreboardName());
+         ScoreAccess access = current.getOrCreatePlayerScore(holder, objective);
+         access.set(row.comp_2128());
+         access.display(name);
+         access.numberFormatOverride(new FixedFormat(number));
       }
 
       for (int i = rows.size(); i < 15; i++) {
-         class_9015 holder = class_9015.method_55422(holderName(i));
-         if (current.method_55430(holder, objective) != null) {
-            current.method_1155(holder, objective);
+         ScoreHolder holder = ScoreHolder.forNameOnly(holderName(i));
+         if (current.getPlayerScoreInfo(holder, objective) != null) {
+            current.resetSinglePlayerScore(holder, objective);
          }
       }
 
@@ -296,12 +296,12 @@ public final class FakeStats extends ClientModule {
       }
    }
 
-   private void reportMissingName(class_269 current, List<class_9011> rows, class_9022 format, class_2561 title) {
+   private void reportMissingName(Scoreboard current, List<PlayerScoreEntry> rows, NumberFormat format, Component title) {
       StringBuilder lines = new StringBuilder("title: ").append(escaped(title.getString()));
 
-      for (class_9011 row : rows) {
-         class_2561 name = visible(class_268.method_1142(current.method_1164(row.comp_2127()), row.method_55387()));
-         lines.append("\n  ").append(escaped(name.getString())).append(" | ").append(escaped(visible(row.method_55386(format)).getString()));
+      for (PlayerScoreEntry row : rows) {
+         Component name = visible(PlayerTeam.formatNameForTeam(current.getPlayersTeam(row.comp_2127()), row.ownerName()));
+         lines.append("\n  ").append(escaped(name.getString())).append(" | ").append(escaped(visible(row.formatValue(format)).getString()));
       }
 
       LOGGER.info("Fake Stats: no sidebar line shows the name {}\n{}", selfName(), lines);
@@ -323,22 +323,22 @@ public final class FakeStats extends ClientModule {
    }
 
    private void restore() {
-      class_269 current = this.board;
-      class_266 server = this.serverSidebar;
-      class_266 shown = this.fake;
+      Scoreboard current = this.board;
+      Objective server = this.serverSidebar;
+      Objective shown = this.fake;
       this.board = null;
       this.fake = null;
       this.serverSidebar = null;
       this.sidebarMoney = null;
       if (current != null) {
-         if (current.method_1189(class_8646.field_45157) == shown) {
-            class_266 back = server != null && server.method_1117() == current ? server : null;
-            current.method_1158(class_8646.field_45157, back);
+         if (current.getDisplayObjective(DisplaySlot.SIDEBAR) == shown) {
+            Objective back = server != null && server.getScoreboard() == current ? server : null;
+            current.setDisplayObjective(DisplaySlot.SIDEBAR, back);
          }
 
-         class_266 leftover = current.method_1170("champ_fs");
+         Objective leftover = current.getObjective("champ_fs");
          if (leftover != null) {
-            current.method_1194(leftover);
+            current.removeObjective(leftover);
          }
       }
    }
@@ -420,11 +420,11 @@ public final class FakeStats extends ClientModule {
    }
 
    private static String selfName() {
-      class_746 player = class_310.method_1551().field_1724;
-      return player != null ? player.method_7334().name() : null;
+      LocalPlayer player = Minecraft.getInstance().player;
+      return player != null ? player.getGameProfile().name() : null;
    }
 
-   private class_2561 renamed(class_2561 line) {
+   private Component renamed(Component line) {
       String self = selfName();
       int at = self != null ? markerAt(line.getString(), self) : -1;
       if (at < 0) {
@@ -432,7 +432,7 @@ public final class FakeStats extends ClientModule {
       }
 
       String custom = this.playerName.get().strip();
-      return (class_2561)(custom.isEmpty() ? line : replace(line, List.of(new int[]{at, at + self.length()}), custom));
+      return (Component)(custom.isEmpty() ? line : replace(line, List.of(new int[]{at, at + self.length()}), custom));
    }
 
    private static String fit(String real, String custom) {
@@ -451,10 +451,10 @@ public final class FakeStats extends ClientModule {
       return shown.isEmpty() ? null : shown;
    }
 
-   private class_2561 fakeTabMoney(class_2561 line) {
+   private Component fakeTabMoney(Component line) {
       String shown = this.tabMoney();
       if (shown != null && line.getString().indexOf(36) >= 0) {
-         class_2561 clean = visible(line);
+         Component clean = visible(line);
          Matcher matcher = MONEY.matcher(clean.getString());
          List<int[]> ranges = new ArrayList<>();
 
@@ -462,28 +462,28 @@ public final class FakeStats extends ClientModule {
             ranges.add(new int[]{matcher.start(1), matcher.end(1)});
          }
 
-         return (class_2561)(ranges.isEmpty() ? line : replace(clean, ranges, shown));
+         return (Component)(ranges.isEmpty() ? line : replace(clean, ranges, shown));
       } else {
          return line;
       }
    }
 
    private static boolean isSelf(UUID player) {
-      class_746 self = class_310.method_1551().field_1724;
-      return self != null && self.method_5667().equals(player);
+      LocalPlayer self = Minecraft.getInstance().player;
+      return self != null && self.getUUID().equals(player);
    }
 
-   private static class_2561 visible(class_2561 line) {
+   private static Component visible(Component line) {
       if (line.getString().indexOf(167) < 0) {
          return line;
       }
 
-      class_5250 out = class_2561.method_43473();
+      MutableComponent out = Component.empty();
       StringBuilder run = new StringBuilder();
-      class_2583[] runStyle = new class_2583[]{null};
-      class_5223.method_27476(line, class_2583.field_24360, (index, style, codePoint) -> {
+      Style[] runStyle = new Style[]{null};
+      StringDecomposer.iterateFormatted(line, Style.EMPTY, (index, style, codePoint) -> {
          if (runStyle[0] != null && !style.equals(runStyle[0])) {
-            out.method_10852(class_2561.method_43470(run.toString()).method_10862(runStyle[0]));
+            out.append(Component.literal(run.toString()).setStyle(runStyle[0]));
             run.setLength(0);
          }
 
@@ -492,21 +492,21 @@ public final class FakeStats extends ClientModule {
          return true;
       });
       if (!run.isEmpty()) {
-         out.method_10852(class_2561.method_43470(run.toString()).method_10862(runStyle[0]));
+         out.append(Component.literal(run.toString()).setStyle(runStyle[0]));
       }
 
       return out;
    }
 
-   private static class_5250 replace(class_2561 line, List<int[]> ranges, String text) {
+   private static MutableComponent replace(Component line, List<int[]> ranges, String text) {
       if (line.getString().isEmpty()) {
-         return class_2561.method_43470(text);
+         return Component.literal(text);
       }
 
-      class_5250 out = class_2561.method_43473();
+      MutableComponent out = Component.empty();
       int[] pos = new int[]{0};
       int[] next = new int[]{0};
-      line.method_27658((style, piece) -> {
+      line.visit((style, piece) -> {
          int start = pos[0];
          int end = start + piece.length();
          int cursor = start;
@@ -514,14 +514,14 @@ public final class FakeStats extends ClientModule {
          while (cursor < end) {
             int[] range = next[0] < ranges.size() ? ranges.get(next[0]) : null;
             if (range == null || range[0] >= end) {
-               out.method_10852(class_2561.method_43470(piece.substring(cursor - start)).method_10862(style));
+               out.append(Component.literal(piece.substring(cursor - start)).setStyle(style));
                cursor = end;
             } else if (cursor < range[0]) {
-               out.method_10852(class_2561.method_43470(piece.substring(cursor - start, range[0] - start)).method_10862(style));
+               out.append(Component.literal(piece.substring(cursor - start, range[0] - start)).setStyle(style));
                cursor = range[0];
             } else {
                if (cursor == range[0]) {
-                  out.method_10852(class_2561.method_43470(text).method_10862(style));
+                  out.append(Component.literal(text).setStyle(style));
                }
 
                cursor = Math.min(end, range[1]);
@@ -533,7 +533,7 @@ public final class FakeStats extends ClientModule {
 
          pos[0] = end;
          return Optional.empty();
-      }, class_2583.field_24360);
+      }, Style.EMPTY);
       return out;
    }
 
@@ -541,24 +541,24 @@ public final class FakeStats extends ClientModule {
       return new String(new char[]{'\ue000', (char)(57360 + row)});
    }
 
-   private class_2561 mask(class_2561 line, int row) {
+   private Component mask(Component line, int row) {
       if (line == null) {
-         return class_2561.method_43473();
+         return Component.empty();
       }
 
-      class_5250 out = class_2561.method_43473();
+      MutableComponent out = Component.empty();
       boolean[] changed = new boolean[]{false};
       int[] number = new int[]{0};
-      line.method_27658((style, text) -> {
+      line.visit((style, text) -> {
          String shown = this.maskText(text, row, number);
          if (!shown.equals(text)) {
             changed[0] = true;
          }
 
-         out.method_10852(class_2561.method_43470(shown).method_10862(style));
+         out.append(Component.literal(shown).setStyle(style));
          return Optional.empty();
-      }, class_2583.field_24360);
-      return (class_2561)(changed[0] ? out : line);
+      }, Style.EMPTY);
+      return (Component)(changed[0] ? out : line);
    }
 
    private String maskText(String text, int row, int[] number) {

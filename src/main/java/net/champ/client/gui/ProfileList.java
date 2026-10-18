@@ -16,7 +16,7 @@ import net.champ.client.config.ProfileException;
 import net.champ.client.imgui.ImGuiManager;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 final class ProfileList {
@@ -417,7 +417,7 @@ final class ProfileList {
    private void copyCode(ConfigProfiles profiles, ConfigProfiles.Profile profile) {
       try {
          String code = profiles.shareCode(profile.name());
-         class_310.method_1551().field_1774.method_1455(code);
+         Minecraft.getInstance().keyboardHandler.setClipboard(code);
          this.messages
             .accept(
                code.length() > 2000 ? "Copied, but it is too long for Discord. Send the file instead" : "Share code for " + profile.name() + " copied", false

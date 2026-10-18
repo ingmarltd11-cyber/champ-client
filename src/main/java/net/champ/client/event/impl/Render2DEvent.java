@@ -4,19 +4,19 @@ import net.champ.client.event.Event;
 import net.champ.client.event.EventType;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_332;
+import net.minecraft.client.gui.GuiGraphics;
 
 @Environment(EnvType.CLIENT)
 public final class Render2DEvent extends Event {
    public static final EventType<Render2DEvent> TYPE = new EventType<>("Render2DEvent");
-   public class_332 graphics;
+   public GuiGraphics graphics;
    public float partialTick;
    private static final Render2DEvent INSTANCE = new Render2DEvent();
 
    private Render2DEvent() {
    }
 
-   public static void dispatch(class_332 graphics, float partialTick) {
+   public static void dispatch(GuiGraphics graphics, float partialTick) {
       if (TYPE.hasPreListeners()) {
          INSTANCE.graphics = graphics;
          INSTANCE.partialTick = partialTick;

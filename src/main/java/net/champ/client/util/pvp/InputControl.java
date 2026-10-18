@@ -3,8 +3,8 @@ package net.champ.client.util.pvp;
 import net.champ.client.module.impl.movement.SprintModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10185;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class InputControl {
@@ -34,7 +34,7 @@ public final class InputControl {
       idle = true;
    }
 
-   public static class_10185 shape(class_746 player, class_10185 keys) {
+   public static Input shape(LocalPlayer player, Input keys) {
       boolean forward = keys.comp_3159();
       boolean back = keys.comp_3160();
       boolean left = keys.comp_3161();
@@ -61,7 +61,7 @@ public final class InputControl {
 
       if (dropSprint || idle) {
          sprint = false;
-         player.method_5728(false);
+         player.setSprinting(false);
       }
 
       idle = false;
@@ -76,6 +76,6 @@ public final class InputControl {
             && up == keys.comp_3163()
             && sprint == keys.comp_3165()
          ? keys
-         : new class_10185(forward, back, left, right, up, keys.comp_3164(), sprint);
+         : new Input(forward, back, left, right, up, keys.comp_3164(), sprint);
    }
 }

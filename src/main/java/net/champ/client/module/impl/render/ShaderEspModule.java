@@ -14,24 +14,24 @@ import net.champ.client.util.ShaderOverlay;
 import net.champ.client.util.combat.CombatTarget;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10017;
-import net.minecraft.class_12179;
-import net.minecraft.class_12180;
-import net.minecraft.class_1297;
-import net.minecraft.class_1308;
-import net.minecraft.class_1309;
-import net.minecraft.class_1511;
-import net.minecraft.class_1542;
-import net.minecraft.class_1569;
-import net.minecraft.class_1657;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_4184;
-import net.minecraft.class_4604;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
-import net.minecraft.class_9848;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.util.ARGB;
 import org.joml.Matrix4f;
 
 @Environment(EnvType.CLIENT)
@@ -70,7 +70,7 @@ public final class ShaderEspModule extends ClientModule {
    private final BooleanSetting breathe = this.addSetting("breathe", new BooleanSetting("Breathe", false));
    private final NumberSetting distance = this.addSetting("distance", new NumberSetting("Distance", 64.0F, 8.0F, 192.0F).step(4.0F));
    private final NumberSetting limit = this.addSetting("limit", new NumberSetting("Limit", 48.0F, 4.0F, 96.0F).step(1.0F));
-   private final class_1297[] picked = new class_1297[96];
+   private final Entity[] picked = new Entity[96];
    private final int[] tints = new int[96];
    private final double[] spans = new double[96];
    private int count;
@@ -101,7 +101,7 @@ public final class ShaderEspModule extends ClientModule {
       if (RenderSystem.isOnRenderThread()) {
          ShaderEspPass.release();
       } else {
-         class_310.method_1551().execute(ShaderEspModule::releaseIfOff);
+         Minecraft.getInstance().execute(ShaderEspModule::releaseIfOff);
       }
    }
 
@@ -111,14 +111,14 @@ public final class ShaderEspModule extends ClientModule {
       }
    }
 
-   public static void afterLevel(class_4184 camera, Matrix4f viewRotation, Matrix4f projection) {
+   public static void afterLevel(Camera camera, Matrix4f viewRotation, Matrix4f projection) {
       ShaderEspModule module = active;
       if (module != null) {
          module.present(camera, viewRotation, projection);
       }
    }
 
-   public static void extracted(class_1297 entity, class_10017 state) {
+   public static void extracted(Entity entity, EntityRenderState state) {
       if (active != null) {
          ShaderEspPass.keep(entity, state, Render3DEvent.frame());
       }
@@ -132,7 +132,7 @@ public final class ShaderEspModule extends ClientModule {
       }
    }
 
-   private void present(class_4184 camera, Matrix4f viewRotation, Matrix4f projection) {
+   private void present(Camera camera, Matrix4f viewRotation, Matrix4f projection) {
       int drawn = this.count;
 
       try {
@@ -142,7 +142,7 @@ public final class ShaderEspModule extends ClientModule {
 
          if (ShaderEspPass.paint(camera, viewRotation, projection, this.picked, this.tints, drawn, this.pickedFrame)) {
             long now = System.nanoTime();
-            float scale = Math.max(1.0F, class_310.method_1551().method_1522().field_1481 / 1080.0F);
+            float scale = Math.max(1.0F, Minecraft.getInstance().getMainRenderTarget().height / 1080.0F);
             float phase = (float)(now % 5200000000L / 5.2E9);
             ShaderEspPass.compose(
                this.stroke.get() * scale,
@@ -166,7 +166,7 @@ public final class ShaderEspModule extends ClientModule {
    }
 
    private int sheenTint() {
-      return this.manual() ? this.sheenColor.argb() | 0xFF000000 : class_9848.method_61319(0.6F, CosmeticAccent.argb(), -1);
+      return this.manual() ? this.sheenColor.argb() | 0xFF000000 : ARGB.srgbLerp(0.6F, CosmeticAccent.argb(), -1);
    }
 
    private float auraStrength(long now) {
@@ -181,27 +181,27 @@ public final class ShaderEspModule extends ClientModule {
       return strength * (0.45F + 0.55F * wave);
    }
 
-   private void pick(class_4604 frustum) {
+   private void pick(Frustum frustum) {
       this.forget();
-      class_310 mc = class_310.method_1551();
-      class_638 world = mc.field_1687;
-      class_746 self = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      ClientLevel world = mc.level;
+      LocalPlayer self = mc.player;
       if (world != null && self != null) {
-         class_4184 camera = mc.field_1773.method_19418();
-         class_243 eye = camera.method_71156();
-         class_1297 viewer = camera.method_19333() ? null : mc.method_1560();
+         Camera camera = mc.gameRenderer.getMainCamera();
+         Vec3 eye = camera.position();
+         Entity viewer = camera.isDetached() ? null : mc.getCameraEntity();
          double reachSq = (double)this.distance.get() * this.distance.get();
          int cap = Math.max(1, Math.min(96, this.limit.getInt()));
-         class_1309 mark = this.markTarget.get() ? CombatTarget.current(3500L) : null;
+         LivingEntity mark = this.markTarget.get() ? CombatTarget.current(3500L) : null;
          boolean theme = !this.manual();
          int accent = theme ? CosmeticAccent.argb() : 0;
 
-         for (class_1297 entity : world.method_18112()) {
-            if (entity != self && entity != viewer && !entity.method_31481()) {
+         for (Entity entity : world.entitiesForRendering()) {
+            if (entity != self && entity != viewer && !entity.isRemoved()) {
                int tint = this.tintOf(entity, mark, theme, accent);
                if (tint != 0) {
-                  double spanSq = entity.method_5707(eye);
-                  if (!(spanSq > reachSq) && (frustum == null || frustum.method_23093(entity.method_5829().method_1014(0.75)))) {
+                  double spanSq = entity.distanceToSqr(eye);
+                  if (!(spanSq > reachSq) && (frustum == null || frustum.isVisible(entity.getBoundingBox().inflate(0.75)))) {
                      this.admit(entity, tint, spanSq, cap);
                   }
                }
@@ -210,37 +210,37 @@ public final class ShaderEspModule extends ClientModule {
       }
    }
 
-   private int tintOf(class_1297 entity, class_1309 mark, boolean theme, int accent) {
-      if (entity instanceof class_1309 living && living.method_29504()) {
+   private int tintOf(Entity entity, LivingEntity mark, boolean theme, int accent) {
+      if (entity instanceof LivingEntity living && living.isDeadOrDying()) {
          return 0;
       } else {
          boolean friend = false;
          ColorSetting group;
-         if (entity instanceof class_1657 player) {
-            if (!this.players.get() || player.method_7325()) {
+         if (entity instanceof Player player) {
+            if (!this.players.get() || player.isSpectator()) {
                return 0;
             }
 
-            friend = FriendStore.getInstance().isFriend(player.method_7334().name());
+            friend = FriendStore.getInstance().isFriend(player.getGameProfile().name());
             group = this.playerColor;
-         } else if (entity instanceof class_1511) {
+         } else if (entity instanceof EndCrystal) {
             if (!this.crystals.get()) {
                return 0;
             }
 
             group = this.crystalColor;
-         } else if (entity instanceof class_1542) {
+         } else if (entity instanceof ItemEntity) {
             if (!this.items.get()) {
                return 0;
             }
 
             group = this.itemColor;
          } else {
-            if (entity instanceof class_1569) {
+            if (entity instanceof Enemy) {
                return 0;
             }
 
-            if (!(entity instanceof class_1308)) {
+            if (!(entity instanceof Mob)) {
                return 0;
             }
 
@@ -252,16 +252,16 @@ public final class ShaderEspModule extends ClientModule {
          }
 
          if (mark != null && entity == mark) {
-            return theme ? class_9848.method_61319(0.8F, accent, -1) : this.targetColor.argb() | 0xFF000000;
+            return theme ? ARGB.srgbLerp(0.8F, accent, -1) : this.targetColor.argb() | 0xFF000000;
          } else if (friend) {
-            return theme ? class_9848.method_61319(0.45F, accent, -1) : this.friendColor.argb() | 0xFF000000;
+            return theme ? ARGB.srgbLerp(0.45F, accent, -1) : this.friendColor.argb() | 0xFF000000;
          } else {
             return theme ? accent : group.argb() | 0xFF000000;
          }
       }
    }
 
-   private void admit(class_1297 entity, int tint, double spanSq, int cap) {
+   private void admit(Entity entity, int tint, double spanSq, int cap) {
       int slot = this.count;
       if (this.count < cap) {
          this.count++;
@@ -288,12 +288,12 @@ public final class ShaderEspModule extends ClientModule {
       float width = Math.max(1.0F, this.stroke.get());
 
       for (int i = 0; i < this.count; i++) {
-         class_1297 entity = this.picked[i];
-         class_243 current = entity.method_73189();
-         class_243 shown = entity.method_30950(partialTick);
-         class_238 box = entity.method_5829()
-            .method_989(shown.field_1352 - current.field_1352, shown.field_1351 - current.field_1351, shown.field_1350 - current.field_1350);
-         class_12180.method_75541(box, class_12179.method_75536(this.tints[i], width)).method_75533();
+         Entity entity = this.picked[i];
+         Vec3 current = entity.position();
+         Vec3 shown = entity.getPosition(partialTick);
+         AABB box = entity.getBoundingBox()
+            .move(shown.x - current.x, shown.y - current.y, shown.z - current.z);
+         Gizmos.cuboid(box, GizmoStyle.stroke(this.tints[i], width)).setAlwaysOnTop();
       }
    }
 

@@ -7,7 +7,7 @@ import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
+import net.minecraft.world.entity.Entity;
 
 @Environment(EnvType.CLIENT)
 public final class EntitySpeedModule extends ClientModule {
@@ -32,8 +32,8 @@ public final class EntitySpeedModule extends ClientModule {
       EntityControlVehicleHook.refresh();
    }
 
-   public boolean appliesTo(class_1297 vehicle) {
-      return (!this.onlyOnGround.get() || vehicle.method_24828() || vehicle.method_70987()) && (this.inWater.get() || !vehicle.method_5799());
+   public boolean appliesTo(Entity vehicle) {
+      return (!this.onlyOnGround.get() || vehicle.onGround() || vehicle.isFlyingVehicle()) && (this.inWater.get() || !vehicle.isInWater());
    }
 
    public double horizontalSpeed() {

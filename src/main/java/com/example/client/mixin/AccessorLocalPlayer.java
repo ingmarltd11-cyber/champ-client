@@ -2,20 +2,20 @@ package com.example.client.mixin;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10185;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_746.class)
+@Mixin(LocalPlayer.class)
 public interface AccessorLocalPlayer {
-   @Accessor("field_3923")
+   @Accessor("positionReminder")
    void champ$setPositionReminder(int var1);
 
-   @Accessor("field_3919")
+   @Accessor("wasSprinting")
    boolean champ$wasSprinting();
 
-   @Accessor("field_54156")
-   class_10185 champ$lastSentInput();
+   @Accessor("lastSentInput")
+   Input champ$lastSentInput();
 }

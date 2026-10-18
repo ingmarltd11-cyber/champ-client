@@ -15,18 +15,18 @@ import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.ModeSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_11908;
-import net.minecraft.class_11909;
-import net.minecraft.class_11910;
-import net.minecraft.class_304;
-import net.minecraft.class_310;
-import net.minecraft.class_315;
-import net.minecraft.class_3675;
-import net.minecraft.class_4076;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
-import net.minecraft.class_3675.class_306;
-import net.minecraft.class_3675.class_307;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.core.SectionPos;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import com.mojang.blaze3d.platform.InputConstants.Key;
+import com.mojang.blaze3d.platform.InputConstants.Type;
 import org.lwjgl.glfw.GLFW;
 
 @Environment(EnvType.CLIENT)
@@ -66,13 +66,13 @@ public final class AutoWalkModule extends ClientModule {
    }
 
    private void onPreTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      if (player != null && mc.field_1687 != null) {
-         if (this.disableOnY.get() && player.field_6036 != player.method_23318()) {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      if (player != null && mc.level != null) {
+         if (this.disableOnY.get() && player.yo != player.getY()) {
             this.requestDisable();
          } else {
-            this.keyFor(mc.field_1690).method_23481(true);
+            this.keyFor(mc.options).setDown(true);
          }
       }
    }
@@ -80,14 +80,14 @@ public final class AutoWalkModule extends ClientModule {
    private void onKey(KeyInputEvent event) {
       if (event.action == 1 && this.disableOnInput.get()) {
          if (event.key != -1) {
-            class_315 options = class_310.method_1551().field_1690;
-            class_11908 key = new class_11908(event.key, event.scancode, event.mods);
-            if (options.field_1894.method_1417(key)
-               || options.field_1881.method_1417(key)
-               || options.field_1913.method_1417(key)
-               || options.field_1849.method_1417(key)
-               || options.field_1832.method_1417(key)
-               || options.field_1903.method_1417(key)) {
+            Options options = Minecraft.getInstance().options;
+            KeyEvent key = new KeyEvent(event.key, event.scancode, event.mods);
+            if (options.keyUp.matches(key)
+               || options.keyDown.matches(key)
+               || options.keyLeft.matches(key)
+               || options.keyRight.matches(key)
+               || options.keyShift.matches(key)
+               || options.keyJump.matches(key)) {
                this.onMovementInput();
             }
          }
@@ -96,34 +96,34 @@ public final class AutoWalkModule extends ClientModule {
 
    private void onMouseButton(MouseInputEvent event) {
       if (event.action == 1 && this.disableOnInput.get()) {
-         class_315 options = class_310.method_1551().field_1690;
-         class_11909 click = new class_11909(0.0, 0.0, new class_11910(event.button, event.mods));
-         if (options.field_1894.method_1433(click)
-            || options.field_1881.method_1433(click)
-            || options.field_1913.method_1433(click)
-            || options.field_1849.method_1433(click)
-            || options.field_1832.method_1433(click)
-            || options.field_1903.method_1433(click)) {
+         Options options = Minecraft.getInstance().options;
+         MouseButtonEvent click = new MouseButtonEvent(0.0, 0.0, new MouseButtonInfo(event.button, event.mods));
+         if (options.keyUp.matchesMouse(click)
+            || options.keyDown.matchesMouse(click)
+            || options.keyLeft.matchesMouse(click)
+            || options.keyRight.matchesMouse(click)
+            || options.keyShift.matchesMouse(click)
+            || options.keyJump.matchesMouse(click)) {
             this.onMovementInput();
          }
       }
    }
 
    private void onMovementInput() {
-      if (class_310.method_1551().field_1755 == null) {
+      if (Minecraft.getInstance().screen == null) {
          this.requestDisable();
       }
    }
 
    private void onPlayerMove(PlayerMoveEvent event) {
       if (this.waitForChunks.get()) {
-         class_310 mc = class_310.method_1551();
-         class_746 player = mc.field_1724;
-         class_638 level = mc.field_1687;
+         Minecraft mc = Minecraft.getInstance();
+         LocalPlayer player = mc.player;
+         ClientLevel level = mc.level;
          if (player != null && level != null) {
-            int chunkX = class_4076.method_42615(player.method_23317() + event.x * 2.0);
-            int chunkZ = class_4076.method_42615(player.method_23321() + event.z * 2.0);
-            if (!level.method_2935().method_12123(chunkX, chunkZ)) {
+            int chunkX = SectionPos.blockToSectionCoord(player.getX() + event.x * 2.0);
+            int chunkZ = SectionPos.blockToSectionCoord(player.getZ() + event.z * 2.0);
+            if (!level.getChunkSource().hasChunk(chunkX, chunkZ)) {
                event.x = 0.0;
                event.z = 0.0;
             }
@@ -131,24 +131,24 @@ public final class AutoWalkModule extends ClientModule {
       }
    }
 
-   private class_304 keyFor(class_315 options) {
+   private KeyMapping keyFor(Options options) {
       return switch (this.direction.get()) {
-         case "Backwards" -> options.field_1881;
-         case "Left" -> options.field_1913;
-         case "Right" -> options.field_1849;
-         default -> options.field_1894;
+         case "Backwards" -> options.keyDown;
+         case "Left" -> options.keyLeft;
+         case "Right" -> options.keyRight;
+         default -> options.keyUp;
       };
    }
 
    private static void releaseKeys() {
-      class_310 mc = class_310.method_1551();
-      class_315 options = mc.field_1690;
+      Minecraft mc = Minecraft.getInstance();
+      Options options = mc.options;
       if (options != null) {
-         boolean inGame = mc.field_1755 == null && !isFreecamActive();
-         restore(mc, options.field_1894, inGame);
-         restore(mc, options.field_1881, inGame);
-         restore(mc, options.field_1913, inGame);
-         restore(mc, options.field_1849, inGame);
+         boolean inGame = mc.screen == null && !isFreecamActive();
+         restore(mc, options.keyUp, inGame);
+         restore(mc, options.keyDown, inGame);
+         restore(mc, options.keyLeft, inGame);
+         restore(mc, options.keyRight, inGame);
       }
    }
 
@@ -157,20 +157,20 @@ public final class AutoWalkModule extends ClientModule {
       return freecam != null && freecam.isEnabled();
    }
 
-   private static void restore(class_310 mc, class_304 mapping, boolean inGame) {
-      mapping.method_23481(inGame && isPhysicallyHeld(mc, mapping));
+   private static void restore(Minecraft mc, KeyMapping mapping, boolean inGame) {
+      mapping.setDown(inGame && isPhysicallyHeld(mc, mapping));
    }
 
-   private static boolean isPhysicallyHeld(class_310 mc, class_304 mapping) {
-      if (mapping.method_1415()) {
+   private static boolean isPhysicallyHeld(Minecraft mc, KeyMapping mapping) {
+      if (mapping.isUnbound()) {
          return false;
       } else {
-         class_306 key = class_3675.method_15981(mapping.method_1428());
-         class_307 type = key.method_1442();
-         if (type == class_307.field_1668) {
-            return ChampKeyPolling.isKeyDown(mc.method_22683(), key.method_1444());
+         Key key = InputConstants.getKey(mapping.saveString());
+         Type type = key.getType();
+         if (type == Type.KEYSYM) {
+            return ChampKeyPolling.isKeyDown(mc.getWindow(), key.getValue());
          } else {
-            return type == class_307.field_1672 ? GLFW.glfwGetMouseButton(mc.method_22683().method_4490(), key.method_1444()) == 1 : false;
+            return type == Type.MOUSE ? GLFW.glfwGetMouseButton(mc.getWindow().handle(), key.getValue()) == 1 : false;
          }
       }
    }

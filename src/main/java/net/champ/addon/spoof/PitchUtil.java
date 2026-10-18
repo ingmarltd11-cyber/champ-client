@@ -38,12 +38,12 @@ final class PitchUtil {
     }
 
     private static Field yaw(Class<?> c) {
-        if (yawField == null) yawField = findFirstFloat(c, "yRot", "field_12881", "yaw");
+        if (yawField == null) yawField = findFirstFloat(c, "yRot", "tickingFluidCount", "yaw");
         return yawField;
     }
 
     private static Field pitch(Class<?> c) {
-        if (pitchField == null) pitchField = findFirstFloat(c, "xRot", "field_12886", "pitch");
+        if (pitchField == null) pitchField = findFirstFloat(c, "xRot", "y", "pitch");
         return pitchField;
     }
 

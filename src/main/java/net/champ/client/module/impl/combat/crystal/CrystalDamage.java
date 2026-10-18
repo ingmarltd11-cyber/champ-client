@@ -4,60 +4,60 @@ import java.util.HashMap;
 import java.util.Map;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10707;
-import net.minecraft.class_1280;
-import net.minecraft.class_1282;
-import net.minecraft.class_1293;
-import net.minecraft.class_1294;
-import net.minecraft.class_1304;
-import net.minecraft.class_1309;
-import net.minecraft.class_1657;
-import net.minecraft.class_1799;
-import net.minecraft.class_1887;
-import net.minecraft.class_1890;
-import net.minecraft.class_1893;
-import net.minecraft.class_1937;
-import net.minecraft.class_2338;
-import net.minecraft.class_2378;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_3532;
-import net.minecraft.class_3726;
-import net.minecraft.class_3959;
-import net.minecraft.class_3965;
-import net.minecraft.class_5134;
-import net.minecraft.class_5321;
-import net.minecraft.class_7924;
-import net.minecraft.class_9334;
-import net.minecraft.class_2338.class_2339;
-import net.minecraft.class_239.class_240;
-import net.minecraft.class_3959.class_242;
-import net.minecraft.class_3959.class_3960;
+import net.minecraft.world.item.component.BlocksAttacks;
+import net.minecraft.world.damagesource.CombatRules;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.Level;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Registry;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.BlockPos.MutableBlockPos;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.level.ClipContext.Block;
 
 @Environment(EnvType.CLIENT)
 public final class CrystalDamage {
    private static final double REACH = 12.0;
    private static final float SELF_SCALE = 1.15F;
    private static final float SELF_MARGIN = 2.0F;
-   private static final class_1304[] ARMOR = new class_1304[]{class_1304.field_6169, class_1304.field_6174, class_1304.field_6172, class_1304.field_6166};
+   private static final EquipmentSlot[] ARMOR = new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
 
    private CrystalDamage() {
    }
 
-   public static float estimate(class_243 center, class_1309 entity) {
-      return new CrystalDamage.Victim(entity, class_243.field_1353).damage(center);
+   public static float estimate(Vec3 center, LivingEntity entity) {
+      return new CrystalDamage.Victim(entity, Vec3.ZERO).damage(center);
    }
 
-   public static float estimate(class_243 center, class_1309 entity, float power, class_2338 ignored) {
-      return new CrystalDamage.Victim(entity, class_243.field_1353).damage(center, power, ignored);
+   public static float estimate(Vec3 center, LivingEntity entity, float power, BlockPos ignored) {
+      return new CrystalDamage.Victim(entity, Vec3.ZERO).damage(center, power, ignored);
    }
 
-   public static float health(class_1309 entity) {
-      return entity.method_6032() + entity.method_6067();
+   public static float health(LivingEntity entity) {
+      return entity.getHealth() + entity.getAbsorptionAmount();
    }
 
-   public static boolean endangers(class_1657 self, float damage) {
-      return !self.method_68878() && damage * 1.15F + 2.0F >= health(self);
+   public static boolean endangers(Player self, float damage) {
+      return !self.isCreative() && damage * 1.15F + 2.0F >= health(self);
    }
 
    private static float falloff(double exposure) {
@@ -68,70 +68,70 @@ public final class CrystalDamage {
       return (float)((exposure * exposure + exposure) / 2.0 * 7.0 * diameter + 1.0);
    }
 
-   private static float protection(class_1309 entity) {
-      class_2378<class_1887> enchantments = entity.method_56673().method_30530(class_7924.field_41265);
+   private static float protection(LivingEntity entity) {
+      Registry<Enchantment> enchantments = entity.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
       int total = 0;
 
-      for (class_1304 slot : ARMOR) {
-         class_1799 stack = entity.method_6118(slot);
-         if (!stack.method_7960()) {
-            total += level(enchantments, class_1893.field_9111, stack) + 2 * level(enchantments, class_1893.field_9107, stack);
+      for (EquipmentSlot slot : ARMOR) {
+         ItemStack stack = entity.getItemBySlot(slot);
+         if (!stack.isEmpty()) {
+            total += level(enchantments, Enchantments.PROTECTION, stack) + 2 * level(enchantments, Enchantments.BLAST_PROTECTION, stack);
          }
       }
 
       return total;
    }
 
-   private static int level(class_2378<class_1887> enchantments, class_5321<class_1887> key, class_1799 stack) {
-      return enchantments.method_46746(key).map(holder -> class_1890.method_8225(holder, stack)).orElse(0);
+   private static int level(Registry<Enchantment> enchantments, ResourceKey<Enchantment> key, ItemStack stack) {
+      return enchantments.get(key).map(holder -> EnchantmentHelper.getItemEnchantmentLevel(holder, stack)).orElse(0);
    }
 
    @Environment(EnvType.CLIENT)
-   private record Blast(class_243 center, class_2338 ignored) {
+   private record Blast(Vec3 center, BlockPos ignored) {
    }
 
    @Environment(EnvType.CLIENT)
    public static final class Victim {
-      private final class_1309 entity;
-      private final class_243 position;
-      private final class_238 box;
-      private final class_1282 source;
+      private final LivingEntity entity;
+      private final Vec3 position;
+      private final AABB box;
+      private final DamageSource source;
       private final float armor;
       private final float toughness;
       private final float protection;
       private final float resistance;
-      private final class_10707 shield;
-      private final Map<class_243, Float> exposures = new HashMap<>();
+      private final BlocksAttacks shield;
+      private final Map<Vec3, Float> exposures = new HashMap<>();
       private final Map<CrystalDamage.Blast, Float> blastExposures = new HashMap<>();
 
-      public Victim(class_1309 entity, class_243 offset) {
+      public Victim(LivingEntity entity, Vec3 offset) {
          this.entity = entity;
-         this.position = entity.method_73189().method_1019(offset);
-         this.box = entity.method_5829().method_997(offset);
-         this.source = entity.method_48923().method_48819(null, null);
-         this.armor = entity.method_6096();
-         this.toughness = (float)entity.method_45325(class_5134.field_23725);
+         this.position = entity.position().add(offset);
+         this.box = entity.getBoundingBox().move(offset);
+         this.source = entity.damageSources().explosion(null, null);
+         this.armor = entity.getArmorValue();
+         this.toughness = (float)entity.getAttributeValue(Attributes.ARMOR_TOUGHNESS);
          this.protection = CrystalDamage.protection(entity);
-         class_1293 effect = entity.method_6112(class_1294.field_5907);
-         this.resistance = effect == null ? 1.0F : Math.max(25 - (effect.method_5578() + 1) * 5, 0) / 25.0F;
-         class_1799 blocking = entity.method_62821();
-         this.shield = blocking == null ? null : (class_10707)blocking.method_58694(class_9334.field_56396);
+         MobEffectInstance effect = entity.getEffect(MobEffects.RESISTANCE);
+         this.resistance = effect == null ? 1.0F : Math.max(25 - (effect.getAmplifier() + 1) * 5, 0) / 25.0F;
+         ItemStack blocking = entity.getItemBlockingWith();
+         this.shield = blocking == null ? null : (BlocksAttacks)blocking.get(DataComponents.BLOCKS_ATTACKS);
       }
 
-      public class_1309 entity() {
+      public LivingEntity entity() {
          return this.entity;
       }
 
-      public float damage(class_243 center) {
+      public float damage(Vec3 center) {
          return this.damage(center, false);
       }
 
-      public float damage(class_243 center, boolean baseToCome) {
+      public float damage(Vec3 center, boolean baseToCome) {
          return this.reduce(this.raw(center, baseToCome));
       }
 
-      public float raw(class_243 center, boolean baseToCome) {
-         double distance = Math.sqrt(this.position.method_1025(center)) / 12.0;
+      public float raw(Vec3 center, boolean baseToCome) {
+         double distance = Math.sqrt(this.position.distanceToSqr(center)) / 12.0;
          if (distance > 1.0) {
             return 0.0F;
          }
@@ -141,17 +141,17 @@ public final class CrystalDamage {
       }
 
       public float reduce(float raw) {
-         float damage = class_1280.method_5496(this.entity, raw, this.source, this.armor, this.toughness);
-         return class_1280.method_5497(damage * this.resistance, this.protection);
+         float damage = CombatRules.getDamageAfterAbsorb(this.entity, raw, this.source, this.armor, this.toughness);
+         return CombatRules.getDamageAfterMagicAbsorb(damage * this.resistance, this.protection);
       }
 
-      public float damage(class_243 center, float power, class_2338 ignored) {
+      public float damage(Vec3 center, float power, BlockPos ignored) {
          return this.reduce(this.raw(center, power, ignored));
       }
 
-      public float raw(class_243 center, float power, class_2338 ignored) {
+      public float raw(Vec3 center, float power, BlockPos ignored) {
          double diameter = power * 2.0;
-         double distance = Math.sqrt(this.position.method_1025(center)) / diameter;
+         double distance = Math.sqrt(this.position.distanceToSqr(center)) / diameter;
          if (distance > 1.0) {
             return 0.0F;
          }
@@ -160,42 +160,42 @@ public final class CrystalDamage {
          return damage - this.blocked(center, damage);
       }
 
-      private float blocked(class_243 center, float damage) {
+      private float blocked(Vec3 center, float damage) {
          if (this.shield != null && !(damage <= 0.0F)) {
-            class_243 facing = this.entity.method_5631(0.0F, this.entity.method_5791());
-            class_243 toward = center.method_1020(this.position);
-            class_243 flat = new class_243(toward.field_1352, 0.0, toward.field_1350).method_1029();
-            double angle = Math.acos(class_3532.method_15350(flat.method_1026(facing), -1.0, 1.0));
-            return this.shield.method_67202(this.source, damage, angle);
+            Vec3 facing = this.entity.calculateViewVector(0.0F, this.entity.getYHeadRot());
+            Vec3 toward = center.subtract(this.position);
+            Vec3 flat = new Vec3(toward.x, 0.0, toward.z).normalize();
+            double angle = Math.acos(Mth.clamp(flat.dot(facing), -1.0, 1.0));
+            return this.shield.resolveBlockedDamage(this.source, damage, angle);
          } else {
             return 0.0F;
          }
       }
 
-      public float upperBound(class_243 center) {
-         double distance = Math.sqrt(this.position.method_1025(center)) / 12.0;
+      public float upperBound(Vec3 center) {
+         double distance = Math.sqrt(this.position.distanceToSqr(center)) / 12.0;
          return distance > 1.0 ? 0.0F : this.reduce(this.scaled(CrystalDamage.falloff(1.0 - distance)));
       }
 
-      public float upperBound(class_243 center, float power) {
+      public float upperBound(Vec3 center, float power) {
          double diameter = power * 2.0;
-         double distance = Math.sqrt(this.position.method_1025(center)) / diameter;
+         double distance = Math.sqrt(this.position.distanceToSqr(center)) / diameter;
          return distance > 1.0 ? 0.0F : this.reduce(this.scaled(CrystalDamage.falloff(1.0 - distance, diameter)));
       }
 
-      private float exposure(class_243 center, boolean baseToCome) {
+      private float exposure(Vec3 center, boolean baseToCome) {
          Float known = this.exposures.get(center);
          if (known != null) {
             return known;
          }
 
-         class_238 base = baseToCome ? new class_238(class_2338.method_49637(center.field_1352, center.field_1351 - 0.5, center.field_1350)) : null;
-         float seen = !this.openAir(center, null) || base != null && this.hull(center).method_994(base) ? this.seenPercent(center, base, null) : 1.0F;
+         AABB base = baseToCome ? new AABB(BlockPos.containing(center.x, center.y - 0.5, center.z)) : null;
+         float seen = !this.openAir(center, null) || base != null && this.hull(center).intersects(base) ? this.seenPercent(center, base, null) : 1.0F;
          this.exposures.put(center, seen);
          return seen;
       }
 
-      private float blastExposure(class_243 center, class_2338 ignored) {
+      private float blastExposure(Vec3 center, BlockPos ignored) {
          CrystalDamage.Blast key = new CrystalDamage.Blast(center, ignored);
          Float known = this.blastExposures.get(key);
          if (known != null) {
@@ -207,26 +207,26 @@ public final class CrystalDamage {
          return seen;
       }
 
-      private class_238 hull(class_243 center) {
-         return this.box.method_991(new class_238(center, center));
+      private AABB hull(Vec3 center) {
+         return this.box.minmax(new AABB(center, center));
       }
 
-      private boolean openAir(class_243 center, class_2338 ignored) {
-         class_1937 level = this.entity.method_73183();
-         class_3726 context = class_3726.method_16195(this.entity);
-         int minX = class_3532.method_15357(Math.min(this.box.field_1323, center.field_1352));
-         int minY = class_3532.method_15357(Math.min(this.box.field_1322, center.field_1351));
-         int minZ = class_3532.method_15357(Math.min(this.box.field_1321, center.field_1350));
-         int maxX = class_3532.method_15357(Math.max(this.box.field_1320, center.field_1352));
-         int maxY = class_3532.method_15357(Math.max(this.box.field_1325, center.field_1351));
-         int maxZ = class_3532.method_15357(Math.max(this.box.field_1324, center.field_1350));
-         class_2339 pos = new class_2339();
+      private boolean openAir(Vec3 center, BlockPos ignored) {
+         Level level = this.entity.level();
+         CollisionContext context = CollisionContext.of(this.entity);
+         int minX = Mth.floor(Math.min(this.box.minX, center.x));
+         int minY = Mth.floor(Math.min(this.box.minY, center.y));
+         int minZ = Mth.floor(Math.min(this.box.minZ, center.z));
+         int maxX = Mth.floor(Math.max(this.box.maxX, center.x));
+         int maxY = Mth.floor(Math.max(this.box.maxY, center.y));
+         int maxZ = Mth.floor(Math.max(this.box.maxZ, center.z));
+         MutableBlockPos pos = new MutableBlockPos();
 
          for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
                for (int z = minZ; z <= maxZ; z++) {
-                  pos.method_10103(x, y, z);
-                  if (!pos.equals(ignored) && !level.method_8320(pos).method_26194(level, pos, context).method_1110()) {
+                  pos.set(x, y, z);
+                  if (!pos.equals(ignored) && !level.getBlockState(pos).getCollisionShape(level, pos, context).isEmpty()) {
                      return false;
                   }
                }
@@ -236,27 +236,27 @@ public final class CrystalDamage {
          return true;
       }
 
-      private float seenPercent(class_243 center, class_238 base, class_2338 ignored) {
-         double stepX = 1.0 / ((this.box.field_1320 - this.box.field_1323) * 2.0 + 1.0);
-         double stepY = 1.0 / ((this.box.field_1325 - this.box.field_1322) * 2.0 + 1.0);
-         double stepZ = 1.0 / ((this.box.field_1324 - this.box.field_1321) * 2.0 + 1.0);
+      private float seenPercent(Vec3 center, AABB base, BlockPos ignored) {
+         double stepX = 1.0 / ((this.box.maxX - this.box.minX) * 2.0 + 1.0);
+         double stepY = 1.0 / ((this.box.maxY - this.box.minY) * 2.0 + 1.0);
+         double stepZ = 1.0 / ((this.box.maxZ - this.box.minZ) * 2.0 + 1.0);
          double offsetX = (1.0 - Math.floor(1.0 / stepX) * stepX) / 2.0;
          double offsetZ = (1.0 - Math.floor(1.0 / stepZ) * stepZ) / 2.0;
          if (!(stepX < 0.0) && !(stepY < 0.0) && !(stepZ < 0.0)) {
-            class_1937 level = this.entity.method_73183();
+            Level level = this.entity.level();
             int seen = 0;
             int total = 0;
 
             for (double fx = 0.0; fx <= 1.0; fx += stepX) {
                for (double fy = 0.0; fy <= 1.0; fy += stepY) {
                   for (double fz = 0.0; fz <= 1.0; fz += stepZ) {
-                     class_243 from = new class_243(
-                        class_3532.method_16436(fx, this.box.field_1323, this.box.field_1320) + offsetX,
-                        class_3532.method_16436(fy, this.box.field_1322, this.box.field_1325),
-                        class_3532.method_16436(fz, this.box.field_1321, this.box.field_1324) + offsetZ
+                     Vec3 from = new Vec3(
+                        Mth.lerp(fx, this.box.minX, this.box.maxX) + offsetX,
+                        Mth.lerp(fy, this.box.minY, this.box.maxY),
+                        Mth.lerp(fz, this.box.minZ, this.box.maxZ) + offsetZ
                      );
-                     class_3965 hit = level.method_17742(new class_3959(from, center, class_3960.field_17558, class_242.field_1348, this.entity));
-                     if ((hit.method_17783() == class_240.field_1333 || hit.method_17777().equals(ignored))
+                     BlockHitResult hit = level.clip(new ClipContext(from, center, Block.COLLIDER, Fluid.NONE, this.entity));
+                     if ((hit.getType() == Type.MISS || hit.getBlockPos().equals(ignored))
                         && (base == null || !throughBlock(base, from, center))) {
                         seen++;
                      }
@@ -272,21 +272,21 @@ public final class CrystalDamage {
          }
       }
 
-      private static boolean throughBlock(class_238 block, class_243 from, class_243 to) {
-         class_243 end = new class_243(
-            class_3532.method_16436(1.0E-7, to.field_1352, from.field_1352),
-            class_3532.method_16436(1.0E-7, to.field_1351, from.field_1351),
-            class_3532.method_16436(1.0E-7, to.field_1350, from.field_1350)
+      private static boolean throughBlock(AABB block, Vec3 from, Vec3 to) {
+         Vec3 end = new Vec3(
+            Mth.lerp(1.0E-7, to.x, from.x),
+            Mth.lerp(1.0E-7, to.y, from.y),
+            Mth.lerp(1.0E-7, to.z, from.z)
          );
-         return block.method_1006(from) || block.method_992(from, end).isPresent();
+         return block.contains(from) || block.clip(from, end).isPresent();
       }
 
       private float scaled(float damage) {
-         if (!(this.entity instanceof class_1657)) {
+         if (!(this.entity instanceof Player)) {
             return damage;
          }
 
-         return switch (this.entity.method_73183().method_8407()) {
+         return switch (this.entity.level().getDifficulty()) {
             case field_5801 -> 0.0F;
             case field_5805 -> Math.min(damage / 2.0F + 1.0F, damage);
             case field_5802 -> damage;

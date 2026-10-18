@@ -8,14 +8,14 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.StringListSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1661;
-import net.minecraft.class_1703;
-import net.minecraft.class_1713;
-import net.minecraft.class_1735;
-import net.minecraft.class_1799;
-import net.minecraft.class_310;
-import net.minecraft.class_465;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class AutoSellModule extends ClientModule {
@@ -71,9 +71,9 @@ public final class AutoSellModule extends ClientModule {
 
    @Override
    protected void onDisable() {
-      class_746 player = class_310.method_1551().field_1724;
+      LocalPlayer player = Minecraft.getInstance().player;
       if (player != null && this.ours(player)) {
-         player.method_7346();
+         player.closeContainer();
       }
 
       this.menuId = -1;
@@ -84,13 +84,13 @@ public final class AutoSellModule extends ClientModule {
 
    @EventHandler
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      if (player != null && mc.method_1562() != null && mc.field_1761 != null && !player.method_29504()) {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      if (player != null && mc.getConnection() != null && mc.gameMode != null && !player.isDeadOrDying()) {
          long now = System.currentTimeMillis();
          if (this.menuId < 0 && this.openingUntil > 0L) {
-            if (player.field_7512 != player.field_7498 && mc.field_1755 instanceof class_465 && containerSlots(player.field_7512) > 53) {
-               this.menuId = player.field_7512.field_7763;
+            if (player.containerMenu != player.inventoryMenu && mc.screen instanceof AbstractContainerScreen && containerSlots(player.containerMenu) > 53) {
+               this.menuId = player.containerMenu.containerId;
                this.openingUntil = 0L;
                this.nextPollAt = now + 150L;
                this.warnedNoOpen = false;
@@ -104,14 +104,14 @@ public final class AutoSellModule extends ClientModule {
             }
          } else if (!this.ours(player)) {
             this.menuId = -1;
-            if (mc.field_1755 == null && now - this.lastCommandAt >= 4000L) {
-               player.field_3944.method_45730("sell");
+            if (mc.screen == null && now - this.lastCommandAt >= 4000L) {
+               player.connection.sendCommand("sell");
                this.lastCommandAt = now;
                this.openingUntil = now + 10000L;
             }
          } else if (now >= this.nextPollAt) {
             this.nextPollAt = now + 350L;
-            class_1703 menu = player.field_7512;
+            AbstractContainerMenu menu = player.containerMenu;
             if (this.confirmedCount > 0) {
                int gone = this.confirmedCount - countWaiting(menu);
                this.confirmedCount = 0;
@@ -125,7 +125,7 @@ public final class AutoSellModule extends ClientModule {
                this.confirmPending = false;
                if (waiting(menu) && now - this.lastConfirmAt >= 900L && this.sameAfterConfirm < 3) {
                   int before = countWaiting(menu);
-                  mc.field_1761.method_2906(menu.field_7763, 53, 0, class_1713.field_7790, player);
+                  mc.gameMode.handleInventoryMouseClick(menu.containerId, 53, 0, ClickType.PICKUP, player);
                   this.lastConfirmAt = now;
                   this.lastFingerprint = fingerprint(menu);
                   this.confirmedCount = before;
@@ -134,12 +134,12 @@ public final class AutoSellModule extends ClientModule {
             } else {
                int moved = 0;
 
-               for (class_1735 slot : menu.field_7761) {
-                  if (slot.field_7871 instanceof class_1661
-                     && slot.method_7681()
-                     && slot.method_34266() < 36
-                     && !SellRoutine.neverSell(slot.method_7677(), this.neverSell.get())) {
-                     mc.field_1761.method_2906(menu.field_7763, slot.field_7874, 0, class_1713.field_7794, player);
+               for (Slot slot : menu.slots) {
+                  if (slot.container instanceof Inventory
+                     && slot.hasItem()
+                     && slot.getContainerSlot() < 36
+                     && !SellRoutine.neverSell(slot.getItem(), this.neverSell.get())) {
+                     mc.gameMode.handleInventoryMouseClick(menu.containerId, slot.index, 0, ClickType.QUICK_MOVE, player);
                      moved++;
                   }
                }
@@ -162,31 +162,31 @@ public final class AutoSellModule extends ClientModule {
       }
    }
 
-   private boolean ours(class_746 player) {
-      return this.menuId >= 0 && player.field_7512 != player.field_7498 && player.field_7512.field_7763 == this.menuId;
+   private boolean ours(LocalPlayer player) {
+      return this.menuId >= 0 && player.containerMenu != player.inventoryMenu && player.containerMenu.containerId == this.menuId;
    }
 
-   private static boolean waiting(class_1703 menu) {
+   private static boolean waiting(AbstractContainerMenu menu) {
       return countWaiting(menu) > 0;
    }
 
-   private static int countWaiting(class_1703 menu) {
+   private static int countWaiting(AbstractContainerMenu menu) {
       int count = 0;
 
-      for (class_1735 slot : menu.field_7761) {
-         if (!(slot.field_7871 instanceof class_1661) && slot.field_7874 != 53 && slot.method_7681()) {
-            count += slot.method_7677().method_7947();
+      for (Slot slot : menu.slots) {
+         if (!(slot.container instanceof Inventory) && slot.index != 53 && slot.hasItem()) {
+            count += slot.getItem().getCount();
          }
       }
 
       return count;
    }
 
-   private static int containerSlots(class_1703 menu) {
+   private static int containerSlots(AbstractContainerMenu menu) {
       int count = 0;
 
-      for (class_1735 slot : menu.field_7761) {
-         if (!(slot.field_7871 instanceof class_1661)) {
+      for (Slot slot : menu.slots) {
+         if (!(slot.container instanceof Inventory)) {
             count++;
          }
       }
@@ -194,17 +194,17 @@ public final class AutoSellModule extends ClientModule {
       return count;
    }
 
-   private static String fingerprint(class_1703 menu) {
+   private static String fingerprint(AbstractContainerMenu menu) {
       StringBuilder text = new StringBuilder();
 
-      for (class_1735 slot : menu.field_7761) {
-         if (slot.field_7871 instanceof class_1661) {
+      for (Slot slot : menu.slots) {
+         if (slot.container instanceof Inventory) {
             break;
          }
 
-         class_1799 stack = slot.method_7677();
-         if (!stack.method_7960()) {
-            text.append(slot.field_7874).append(':').append(stack.method_7909()).append('x').append(stack.method_7947()).append(';');
+         ItemStack stack = slot.getItem();
+         if (!stack.isEmpty()) {
+            text.append(slot.index).append(':').append(stack.getItem()).append('x').append(stack.getCount()).append(';');
          }
       }
 

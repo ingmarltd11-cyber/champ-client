@@ -13,12 +13,12 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_243;
-import net.minecraft.class_2596;
-import net.minecraft.class_2708;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
-import net.minecraft.class_8042;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 
 @Environment(EnvType.CLIENT)
 public final class SpeedModule extends ClientModule {
@@ -72,7 +72,7 @@ public final class SpeedModule extends ClientModule {
          this.currentMode.onRubberband();
       }
 
-      class_746 player = class_310.method_1551().field_1724;
+      LocalPlayer player = Minecraft.getInstance().player;
       if (player == null) {
          timerMultiplier = 1.0F;
       } else if (!this.stopSpeed(player)) {
@@ -81,11 +81,11 @@ public final class SpeedModule extends ClientModule {
    }
 
    private void onPacketReceive(PacketReceiveNettyEvent event) {
-      if (event.packet instanceof class_2708) {
+      if (event.packet instanceof ClientboundPlayerPositionPacket) {
          this.rubberband = true;
-      } else if (event.packet instanceof class_8042 bundle) {
-         for (class_2596<?> packet : bundle.method_48324()) {
-            if (packet instanceof class_2708) {
+      } else if (event.packet instanceof ClientboundBundlePacket bundle) {
+         for (Packet<?> packet : bundle.subPackets()) {
+            if (packet instanceof ClientboundPlayerPositionPacket) {
                this.rubberband = true;
                break;
             }
@@ -93,13 +93,13 @@ public final class SpeedModule extends ClientModule {
       }
    }
 
-   public class_243 onSelfMove(class_746 player, class_243 movement) {
-      if (player == class_310.method_1551().field_1724 && !this.stopSpeed(player)) {
+   public Vec3 onSelfMove(LocalPlayer player, Vec3 movement) {
+      if (player == Minecraft.getInstance().player && !this.stopSpeed(player)) {
          float timerValue = this.timer.get();
          timerMultiplier = timerValue != 1.0F && isMoving(player) ? timerValue : 1.0F;
-         class_243 result = this.currentMode.onMove(player, movement);
-         if (result != movement && movement == player.method_18798()) {
-            player.method_18799(result);
+         Vec3 result = this.currentMode.onMove(player, movement);
+         if (result != movement && movement == player.getDeltaMovement()) {
+            player.setDeltaMovement(result);
          }
 
          return result;
@@ -108,20 +108,20 @@ public final class SpeedModule extends ClientModule {
       }
    }
 
-   private boolean stopSpeed(class_746 player) {
-      if (player.method_6128() || player.method_6101() || player.method_5854() != null) {
+   private boolean stopSpeed(LocalPlayer player) {
+      if (player.isFallFlying() || player.onClimbable() || player.getVehicle() != null) {
          return true;
-      } else if (!this.whenSneaking.get() && player.method_5715()) {
+      } else if (!this.whenSneaking.get() && player.isShiftKeyDown()) {
          return true;
       } else {
-         return this.onlyOnGround.get() && !player.method_24828() && this.mode.is("Vanilla")
+         return this.onlyOnGround.get() && !player.onGround() && this.mode.is("Vanilla")
             ? true
-            : !this.inLiquids.get() && (player.method_5799() || player.method_5771());
+            : !this.inLiquids.get() && (player.isInWater() || player.isInLava());
       }
    }
 
-   public static boolean isMoving(class_746 player) {
-      return player.field_6250 != 0.0F || player.field_6212 != 0.0F;
+   public static boolean isMoving(LocalPlayer player) {
+      return player.zza != 0.0F || player.xxa != 0.0F;
    }
 
    public double vanillaSpeed() {

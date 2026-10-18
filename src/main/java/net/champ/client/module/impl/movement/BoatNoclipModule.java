@@ -12,19 +12,19 @@ import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10255;
-import net.minecraft.class_1297;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_265;
-import net.minecraft.class_2680;
-import net.minecraft.class_2833;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_3726;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
-import net.minecraft.class_2338.class_2339;
+import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos.MutableBlockPos;
 
 @Environment(EnvType.CLIENT)
 public final class BoatNoclipModule extends ClientModule {
@@ -38,7 +38,7 @@ public final class BoatNoclipModule extends ClientModule {
    private final BooleanSetting antiKick = this.addSetting("anti-fly-kick", new BooleanSetting("Anti Fly Kick", true));
    private final NumberSetting delay = this.addSetting("delay", new NumberSetting("Delay", 40.0F, 1.0F, 80.0F).step(1.0F));
    private final VehicleAntiKick antiKicker = new VehicleAntiKick();
-   private class_10255 noclipBoat;
+   private AbstractBoat noclipBoat;
 
    public BoatNoclipModule() {
       super("boat-noclip", "Boat Noclip", "Fly your boat through blocks and entities.", ModuleCategory.MOVEMENT);
@@ -74,8 +74,8 @@ public final class BoatNoclipModule extends ClientModule {
    }
 
    private void onPreTick(TickEvent event) {
-      class_746 player = class_310.method_1551().field_1724;
-      if (this.noclipBoat != null && (player == null || player.method_5854() != this.noclipBoat)) {
+      LocalPlayer player = Minecraft.getInstance().player;
+      if (this.noclipBoat != null && (player == null || player.getVehicle() != this.noclipBoat)) {
          this.releaseBoat();
       }
 
@@ -83,7 +83,7 @@ public final class BoatNoclipModule extends ClientModule {
    }
 
    private void onPacketSend(PacketSendEvent event) {
-      if (this.antiKick.get() && event.packet instanceof class_2833 packet) {
+      if (this.antiKick.get() && event.packet instanceof ServerboundMoveVehiclePacket packet) {
          this.antiKicker.onPacketSend(packet, this.delay.getInt());
       }
    }
@@ -94,56 +94,56 @@ public final class BoatNoclipModule extends ClientModule {
 
    private void releaseBoat() {
       if (this.noclipBoat != null) {
-         this.noclipBoat.field_5960 = false;
+         this.noclipBoat.noPhysics = false;
       }
 
       this.noclipBoat = null;
    }
 
-   public class_243 boatMovement(class_10255 boat, class_746 player) {
+   public Vec3 boatMovement(AbstractBoat boat, LocalPlayer player) {
       if (this.noclipBoat != boat) {
          this.releaseBoat();
          this.noclipBoat = boat;
       }
 
-      boat.field_5960 = true;
+      boat.noPhysics = true;
       double bps = isInsideBlock(boat, player) ? this.speedInsideBlocks.get() : this.speed.get();
-      class_243 horizontal = EntityControlVehicleHook.horizontalVelocity(player, bps);
-      class_310 mc = class_310.method_1551();
+      Vec3 horizontal = EntityControlVehicleHook.horizontalVelocity(player, bps);
+      Minecraft mc = Minecraft.getInstance();
       double velY = 0.0;
-      if (EntityControlVehicleHook.isPhysicallyDown(mc.field_1690.field_1903)) {
+      if (EntityControlVehicleHook.isPhysicallyDown(mc.options.keyJump)) {
          velY += this.verticalSpeed.get() / 20.0;
       }
 
-      if (EntityControlVehicleHook.isPhysicallyDown(mc.field_1690.field_1867)) {
+      if (EntityControlVehicleHook.isPhysicallyDown(mc.options.keySprint)) {
          velY -= this.verticalSpeed.get() / 20.0;
       } else {
          velY -= this.fallSpeed.get() / 20.0;
       }
 
-      return new class_243(horizontal.field_1352, velY, horizontal.field_1350);
+      return new Vec3(horizontal.x, velY, horizontal.z);
    }
 
-   private static boolean isInsideBlock(class_10255 boat, class_746 player) {
-      class_638 level = class_310.method_1551().field_1687;
+   private static boolean isInsideBlock(AbstractBoat boat, LocalPlayer player) {
+      ClientLevel level = Minecraft.getInstance().level;
       if (level == null) {
          return false;
       }
 
-      class_238 boatBox = boat.method_5829();
-      class_238 box = boatBox.method_1002(0.0, 0.05, 0.0).method_1009(0.5, 0.0, 0.5);
-      int maxX = class_3532.method_15357(box.field_1320);
-      int maxY = class_3532.method_15357(box.field_1325);
-      int maxZ = class_3532.method_15357(box.field_1324);
-      class_2339 pos = new class_2339();
+      AABB boatBox = boat.getBoundingBox();
+      AABB box = boatBox.contract(0.0, 0.05, 0.0).inflate(0.5, 0.0, 0.5);
+      int maxX = Mth.floor(box.maxX);
+      int maxY = Mth.floor(box.maxY);
+      int maxZ = Mth.floor(box.maxZ);
+      MutableBlockPos pos = new MutableBlockPos();
 
-      for (int x = class_3532.method_15357(box.field_1323); x <= maxX; x++) {
-         for (int y = class_3532.method_15357(box.field_1322); y <= maxY; y++) {
-            for (int z = class_3532.method_15357(box.field_1321); z <= maxZ; z++) {
-               class_2680 state = level.method_8320(pos.method_10103(x, y, z));
-               if (!state.method_26215()) {
-                  class_265 shape = state.method_26194(level, pos, class_3726.method_16194());
-                  if (!shape.method_1110() && boatBox.method_994(shape.method_1107().method_996(pos))) {
+      for (int x = Mth.floor(box.minX); x <= maxX; x++) {
+         for (int y = Mth.floor(box.minY); y <= maxY; y++) {
+            for (int z = Mth.floor(box.minZ); z <= maxZ; z++) {
+               BlockState state = level.getBlockState(pos.set(x, y, z));
+               if (!state.isAir()) {
+                  VoxelShape shape = state.getCollisionShape(level, pos, CollisionContext.empty());
+                  if (!shape.isEmpty() && boatBox.intersects(shape.bounds().move(pos))) {
                      return true;
                   }
                }
@@ -151,8 +151,8 @@ public final class BoatNoclipModule extends ClientModule {
          }
       }
 
-      for (class_1297 other : level.method_8335(boat, box)) {
-         if (other != player && !other.method_5626(boat) && !boat.method_5626(other) && other.method_5805() && other.method_5829().method_994(box)) {
+      for (Entity other : level.getEntities(boat, box)) {
+         if (other != player && !other.hasPassenger(boat) && !boat.hasPassenger(other) && other.isAlive() && other.getBoundingBox().intersects(box)) {
             return true;
          }
       }

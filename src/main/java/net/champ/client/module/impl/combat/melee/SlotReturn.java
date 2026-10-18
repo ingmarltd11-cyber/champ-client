@@ -4,9 +4,9 @@ import net.champ.client.module.CombatMacroLock;
 import net.champ.client.module.impl.combat.AutoInvTotemModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1661;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class SlotReturn {
@@ -19,19 +19,19 @@ public final class SlotReturn {
       this.owner = owner;
    }
 
-   public boolean take(class_746 player, int slot) {
-      class_1661 inventory = player.method_31548();
-      if (inventory.method_67532() == slot && !this.holding()) {
+   public boolean take(LocalPlayer player, int slot) {
+      Inventory inventory = player.getInventory();
+      if (inventory.getSelectedSlot() == slot && !this.holding()) {
          return true;
       }
 
-      if (class_1661.method_7380(slot) && !AutoInvTotemModule.wantsHotbar() && CombatMacroLock.tryAcquire(this.owner)) {
+      if (Inventory.isHotbarSlot(slot) && !AutoInvTotemModule.wantsHotbar() && CombatMacroLock.tryAcquire(this.owner)) {
          if (!this.holding()) {
-            this.previous = inventory.method_67532();
+            this.previous = inventory.getSelectedSlot();
          }
 
          this.taken = slot;
-         inventory.method_61496(slot);
+         inventory.setSelectedSlot(slot);
          return true;
       } else {
          return false;
@@ -42,28 +42,28 @@ public final class SlotReturn {
       return this.taken != -1;
    }
 
-   public void tick(class_310 mc, boolean back) {
+   public void tick(Minecraft mc, boolean back) {
       if (this.holding()) {
-         class_746 player = mc.field_1724;
+         LocalPlayer player = mc.player;
          if (player == null) {
             this.finish(null, false);
          } else if (AutoInvTotemModule.wantsHotbar()) {
             CombatMacroLock.release(this.owner);
-         } else if (mc.field_1755 == null && !MeleeAttacks.actedThisTick(player)) {
+         } else if (mc.screen == null && !MeleeAttacks.actedThisTick(player)) {
             this.finish(player, back);
          }
       }
    }
 
-   public void drop(class_310 mc, boolean back) {
+   public void drop(Minecraft mc, boolean back) {
       if (this.holding()) {
-         this.finish(mc.field_1724, back);
+         this.finish(mc.player, back);
       }
    }
 
-   private void finish(class_746 player, boolean back) {
-      if (back && player != null && player.method_31548().method_67532() == this.taken && this.previous != this.taken) {
-         player.method_31548().method_61496(this.previous);
+   private void finish(LocalPlayer player, boolean back) {
+      if (back && player != null && player.getInventory().getSelectedSlot() == this.taken && this.previous != this.taken) {
+         player.getInventory().setSelectedSlot(this.previous);
       }
 
       CombatMacroLock.release(this.owner);

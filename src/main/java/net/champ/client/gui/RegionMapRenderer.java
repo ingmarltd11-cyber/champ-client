@@ -7,8 +7,8 @@ import net.champ.client.module.impl.client.RegionMapModule;
 import net.champ.client.module.setting.ColorSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class RegionMapRenderer {
@@ -61,8 +61,8 @@ public final class RegionMapRenderer {
    }
 
    public static void render(ImDrawList dl, RegionMapModule module, HudLayoutStore.HudElementState layout, float fade) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       if (player != null && dl != null && module != null && layout != null) {
          float scale = HudRenderer.scaleOf(layout);
          float cellSize = module.cellSize() * scale;
@@ -109,16 +109,16 @@ public final class RegionMapRenderer {
    }
 
    private static void renderPlayerPin(
-      ImDrawList dl, RegionMapModule module, class_746 player, float gridX, float gridY, float cellSize, float cellGap, float alpha, float scale
+      ImDrawList dl, RegionMapModule module, LocalPlayer player, float gridX, float gridY, float cellSize, float cellGap, float alpha, float scale
    ) {
-      double px = player.method_23317();
-      double pz = player.method_23321();
+      double px = player.getX();
+      double pz = player.getZ();
       int[] grid = DonutRegionMapData.worldToGrid(px, pz);
       if (grid[0] >= 0 && grid[0] < 9 && grid[1] >= 0 && grid[1] < 9) {
          double[] cellPos = DonutRegionMapData.worldToCellPosition(px, pz);
          float centerX = gridX + grid[0] * (cellSize + cellGap) + (float)(cellPos[0] * cellSize);
          float centerY = gridY + grid[1] * (cellSize + cellGap) + (float)(cellPos[1] * cellSize);
-         double angle = Math.toRadians(-player.method_36454() - 90.0);
+         double angle = Math.toRadians(-player.getYRot() - 90.0);
          float arrowSize = 9.0F * module.playerScale() * scale;
          int color = HudChrome.scaleAlpha(toAbgr(module.playerIndicatorColor()), alpha);
          float tipX = centerX + (float)(Math.cos(angle) * arrowSize);
@@ -132,7 +132,7 @@ public final class RegionMapRenderer {
       }
    }
 
-   private static void renderInfoPanel(ImDrawList dl, RegionMapModule module, class_746 player, float x, float y, float alpha, float scale) {
+   private static void renderInfoPanel(ImDrawList dl, RegionMapModule module, LocalPlayer player, float x, float y, float alpha, float scale) {
       ImGuiManager m = ImGuiManager.getInstance();
       ImFont textFont = m.hudTextFont();
       ImFont labelFont = m.hudLabelFont();
@@ -152,14 +152,14 @@ public final class RegionMapRenderer {
             valueX,
             lineTop,
             HudChrome.scaleAlpha(HudChrome.TEXT_VALUE, alpha),
-            number((long)Math.floor(player.method_23317())) + ", " + number((long)Math.floor(player.method_23321())),
+            number((long)Math.floor(player.getX())) + ", " + number((long)Math.floor(player.getZ())),
             false
          );
          lineTop += lineH;
       }
 
-      int regionId = DonutRegionMapData.regionAt(player.method_23317(), player.method_23321());
-      String regionName = DonutRegionMapData.regionTypeName(player.method_23317(), player.method_23321());
+      int regionId = DonutRegionMapData.regionAt(player.getX(), player.getZ());
+      String regionName = DonutRegionMapData.regionTypeName(player.getX(), player.getZ());
       HudChrome.text(dl, labelFont, labelPx, x, lineTop + labelOffset, HudChrome.scaleAlpha(HudChrome.TEXT_LABEL, alpha), "Region", false);
       HudChrome.text(dl, textFont, textPx, valueX, lineTop, HudChrome.scaleAlpha(HudChrome.TEXT_NAME, alpha), regionId + "  ·  " + regionName, false);
       if (module.showLegend()) {

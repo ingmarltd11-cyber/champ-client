@@ -3,13 +3,13 @@ package com.example.client.mixin;
 import net.champ.client.module.impl.render.AtmosphereModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12076;
-import net.minecraft.class_12131;
-import net.minecraft.class_4184;
-import net.minecraft.class_4587;
-import net.minecraft.class_638;
-import net.minecraft.class_9975;
-import net.minecraft.class_2874.class_12326;
+import net.minecraft.client.renderer.state.SkyRenderState;
+import net.minecraft.world.level.MoonPhase;
+import net.minecraft.client.Camera;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.SkyRenderer;
+import net.minecraft.world.level.dimension.DimensionType.Skybox;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,17 +17,17 @@ import org.spongepowered.asm.mixin.injection.At.Shift;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_9975.class)
+@Mixin(SkyRenderer.class)
 public abstract class MixinAtmosphereSkyRenderer {
-   @Inject(method = "method_74926", at = @At("TAIL"))
-   private void champ$readSky(class_638 level, float partialTick, class_4184 camera, class_12076 state, CallbackInfo ci) {
+   @Inject(method = "extractRenderState", at = @At("TAIL"))
+   private void champ$readSky(ClientLevel level, float partialTick, Camera camera, SkyRenderState state, CallbackInfo ci) {
       AtmosphereModule atmosphere = AtmosphereModule.get();
-      if (atmosphere != null && state.field_64464 == class_12326.field_64386) {
+      if (atmosphere != null && state.skybox == Skybox.OVERWORLD) {
          atmosphere.extract(level, partialTick, state);
       }
    }
 
-   @Inject(method = "method_62302", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "renderSkyDisc", at = @At("HEAD"), cancellable = true)
    private void champ$dome(int color, CallbackInfo ci) {
       AtmosphereModule atmosphere = AtmosphereModule.get();
       if (atmosphere != null && atmosphere.skyDisc()) {
@@ -35,7 +35,7 @@ public abstract class MixinAtmosphereSkyRenderer {
       }
    }
 
-   @Inject(method = "method_62302", at = @At("TAIL"))
+   @Inject(method = "renderSkyDisc", at = @At("TAIL"))
    private void champ$afterDome(int color, CallbackInfo ci) {
       AtmosphereModule atmosphere = AtmosphereModule.get();
       if (atmosphere != null) {
@@ -43,16 +43,16 @@ public abstract class MixinAtmosphereSkyRenderer {
       }
    }
 
-   @Inject(method = "method_62306", at = @At("HEAD"), cancellable = true)
-   private void champ$noSunriseFan(class_4587 pose, float sunAngle, int color, CallbackInfo ci) {
+   @Inject(method = "renderSunriseAndSunset", at = @At("HEAD"), cancellable = true)
+   private void champ$noSunriseFan(PoseStack pose, float sunAngle, int color, CallbackInfo ci) {
       AtmosphereModule atmosphere = AtmosphereModule.get();
       if (atmosphere != null && atmosphere.replacesSunrise()) {
          ci.cancel();
       }
    }
 
-   @Inject(method = "method_62310", at = @At("HEAD"), cancellable = true)
-   private void champ$stars(float starBrightness, class_4587 pose, CallbackInfo ci) {
+   @Inject(method = "renderStars", at = @At("HEAD"), cancellable = true)
+   private void champ$stars(float starBrightness, PoseStack pose, CallbackInfo ci) {
       AtmosphereModule atmosphere = AtmosphereModule.get();
       if (atmosphere != null && atmosphere.stars(pose)) {
          ci.cancel();
@@ -60,11 +60,11 @@ public abstract class MixinAtmosphereSkyRenderer {
    }
 
    @Inject(
-      method = "method_62307",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/class_9975;method_62304(Lnet/minecraft/class_12131;FLnet/minecraft/class_4587;)V")
+      method = "renderSunMoonAndStars",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/SkyRenderer;renderMoon(Lnet/minecraft/world/level/MoonPhase;FLcom/mojang/blaze3d/vertex/PoseStack;)V")
    )
    private void champ$beforeMoon(
-      class_4587 pose, float sunAngle, float moonAngle, float starAngle, class_12131 moonPhase, float rainBrightness, float starBrightness, CallbackInfo ci
+      PoseStack pose, float sunAngle, float moonAngle, float starAngle, MoonPhase moonPhase, float rainBrightness, float starBrightness, CallbackInfo ci
    ) {
       AtmosphereModule atmosphere = AtmosphereModule.get();
       if (atmosphere != null) {
@@ -73,15 +73,15 @@ public abstract class MixinAtmosphereSkyRenderer {
    }
 
    @Inject(
-      method = "method_62307",
+      method = "renderSunMoonAndStars",
       at = @At(
          value = "INVOKE",
-         target = "Lnet/minecraft/class_9975;method_62304(Lnet/minecraft/class_12131;FLnet/minecraft/class_4587;)V",
+         target = "Lnet/minecraft/client/renderer/SkyRenderer;renderMoon(Lnet/minecraft/world/level/MoonPhase;FLcom/mojang/blaze3d/vertex/PoseStack;)V",
          shift = Shift.AFTER
       )
    )
    private void champ$afterMoon(
-      class_4587 pose, float sunAngle, float moonAngle, float starAngle, class_12131 moonPhase, float rainBrightness, float starBrightness, CallbackInfo ci
+      PoseStack pose, float sunAngle, float moonAngle, float starAngle, MoonPhase moonPhase, float rainBrightness, float starBrightness, CallbackInfo ci
    ) {
       AtmosphereModule atmosphere = AtmosphereModule.get();
       if (atmosphere != null) {
@@ -89,9 +89,9 @@ public abstract class MixinAtmosphereSkyRenderer {
       }
    }
 
-   @Inject(method = "method_62307", at = @At("TAIL"))
+   @Inject(method = "renderSunMoonAndStars", at = @At("TAIL"))
    private void champ$afterCelestials(
-      class_4587 pose, float sunAngle, float moonAngle, float starAngle, class_12131 moonPhase, float rainBrightness, float starBrightness, CallbackInfo ci
+      PoseStack pose, float sunAngle, float moonAngle, float starAngle, MoonPhase moonPhase, float rainBrightness, float starBrightness, CallbackInfo ci
    ) {
       AtmosphereModule atmosphere = AtmosphereModule.get();
       if (atmosphere != null) {
@@ -99,7 +99,7 @@ public abstract class MixinAtmosphereSkyRenderer {
       }
    }
 
-   @Inject(method = "method_62312", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "renderEndSky", at = @At("HEAD"), cancellable = true)
    private void champ$endSky(CallbackInfo ci) {
       AtmosphereModule atmosphere = AtmosphereModule.get();
       if (atmosphere != null && atmosphere.endSky()) {

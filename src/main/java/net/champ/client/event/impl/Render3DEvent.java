@@ -4,13 +4,13 @@ import net.champ.client.event.Event;
 import net.champ.client.event.EventType;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_4604;
+import net.minecraft.client.renderer.culling.Frustum;
 
 @Environment(EnvType.CLIENT)
 public final class Render3DEvent extends Event {
    public static final EventType<Render3DEvent> TYPE = new EventType<>("Render3DEvent");
    public float partialTick;
-   public class_4604 frustum;
+   public Frustum frustum;
    private static final Render3DEvent INSTANCE = new Render3DEvent();
    private static boolean rendering;
    private static long frame;
@@ -23,7 +23,7 @@ public final class Render3DEvent extends Event {
       dispatch(partialTick, null);
    }
 
-   public static void dispatch(float partialTick, class_4604 frustum) {
+   public static void dispatch(float partialTick, Frustum frustum) {
       if (!TYPE.hasListeners()) {
          lastDurationNanos = 0L;
       } else {

@@ -7,14 +7,14 @@ import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.ModeSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1007;
-import net.minecraft.class_11659;
-import net.minecraft.class_1309;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_3489;
-import net.minecraft.class_4587;
-import net.minecraft.class_811;
+import net.minecraft.client.renderer.entity.player.AvatarRenderer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.tags.ItemTags;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.world.item.ItemDisplayContext;
 
 @Environment(EnvType.CLIENT)
 public final class HandModelModule extends ClientModule {
@@ -44,32 +44,32 @@ public final class HandModelModule extends ClientModule {
       return module != null && (mainHand ? module.mainHand.get() : module.offHand.get());
    }
 
-   static boolean covers(class_1799 stack, boolean mainHand) {
+   static boolean covers(ItemStack stack, boolean mainHand) {
       HandModelModule module = active;
       return wants(mainHand) && module != null && (module.items.is("All Items") || weaponOrTool(stack));
    }
 
-   private static boolean weaponOrTool(class_1799 stack) {
-      return stack.method_31573(class_3489.field_42611)
-         || stack.method_31573(class_3489.field_42612)
-         || stack.method_31573(class_3489.field_42614)
-         || stack.method_31573(class_3489.field_42615)
-         || stack.method_31573(class_3489.field_42613)
-         || stack.method_31573(class_3489.field_63257)
-         || stack.method_31574(class_1802.field_49814)
-         || stack.method_31574(class_1802.field_8378)
-         || stack.method_31574(class_1802.field_8868)
-         || stack.method_31574(class_1802.field_8884)
-         || stack.method_31574(class_1802.field_42716)
-         || stack.method_31574(class_1802.field_8184)
-         || stack.method_31574(class_1802.field_23254);
+   private static boolean weaponOrTool(ItemStack stack) {
+      return stack.is(ItemTags.SWORDS)
+         || stack.is(ItemTags.AXES)
+         || stack.is(ItemTags.PICKAXES)
+         || stack.is(ItemTags.SHOVELS)
+         || stack.is(ItemTags.HOES)
+         || stack.is(ItemTags.SPEARS)
+         || stack.is(Items.MACE)
+         || stack.is(Items.FISHING_ROD)
+         || stack.is(Items.SHEARS)
+         || stack.is(Items.FLINT_AND_STEEL)
+         || stack.is(Items.BRUSH)
+         || stack.is(Items.CARROT_ON_A_STICK)
+         || stack.is(Items.WARPED_FUNGUS_ON_A_STICK);
    }
 
-   public static void shoulder(class_4587 pose, boolean right, class_1007<?> renderer) {
-      FirstPersonArm.shoulder(pose, right, ((AccessorHandPlayerModel)renderer.method_4038()).champ$handSlim());
+   public static void shoulder(PoseStack pose, boolean right, AvatarRenderer<?> renderer) {
+      FirstPersonArm.shoulder(pose, right, ((AccessorHandPlayerModel)renderer.getModel()).champ$handSlim());
    }
 
-   public static void renderArm(class_4587 pose, class_1309 holder, class_1799 stack, class_811 context, class_11659 collector, int light, boolean mainHand) {
+   public static void renderArm(PoseStack pose, LivingEntity holder, ItemStack stack, ItemDisplayContext context, SubmitNodeCollector collector, int light, boolean mainHand) {
       if (covers(stack, mainHand)) {
          FirstPersonArm.Arm arm = FirstPersonArm.arm();
          if (arm != null) {

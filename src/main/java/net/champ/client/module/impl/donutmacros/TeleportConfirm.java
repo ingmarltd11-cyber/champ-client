@@ -5,7 +5,7 @@ import net.champ.client.chat.ModuleChat;
 import net.champ.client.module.ClientModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 final class TeleportConfirm {
@@ -22,7 +22,7 @@ final class TeleportConfirm {
       this.warned = false;
    }
 
-   boolean tick(class_310 mc) {
+   boolean tick(Minecraft mc) {
       Dialogs.View view = Dialogs.current(mc);
       if (view != null && view.titled("teleport")) {
          if (view.dialog() == this.pressed) {

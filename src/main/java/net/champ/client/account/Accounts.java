@@ -23,9 +23,9 @@ import java.util.regex.Pattern;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.class_156;
-import net.minecraft.class_310;
-import net.minecraft.class_4844;
+import net.minecraft.util.Util;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.UUIDUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,7 +64,7 @@ public final class Accounts {
    }
 
    public Account active() {
-      String sessionUuid = class_310.method_1551().method_1548().method_44717().toString();
+      String sessionUuid = Minecraft.getInstance().getUser().getProfileId().toString();
       List<Account> all = this.list();
       String lastSwitched = this.activeId;
 
@@ -142,7 +142,7 @@ public final class Accounts {
    }
 
    private static Credentials offline(String name) {
-      return new Credentials(name, class_4844.method_43344(name), "", "");
+      return new Credentials(name, UUIDUtil.createOfflinePlayerUUID(name), "", "");
    }
 
    private Credentials microsoftBrowserSignIn() throws InterruptedException {
@@ -155,7 +155,7 @@ public final class Accounts {
             + " at "
             + code.verificationUri().replaceFirst("^https?://", "")
             + ")";
-         class_156.method_668().method_670(code.directUri());
+         Util.getPlatform().openUri(code.directUri());
          MicrosoftLogin.MsaToken token = MicrosoftLogin.awaitApproval(code);
          this.status = "Signing in to Xbox Live...";
          return MicrosoftLogin.minecraft(token);
@@ -186,7 +186,7 @@ public final class Accounts {
          try {
             Credentials credentials = blocking.run();
             GameSession.Prepared prepared = this.session.prepare(type, credentials);
-            class_310.method_1551().execute(() -> this.finish(type, savedId, credentials, prepared, result));
+            Minecraft.getInstance().execute(() -> this.finish(type, savedId, credentials, prepared, result));
          } catch (InterruptedException e) {
             this.settleLater(result, null, new AccountException(type == AccountType.MICROSOFT ? "Microsoft sign-in cancelled" : "Login cancelled"));
          } catch (AccountException e) {
@@ -225,7 +225,7 @@ public final class Accounts {
    }
 
    private void settleLater(CompletableFuture<Account> result, Account account, AccountException error) {
-      class_310.method_1551().execute(() -> this.settle(result, account, error));
+      Minecraft.getInstance().execute(() -> this.settle(result, account, error));
    }
 
    private void settle(CompletableFuture<Account> result, Account account, AccountException error) {
@@ -275,8 +275,8 @@ public final class Accounts {
    }
 
    private static boolean inGame() {
-      class_310 mc = class_310.method_1551();
-      return mc.field_1687 != null || mc.method_1562() != null;
+      Minecraft mc = Minecraft.getInstance();
+      return mc.level != null || mc.getConnection() != null;
    }
 
    private <T> CompletableFuture<T> failed(String message) {
@@ -386,7 +386,7 @@ public final class Accounts {
 
       if (type == AccountType.CRACKED ? VALID_NAME.matcher(name).matches() : token != null && !token.isEmpty()) {
          if (type == AccountType.CRACKED) {
-            uuid = class_4844.method_43344(name).toString();
+            uuid = UUIDUtil.createOfflinePlayerUUID(name).toString();
          }
 
          return new Account(id != null && !id.isEmpty() ? id : UUID.randomUUID().toString(), type, name, uuid == null ? "" : uuid, token == null ? "" : token);

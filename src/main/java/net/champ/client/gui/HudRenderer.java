@@ -48,25 +48,25 @@ import net.champ.client.util.spotify.SpotifyWindow;
 import net.champ.client.util.spotify.SyncedLyrics;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1041;
-import net.minecraft.class_1068;
-import net.minecraft.class_1074;
-import net.minecraft.class_10868;
-import net.minecraft.class_1291;
-import net.minecraft.class_1293;
-import net.minecraft.class_1937;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_368;
-import net.minecraft.class_408;
-import net.minecraft.class_634;
-import net.minecraft.class_640;
-import net.minecraft.class_642;
-import net.minecraft.class_6880;
-import net.minecraft.class_742;
-import net.minecraft.class_746;
-import net.minecraft.class_368.class_369;
+import com.mojang.blaze3d.platform.Window;
+import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.client.resources.language.I18n;
+import com.mojang.blaze3d.opengl.GlTexture;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.level.Level;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.client.gui.components.toasts.Toast;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.core.Holder;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.gui.components.toasts.Toast.Visibility;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.system.MemoryUtil;
 
@@ -161,7 +161,7 @@ public final class HudRenderer {
    private static final float SKIN_HAT_U = 0.625F;
    private static final float SKIN_TOP_V = 0.125F;
    private static final float SKIN_PART = 0.125F;
-   private final Map<UUID, class_2960> staffSkins = new HashMap<>();
+   private final Map<UUID, Identifier> staffSkins = new HashMap<>();
    private final Set<GpuTexture> nearestSkins = Collections.newSetFromMap(new WeakHashMap<>());
    private static final float RADAR_DEFAULT_SIZE = 150.0F;
    private static final float[] RADAR_RINGS = new float[]{0.33333334F, 0.6666667F};
@@ -338,15 +338,15 @@ public final class HudRenderer {
    }
 
    public void render() {
-      class_310 client = class_310.method_1551();
-      if (client.field_1687 == null) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.level == null) {
          this.releaseSpotifyArt();
          this.resetCombatElements();
       } else {
-         boolean editorScreen = client.field_1755 instanceof HudEditorScreen;
+         boolean editorScreen = client.screen instanceof HudEditorScreen;
          boolean preview = studioPreview();
          boolean editMode = editorScreen || preview;
-         if (client.field_1755 instanceof ImGuiScreen && !preview) {
+         if (client.screen instanceof ImGuiScreen && !preview) {
             if (this.draggingId != null || this.layoutDirty) {
                this.saveLayout();
             }
@@ -356,7 +356,7 @@ public final class HudRenderer {
             this.snapGuideY = null;
             this.hudVisibleLastFrame = false;
          } else {
-            boolean chatEditMode = client.field_1755 instanceof class_408;
+            boolean chatEditMode = client.screen instanceof ChatScreen;
             boolean acceptInput = editorScreen || chatEditMode;
             this.chatInput = chatEditMode;
             this.spotifyButtonsShown = this.spotifyButtonsDrawn;
@@ -423,7 +423,7 @@ public final class HudRenderer {
                this.layout.updateBounds(radar.id, radarSize, radarSize, screenW, screenH);
                HudRenderer.HotkeyPlan hotkeyPlan = this.planHotkeys(hotkeys, editMode, dt);
                this.layout.updateBounds(hotkeys.id, hotkeyPlan.width(), hotkeyPlan.height(), screenW, screenH);
-               boolean combatHud = this.hudModule.isEnabled() && !client.field_1690.field_1842;
+               boolean combatHud = this.hudModule.isEnabled() && !client.options.hideGui;
                boolean targetWanted = combatHud && target.visible && this.hudModule.targetCard();
                boolean armorWanted = combatHud && armor.visible && this.hudModule.armorStatus();
                boolean cooldownWanted = combatHud && cooldowns.visible && this.hudModule.itemCooldowns();
@@ -628,12 +628,12 @@ public final class HudRenderer {
    }
 
    public boolean hasWork() {
-      class_310 client = class_310.method_1551();
-      if (client.field_1687 == null) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.level == null) {
          this.resetCombatElements();
          return false;
       } else {
-         return client.field_1755 instanceof HudEditorScreen
+         return client.screen instanceof HudEditorScreen
             || studioPreview()
             || this.hudModule != null && (this.hudModule.isEnabled() || this.hudVisibleLastFrame)
             || this.isRegionMapEnabled()
@@ -641,12 +641,12 @@ public final class HudRenderer {
       }
    }
 
-   private static boolean shouldRenderHudOverlays(class_310 client) {
-      return client.field_1755 == null || client.field_1755 instanceof class_408;
+   private static boolean shouldRenderHudOverlays(Minecraft client) {
+      return client.screen == null || client.screen instanceof ChatScreen;
    }
 
-   private static boolean gameHidesHud(class_310 client) {
-      return client.field_1690.field_1842 || client.field_61504.method_72776();
+   private static boolean gameHidesHud(Minecraft client) {
+      return client.options.hideGui || client.debugEntries.isOverlayVisible();
    }
 
    private static boolean computeHudOverlays() {
@@ -742,14 +742,14 @@ public final class HudRenderer {
       return value < 0L ? "−" + -value : Long.toString(value);
    }
 
-   private List<HudRenderer.InfoItem> buildInfoItems(boolean showFps, boolean showClock, boolean showPing, class_310 client) {
+   private List<HudRenderer.InfoItem> buildInfoItems(boolean showFps, boolean showClock, boolean showPing, Minecraft client) {
       long second = showClock ? System.currentTimeMillis() / 1000L : -1L;
-      int fps = showFps ? Math.max(0, client.method_47599()) : -1;
+      int fps = showFps ? Math.max(0, client.getFps()) : -1;
       int ping = -1;
       if (showPing) {
-         class_634 conn = client.method_1562();
+         ClientPacketListener conn = client.getConnection();
          int latency = 0;
-         if (conn != null && client.field_1724 != null) {
+         if (conn != null && client.player != null) {
             latency = readTabLatency(client, conn);
             if (latency <= 0) {
                latency = readServerPing(conn);
@@ -977,18 +977,18 @@ public final class HudRenderer {
       };
    }
 
-   private List<HudRenderer.CoordRow> coordinateRows(class_310 client, boolean editMode, float dt) {
+   private List<HudRenderer.CoordRow> coordinateRows(Minecraft client, boolean editMode, float dt) {
       long x = 0L;
       long y = 0L;
       long z = 0L;
-      if (client.field_1724 != null) {
-         x = (long)Math.floor(client.field_1724.method_23317());
-         y = (long)Math.floor(client.field_1724.method_23318());
-         z = (long)Math.floor(client.field_1724.method_23321());
+      if (client.player != null) {
+         x = (long)Math.floor(client.player.getX());
+         y = (long)Math.floor(client.player.getY());
+         z = (long)Math.floor(client.player.getZ());
       }
 
-      boolean inNether = client.field_1687 != null && client.field_1687.method_27983() == class_1937.field_25180;
-      boolean inEnd = client.field_1687 != null && client.field_1687.method_27983() == class_1937.field_25181;
+      boolean inNether = client.level != null && client.level.dimension() == Level.NETHER;
+      boolean inEnd = client.level != null && client.level.dimension() == Level.END;
       boolean overworldOn = this.hudModule.coordinates();
       boolean netherOn = this.hudModule.netherCoordinates();
       float k = 1.0F - (float)Math.exp(-12.0F * dt);
@@ -1235,7 +1235,7 @@ public final class HudRenderer {
       }
    }
 
-   private float updateToastShift(class_310 client, HudLayoutStore.HudElementState state, boolean editMode, float dt) {
+   private float updateToastShift(Minecraft client, HudLayoutStore.HudElementState state, boolean editMode, float dt) {
       float target = !editMode && this.draggingId == null ? toastClearance(client, state) : 0.0F;
       if (!editMode && !(Math.abs(target - this.toastShift) < 0.5F)) {
          this.toastShift = this.toastShift + (target - this.toastShift) * (1.0F - (float)Math.exp(-12.0F * dt));
@@ -1246,24 +1246,24 @@ public final class HudRenderer {
       return this.toastShift;
    }
 
-   private static float toastClearance(class_310 client, HudLayoutStore.HudElementState state) {
-      if (state.anchorX == 2 && !state.anchorBottom && !client.field_1690.field_1842) {
-         class_1041 window = client.method_22683();
-         int gui = window.method_4495();
-         int guiW = window.method_4486();
+   private static float toastClearance(Minecraft client, HudLayoutStore.HudElementState state) {
+      if (state.anchorX == 2 && !state.anchorBottom && !client.options.hideGui) {
+         Window window = client.getWindow();
+         int gui = window.getGuiScale();
+         int guiW = window.getGuiScaledWidth();
          float bottom = 0.0F;
 
-         for (Object entry : ((AccessorHudToastManager)client.method_1566()).champ$hudVisibleToasts()) {
+         for (Object entry : ((AccessorHudToastManager)client.getToastManager()).champ$hudVisibleToasts()) {
             AccessorHudToastInstance instance = (AccessorHudToastInstance)entry;
-            class_368 toast = instance.champ$hudToast();
-            float shown = instance.champ$hudVisibility() == class_369.field_2209 ? instance.champ$hudVisiblePortion() : 1.0F;
-            float left = toast.method_71809(guiW, shown) * gui;
-            if (!(left >= state.x + state.width) && !(left + toast.method_29049() * gui <= state.x)) {
-               bottom = Math.max(bottom, (toast.method_71808(instance.champ$hudFirstSlot()) + toast.method_29050()) * gui);
+            Toast toast = instance.champ$hudToast();
+            float shown = instance.champ$hudVisibility() == Visibility.HIDE ? instance.champ$hudVisiblePortion() : 1.0F;
+            float left = toast.xPos(guiW, shown) * gui;
+            if (!(left >= state.x + state.width) && !(left + toast.width() * gui <= state.x)) {
+               bottom = Math.max(bottom, (toast.yPos(instance.champ$hudFirstSlot()) + toast.height()) * gui);
             }
          }
 
-         return bottom <= 0.0F ? 0.0F : class_3532.method_15363(bottom + 10.0F * ImGuiManager.getInstance().uiScale() - state.y, 0.0F, bottom);
+         return bottom <= 0.0F ? 0.0F : Mth.clamp(bottom + 10.0F * ImGuiManager.getInstance().uiScale() - state.y, 0.0F, bottom);
       } else {
          return 0.0F;
       }
@@ -1353,7 +1353,7 @@ public final class HudRenderer {
                if (texture != null) {
                   dl.addImage(texture.id(), ix, iy, ix + icon, iy + icon, 0.0F, 0.0F, 1.0F, 1.0F, HudChrome.scaleAlpha(-1, iconAlpha));
                } else {
-                  int color = GuiPalette.abgr(0xFF000000 | ((class_1291)row.effect().comp_349()).method_5556());
+                  int color = GuiPalette.abgr(0xFF000000 | ((MobEffect)row.effect().comp_349()).getColor());
                   dl.addCircleFilled(ix + icon * 0.5F, iy + icon * 0.5F, icon * 0.3F, HudChrome.scaleAlpha(color, iconAlpha), 16);
                }
 
@@ -1680,42 +1680,42 @@ public final class HudRenderer {
    }
 
    int staffFace(UUID id, boolean hidden) {
-      class_310 mc = class_310.method_1551();
-      class_634 conn = mc.method_1562();
-      class_640 info = conn == null ? null : conn.method_2871(id);
-      class_2960 skin;
+      Minecraft mc = Minecraft.getInstance();
+      ClientPacketListener conn = mc.getConnection();
+      PlayerInfo info = conn == null ? null : conn.getPlayerInfo(id);
+      Identifier skin;
       if (info != null) {
-         skin = info.method_52810().comp_1626().comp_3627();
+         skin = info.getSkin().comp_1626().comp_3627();
          this.staffSkins.put(id, skin);
          if (hidden) {
-            skin = NameProtectModule.hiddenHead(id, info.method_52810()).comp_1626().comp_3627();
+            skin = NameProtectModule.hiddenHead(id, info.getSkin()).comp_1626().comp_3627();
          }
       } else if (hidden) {
-         skin = NameProtectModule.hiddenHead(id, class_1068.method_4648(id)).comp_1626().comp_3627();
+         skin = NameProtectModule.hiddenHead(id, DefaultPlayerSkin.get(id)).comp_1626().comp_3627();
       } else {
          skin = this.staffSkins.get(id);
          if (skin == null) {
-            skin = class_1068.method_4648(id).comp_1626().comp_3627();
+            skin = DefaultPlayerSkin.get(id).comp_1626().comp_3627();
          }
       }
 
       GpuTexture texture;
       try {
-         texture = mc.method_1531().method_4619(skin).method_68004();
+         texture = mc.getTextureManager().getTexture(skin).getTexture();
       } catch (IllegalStateException notUploaded) {
          return 0;
       }
 
-      if (texture instanceof class_10868 gl && !gl.isClosed()) {
+      if (texture instanceof GlTexture gl && !gl.isClosed()) {
          if (this.nearestSkins.add(texture)) {
             int bound = GL11.glGetInteger(32873);
-            GL11.glBindTexture(3553, gl.method_68427());
+            GL11.glBindTexture(3553, gl.glId());
             GL11.glTexParameteri(3553, 10241, 9728);
             GL11.glTexParameteri(3553, 10240, 9728);
             GL11.glBindTexture(3553, bound);
          }
 
-         return gl.method_68427();
+         return gl.glId();
       } else {
          return 0;
       }
@@ -1730,7 +1730,7 @@ public final class HudRenderer {
       return Math.max(2.0F, Math.round(size * scaleOf(state)));
    }
 
-   private void drawRadar(ImDrawList dl, HudLayoutStore.HudElementState state, float size, class_310 client, boolean shadow, HudRenderer.DrawTransform tr) {
+   private void drawRadar(ImDrawList dl, HudLayoutStore.HudElementState state, float size, Minecraft client, boolean shadow, HudRenderer.DrawTransform tr) {
       float a = tr.alpha();
       if (!(a <= 0.001F) && !(size <= 1.0F)) {
          float s = scaleOf(state);
@@ -1765,10 +1765,10 @@ public final class HudRenderer {
          float hy = (float)Math.floor(cy) + 0.5F;
          dl.addLine(hx, cy - reach, hx, cy + reach, hairline, 1.0F);
          dl.addLine(cx - reach, hy, cx + reach, hy, hairline, 1.0F);
-         class_746 player = client.field_1724;
+         LocalPlayer player = client.player;
          boolean rotate = this.radarModule == null || this.radarModule.rotate();
-         float partial = client.method_61966().method_60637(false);
-         double yaw = player != null ? Math.toRadians(player.method_5705(partial)) : 0.0;
+         float partial = client.getDeltaTracker().getGameTimeDeltaPartialTick(false);
+         double yaw = player != null ? Math.toRadians(player.getViewYRot(partial)) : 0.0;
          float sin = (float)Math.sin(yaw);
          float cos = (float)Math.cos(yaw);
 
@@ -1790,21 +1790,21 @@ public final class HudRenderer {
             );
          }
 
-         if (this.radarModule != null && player != null && client.field_1687 != null) {
+         if (this.radarModule != null && player != null && client.level != null) {
             float range = Math.max(1.0F, this.radarModule.range());
             double rangeSq = (double)range * range;
             float perBlock = rangeR / range;
-            double px0 = class_3532.method_16436(partial, player.field_6014, player.method_23317());
-            double pz0 = class_3532.method_16436(partial, player.field_5969, player.method_23321());
+            double px0 = Mth.lerp(partial, player.xo, player.getX());
+            double pz0 = Mth.lerp(partial, player.zo, player.getZ());
             float dot = 3.2F * s;
             float edge = Math.max(1.0F, 0.75F * s);
             int dotEdge = HudChrome.scaleAlpha(-1946157056, a);
             int dotColor = HudChrome.scaleAlpha(GuiPalette.abgr(this.radarModule.dotColor()), a);
 
-            for (class_742 other : client.field_1687.method_18456()) {
+            for (AbstractClientPlayer other : client.level.players()) {
                if (other != player && this.radarModule.shows(other)) {
-                  double dx = class_3532.method_16436(partial, other.field_6014, other.method_23317()) - px0;
-                  double dz = class_3532.method_16436(partial, other.field_5969, other.method_23321()) - pz0;
+                  double dx = Mth.lerp(partial, other.xo, other.getX()) - px0;
+                  double dz = Mth.lerp(partial, other.zo, other.getZ()) - pz0;
                   if (!(dx * dx + dz * dz > rangeSq)) {
                      float ox = rotate ? (float)(-dx * cos - dz * sin) : (float)dx;
                      float oy = rotate ? (float)(dx * sin - dz * cos) : (float)dz;
@@ -3424,20 +3424,20 @@ public final class HudRenderer {
       this.spotifyArt = null;
    }
 
-   private List<HudRenderer.PotionRow> buildPotionRows(class_310 client) {
-      if (client.field_1724 == null) {
+   private List<HudRenderer.PotionRow> buildPotionRows(Minecraft client) {
+      if (client.player == null) {
          return List.of();
       }
 
       List<HudRenderer.PotionRow> rows = new ArrayList<>();
 
-      for (class_1293 instance : client.field_1724.method_6026()) {
-         class_6880<class_1291> effect = instance.method_5579();
-         String name = class_1074.method_4662(((class_1291)effect.comp_349()).method_5567(), new Object[0]);
-         int amp = instance.method_5578();
+      for (MobEffectInstance instance : client.player.getActiveEffects()) {
+         Holder<MobEffect> effect = instance.getEffect();
+         String name = I18n.get(((MobEffect)effect.comp_349()).getDescriptionId(), new Object[0]);
+         int amp = instance.getAmplifier();
          String amplifier = amp > 0 ? toRomanNumeral(amp + 1) : "";
-         int ticks = instance.method_5584();
-         if (ticks >= 0 && ticks != Integer.MAX_VALUE && !instance.method_48559()) {
+         int ticks = instance.getDuration();
+         if (ticks >= 0 && ticks != Integer.MAX_VALUE && !instance.isInfiniteDuration()) {
             int seconds = Math.max(0, ticks / 20);
             String formatted = seconds / 60 + ":" + String.format("%02d", seconds % 60);
             rows.add(new HudRenderer.PotionRow(effect, name, amplifier, formatted, false, seconds < 30, ticks));
@@ -3774,26 +3774,26 @@ public final class HudRenderer {
       };
    }
 
-   private static int readTabLatency(class_310 client, class_634 connection) {
-      class_640 info = connection.method_2871(connection.method_2879().id());
+   private static int readTabLatency(Minecraft client, ClientPacketListener connection) {
+      PlayerInfo info = connection.getPlayerInfo(connection.getLocalGameProfile().id());
       if (info == null) {
-         info = connection.method_2871(client.field_1724.method_5667());
+         info = connection.getPlayerInfo(client.player.getUUID());
       }
 
       if (info == null) {
-         info = connection.method_73471(connection.method_2879().name());
+         info = connection.getPlayerInfoIgnoreCase(connection.getLocalGameProfile().name());
       }
 
       if (info == null) {
-         info = connection.method_73471(client.field_1724.method_5477().getString());
+         info = connection.getPlayerInfoIgnoreCase(client.player.getName().getString());
       }
 
-      return info == null ? 0 : Math.max(0, info.method_2959());
+      return info == null ? 0 : Math.max(0, info.getLatency());
    }
 
-   private static int readServerPing(class_634 connection) {
-      class_642 serverData = connection.method_45734();
-      return serverData != null && serverData.field_3758 > 0L && serverData.field_3758 <= 60000L ? (int)serverData.field_3758 : 0;
+   private static int readServerPing(ClientPacketListener connection) {
+      ServerData serverData = connection.getServerData();
+      return serverData != null && serverData.ping > 0L && serverData.ping <= 60000L ? (int)serverData.ping : 0;
    }
 
    private static float easeOutCubic(float value) {
@@ -3883,7 +3883,7 @@ public final class HudRenderer {
    }
 
    @Environment(EnvType.CLIENT)
-   private record PotionRow(class_6880<class_1291> effect, String name, String amplifier, String duration, boolean infinite, boolean expiringSoon, int ticks) {
+   private record PotionRow(Holder<MobEffect> effect, String name, String amplifier, String duration, boolean infinite, boolean expiringSoon, int ticks) {
    }
 
    @Environment(EnvType.CLIENT)

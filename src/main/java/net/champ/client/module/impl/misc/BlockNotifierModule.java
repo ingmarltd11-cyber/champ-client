@@ -16,17 +16,17 @@ import net.champ.client.module.setting.BlockColorListSetting;
 import net.champ.client.module.setting.BooleanSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_1937;
-import net.minecraft.class_2248;
-import net.minecraft.class_2338;
-import net.minecraft.class_243;
-import net.minecraft.class_2561;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
-import net.minecraft.class_5321;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.ResourceKey;
 
 @Environment(EnvType.CLIENT)
 public final class BlockNotifierModule extends ClientModule implements ChunkScanner.Consumer {
@@ -34,9 +34,9 @@ public final class BlockNotifierModule extends ClientModule implements ChunkScan
    private final BlockColorListSetting blocks = this.addSetting("blocks", BlockColorListSetting.blockList("Blocks", List.of("minecraft:spawner")));
    private final BooleanSetting sound = this.addSetting("sound", new BooleanSetting("Sound", true));
    private final LongLinkedOpenHashSet known = new LongLinkedOpenHashSet();
-   private final Map<class_2248, BlockNotifierModule.Finds> pending = new LinkedHashMap<>();
+   private final Map<Block, BlockNotifierModule.Finds> pending = new LinkedHashMap<>();
    private Set<String> scannedIds = Set.of();
-   private class_5321<class_1937> dimension;
+   private ResourceKey<Level> dimension;
 
    public BlockNotifierModule() {
       super(
@@ -73,24 +73,24 @@ public final class BlockNotifierModule extends ClientModule implements ChunkScan
    }
 
    @Override
-   public boolean wants(class_2680 state) {
-      return this.blocks.isEnabled(state.method_26204());
+   public boolean wants(BlockState state) {
+      return this.blocks.isEnabled(state.getBlock());
    }
 
    @Override
-   public void found(long pos, class_2680 state) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 != null) {
+   public void found(long pos, BlockState state) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level != null) {
          this.syncDimension(mc);
          if (this.known.add(pos)) {
             if (this.known.size() > 50000) {
                this.known.removeFirstLong();
             }
 
-            class_2338 at = class_2338.method_10092(pos);
-            BlockNotifierModule.Finds finds = this.pending.computeIfAbsent(state.method_26204(), block -> new BlockNotifierModule.Finds());
+            BlockPos at = BlockPos.of(pos);
+            BlockNotifierModule.Finds finds = this.pending.computeIfAbsent(state.getBlock(), block -> new BlockNotifierModule.Finds());
             finds.count++;
-            double distanceSq = mc.field_1724 == null ? 0.0 : mc.field_1724.method_5707(class_243.method_24953(at));
+            double distanceSq = mc.player == null ? 0.0 : mc.player.distanceToSqr(Vec3.atCenterOf(at));
             if (distanceSq < finds.nearestSq) {
                finds.nearestSq = distanceSq;
                finds.nearest = at;
@@ -111,11 +111,11 @@ public final class BlockNotifierModule extends ClientModule implements ChunkScan
    }
 
    private void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level != null) {
          this.syncDimension(mc);
          if (!this.pending.isEmpty()) {
-            for (Entry<class_2248, BlockNotifierModule.Finds> entry : this.pending.entrySet()) {
+            for (Entry<Block, BlockNotifierModule.Finds> entry : this.pending.entrySet()) {
                this.notify(entry.getKey(), entry.getValue());
             }
 
@@ -124,8 +124,8 @@ public final class BlockNotifierModule extends ClientModule implements ChunkScan
       }
    }
 
-   private void syncDimension(class_310 mc) {
-      class_5321<class_1937> current = mc.field_1687.method_27983();
+   private void syncDimension(Minecraft mc) {
+      ResourceKey<Level> current = mc.level.dimension();
       if (!current.equals(this.dimension)) {
          this.dimension = current;
          this.known.clear();
@@ -133,12 +133,12 @@ public final class BlockNotifierModule extends ClientModule implements ChunkScan
       }
    }
 
-   private void notify(class_2248 block, BlockNotifierModule.Finds finds) {
-      class_1792 item = block.method_8389();
-      class_1799 icon = new class_1799(item == class_1802.field_8162 ? class_1802.field_8251 : item);
-      String title = block.method_9518().getString();
-      class_2338 at = finds.nearest;
-      class_2561 message = class_2561.method_43470("at " + at.method_10263() + ", " + at.method_10264() + ", " + at.method_10260());
+   private void notify(Block block, BlockNotifierModule.Finds finds) {
+      Item item = block.asItem();
+      ItemStack icon = new ItemStack(item == Items.AIR ? Items.COMPASS : item);
+      String title = block.getName().getString();
+      BlockPos at = finds.nearest;
+      Component message = Component.literal("at " + at.getX() + ", " + at.getY() + ", " + at.getZ());
 
       for (int i = 0; i < finds.count; i++) {
          ChallengeToast.addOrUpdate(icon, title, message, this.sound.get());
@@ -148,7 +148,7 @@ public final class BlockNotifierModule extends ClientModule implements ChunkScan
    @Environment(EnvType.CLIENT)
    private static final class Finds {
       int count;
-      class_2338 nearest;
+      BlockPos nearest;
       double nearestSq = Double.MAX_VALUE;
    }
 }

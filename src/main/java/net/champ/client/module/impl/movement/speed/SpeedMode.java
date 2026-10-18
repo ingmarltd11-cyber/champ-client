@@ -3,10 +3,10 @@ package net.champ.client.module.impl.movement.speed;
 import net.champ.client.module.impl.movement.SpeedModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1293;
-import net.minecraft.class_1294;
-import net.minecraft.class_243;
-import net.minecraft.class_746;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public abstract class SpeedMode {
@@ -21,10 +21,10 @@ public abstract class SpeedMode {
       this.reset();
    }
 
-   public void onTick(class_746 player) {
+   public void onTick(LocalPlayer player) {
    }
 
-   public class_243 onMove(class_746 player, class_243 movement) {
+   public Vec3 onMove(LocalPlayer player, Vec3 movement) {
       return movement;
    }
 
@@ -38,16 +38,16 @@ public abstract class SpeedMode {
    public void onDeactivate() {
    }
 
-   protected double getDefaultSpeed(class_746 player) {
+   protected double getDefaultSpeed(LocalPlayer player) {
       double defaultSpeed = 0.2873;
-      class_1293 speedEffect = player.method_6112(class_1294.field_5904);
+      MobEffectInstance speedEffect = player.getEffect(MobEffects.SPEED);
       if (speedEffect != null) {
-         defaultSpeed *= 1.0 + 0.2 * (speedEffect.method_5578() + 1);
+         defaultSpeed *= 1.0 + 0.2 * (speedEffect.getAmplifier() + 1);
       }
 
-      class_1293 slowness = player.method_6112(class_1294.field_5909);
+      MobEffectInstance slowness = player.getEffect(MobEffects.SLOWNESS);
       if (slowness != null) {
-         defaultSpeed /= 1.0 + 0.2 * (slowness.method_5578() + 1);
+         defaultSpeed /= 1.0 + 0.2 * (slowness.getAmplifier() + 1);
       }
 
       return defaultSpeed;
@@ -59,10 +59,10 @@ public abstract class SpeedMode {
       this.speed = 0.2873;
    }
 
-   protected double getHop(class_746 player, double height) {
-      class_1293 jumpBoost = player.method_6112(class_1294.field_5913);
+   protected double getHop(LocalPlayer player, double height) {
+      MobEffectInstance jumpBoost = player.getEffect(MobEffects.JUMP_BOOST);
       if (jumpBoost != null) {
-         height += (jumpBoost.method_5578() + 1) * 0.1F;
+         height += (jumpBoost.getAmplifier() + 1) * 0.1F;
       }
 
       return height;

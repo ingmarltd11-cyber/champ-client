@@ -6,9 +6,9 @@ import java.util.function.Predicate;
 import net.champ.client.chat.ModuleChat;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1713;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 @Environment(EnvType.CLIENT)
 final class OrderRestock {
@@ -49,7 +49,7 @@ final class OrderRestock {
          return false;
       }
 
-      int own = this.worker.call(() -> Gui.findNow(stack -> stack.method_31574(this.product.item()), 45));
+      int own = this.worker.call(() -> Gui.findNow(stack -> stack.is(this.product.item()), 45));
       if (own >= 0) {
          return this.collect(own) > 0;
       }
@@ -72,13 +72,13 @@ final class OrderRestock {
       return OrdersNav.isYourOrdersNow();
    }
 
-   private static boolean isNewOrderPane(class_1799 stack) {
+   private static boolean isNewOrderPane(ItemStack stack) {
       return OrdersNav.isNewOrderPane(stack);
    }
 
    private int collect(int ownSlot) {
       String before = this.gui.fingerprint();
-      this.gui.click(ownSlot, 0, class_1713.field_7790);
+      this.gui.click(ownSlot, 0, ClickType.PICKUP);
       boolean opened = this.worker.waitFor(() -> Gui.containerOpenNow() && !this.isYourOrdersNow() && !Gui.fingerprintNow().equals(before), 2000L);
       if (!opened) {
          this.say(ModuleChat.body().warn("Your order did not open."));
@@ -88,14 +88,14 @@ final class OrderRestock {
 
       this.worker.sleep(1000L);
       int[] controls = this.worker.call(() -> {
-         List<class_1799> stacksx = Gui.containerNow();
+         List<ItemStack> stacksx = Gui.containerNow();
          int collectAt = -1;
 
          for (int ix = 0; ix < stacksx.size(); ix++) {
-            class_1799 stackx = stacksx.get(ix);
-            if (!stackx.method_7960()) {
+            ItemStack stackx = stacksx.get(ix);
+            if (!stackx.isEmpty()) {
                String name = Gui.nameOf(stackx);
-               if (stackx.method_31574(class_1802.field_8353) || name.contains("cancel")) {
+               if (stackx.is(Items.RED_TERRACOTTA) || name.contains("cancel")) {
                   return new int[]{1, -1};
                }
 
@@ -105,7 +105,7 @@ final class OrderRestock {
             }
          }
 
-         if (collectAt < 0 && stacksx.size() > 13 && !stacksx.get(13).method_7960()) {
+         if (collectAt < 0 && stacksx.size() > 13 && !stacksx.get(13).isEmpty()) {
             collectAt = 13;
          }
 
@@ -124,7 +124,7 @@ final class OrderRestock {
       }
 
       String beforeCollect = this.gui.fingerprint();
-      this.gui.click(controls[1], 0, class_1713.field_7790);
+      this.gui.click(controls[1], 0, ClickType.PICKUP);
       this.worker.sleep(250L);
       this.gui.waitChange(beforeCollect, 2000L);
       this.worker.sleep(150L);
@@ -132,17 +132,17 @@ final class OrderRestock {
 
       for (int pass = 0; pass < 6 && this.worker.call(Gui::containerOpenNow) && !this.bot.inventoryCapReached(); pass++) {
          boolean clicked = false;
-         List<class_1799> stacks = this.gui.container();
+         List<ItemStack> stacks = this.gui.container();
 
          for (int i = 0; i < stacks.size(); i++) {
-            class_1799 stack = stacks.get(i);
-            if (!stack.method_7960() && stack.method_31574(this.product.item())) {
+            ItemStack stack = stacks.get(i);
+            if (!stack.isEmpty() && stack.is(this.product.item())) {
                if (this.bot.inventoryCapReached()) {
                   break;
                }
 
-               collected += stack.method_7947();
-               this.gui.click(i, 0, class_1713.field_7794);
+               collected += stack.getCount();
+               this.gui.click(i, 0, ClickType.QUICK_MOVE);
                clicked = true;
                this.worker.sleep(40L);
             }
@@ -217,8 +217,8 @@ final class OrderRestock {
                return -1.0;
             }
 
-            for (class_1799 stack : Gui.containerNow()) {
-               if (!stack.method_7960() && stack.method_31574(this.product.item()) && (this.product.enchants().isEmpty() || this.product.matches(stack))) {
+            for (ItemStack stack : Gui.containerNow()) {
+               if (!stack.isEmpty() && stack.is(this.product.item()) && (this.product.enchants().isEmpty() || this.product.matches(stack))) {
                   return ServerText.orderPrice(stack);
                }
             }
@@ -242,7 +242,7 @@ final class OrderRestock {
             this.say(ModuleChat.body().warn("No free order slot").text(" (no New Order button)."));
             this.gui.closeAll();
          } else {
-            this.gui.click(pane, 0, class_1713.field_7790);
+            this.gui.click(pane, 0, ClickType.PICKUP);
             Dialogs.View view = this.waitDialog(v -> v.titled("item"), 10000L);
             if (view == null) {
                throw fail("Choose Item did not open");
@@ -340,13 +340,13 @@ final class OrderRestock {
 
    private void checkItem(Dialogs.View view) {
       if (!view.items().isEmpty()) {
-         for (class_1799 shown : view.items()) {
-            if (shown.method_31574(this.product.item())) {
+         for (ItemStack shown : view.items()) {
+            if (shown.is(this.product.item())) {
                return;
             }
          }
 
-         String picked = view.items().get(0).method_7964().getString();
+         String picked = view.items().get(0).getHoverName().getString();
          this.worker.run(() -> Dialogs.close(Gui.mc()));
          throw fail("Picked " + picked + " instead of " + this.product.displayName() + ", cancelled");
       }

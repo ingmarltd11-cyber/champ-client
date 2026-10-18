@@ -11,37 +11,37 @@ import net.champ.client.module.impl.render.FreelookModule;
 import net.champ.client.module.impl.render.ZoomModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_11910;
-import net.minecraft.class_310;
-import net.minecraft.class_312;
-import net.minecraft.class_746;
+import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
+import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_312.class)
+@Mixin(MouseHandler.class)
 public abstract class MixinMouseHandler {
-   @Inject(method = "method_1601", at = @At("HEAD"), cancellable = true)
-   private void champ$onMouseButton(long window, class_11910 buttonInfo, int action, CallbackInfo ci) {
+   @Inject(method = "onButton", at = @At("HEAD"), cancellable = true)
+   private void champ$onMouseButton(long window, MouseButtonInfo buttonInfo, int action, CallbackInfo ci) {
       if (MouseInputEvent.dispatch(window, buttonInfo.comp_4801(), action, buttonInfo.comp_4797())) {
          ci.cancel();
       }
    }
 
-   @Inject(method = "method_1598", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "onScroll", at = @At("HEAD"), cancellable = true)
    private void champ$wheel(long window, double horizontal, double vertical, CallbackInfo ci) {
-      class_310 mc = class_310.method_1551();
-      if (vertical != 0.0 && window == mc.method_22683().method_4490() && mc.field_1755 == null && mc.method_18506() == null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (vertical != 0.0 && window == mc.getWindow().handle() && mc.screen == null && mc.getOverlay() == null) {
          if (ZoomModule.scroll(vertical) || FreecamModule.scroll(vertical)) {
             ci.cancel();
          }
       }
    }
 
-   @WrapOperation(method = "method_1606", at = @At(value = "INVOKE", target = "Lnet/minecraft/class_746;method_5872(DD)V"))
-   private void champ$cameraTurn(class_746 player, double yRot, double xRot, Operation<Void> original, @Local(argsOnly = true) double movementTime) {
+   @WrapOperation(method = "turnPlayer", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;turn(DD)V"))
+   private void champ$cameraTurn(LocalPlayer player, double yRot, double xRot, Operation<Void> original, @Local(argsOnly = true) double movementTime) {
       double scale = ZoomModule.turnScale();
       yRot *= scale;
       xRot *= scale;

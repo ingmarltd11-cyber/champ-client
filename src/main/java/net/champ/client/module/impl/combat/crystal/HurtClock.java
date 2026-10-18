@@ -7,18 +7,18 @@ import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import net.champ.client.module.impl.combat.melee.MeleeAttacks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1309;
-import net.minecraft.class_1657;
-import net.minecraft.class_1937;
-import net.minecraft.class_243;
-import net.minecraft.class_2596;
-import net.minecraft.class_2716;
-import net.minecraft.class_6880;
-import net.minecraft.class_746;
-import net.minecraft.class_8042;
-import net.minecraft.class_8110;
-import net.minecraft.class_8111;
-import net.minecraft.class_8143;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
+import net.minecraft.core.Holder;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ClientboundBundlePacket;
+import net.minecraft.world.damagesource.DamageType;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
 
 @Environment(EnvType.CLIENT)
 public final class HurtClock {
@@ -30,9 +30,9 @@ public final class HurtClock {
    private static final int REMOVE_GRACE = 3;
    private static final double ANCHOR_MATCH_SQR = 0.25;
    private static final Int2ObjectOpenHashMap<HurtClock.Mark> MARKS = new Int2ObjectOpenHashMap();
-   private static class_746 lastPlayer;
-   private static class_1937 lastLevel;
-   private static class_2596<?> lastPacket;
+   private static LocalPlayer lastPlayer;
+   private static Level lastLevel;
+   private static Packet<?> lastPacket;
    private static int now;
    private static int margin;
    private static int streak;
@@ -40,11 +40,11 @@ public final class HurtClock {
    private HurtClock() {
    }
 
-   public static void note(class_746 player, class_2596<?> packet) {
+   public static void note(LocalPlayer player, Packet<?> packet) {
       if (packet != lastPacket) {
          lastPacket = packet;
-         if (packet instanceof class_8042 bundle) {
-            for (class_2596<?> inner : bundle.method_48324()) {
+         if (packet instanceof ClientboundBundlePacket bundle) {
+            for (Packet<?> inner : bundle.subPackets()) {
                handle(player, inner);
             }
          } else {
@@ -53,21 +53,21 @@ public final class HurtClock {
       }
    }
 
-   public static void tick(class_746 player) {
-      now = player.field_6012;
-      if (player != lastPlayer || player.method_73183() != lastLevel) {
+   public static void tick(LocalPlayer player) {
+      now = player.tickCount;
+      if (player != lastPlayer || player.level() != lastLevel) {
          MARKS.clear();
          margin = 0;
          streak = 0;
          lastPlayer = player;
-         lastLevel = player.method_73183();
+         lastLevel = player.level();
       }
 
       ObjectIterator<Entry<HurtClock.Mark>> iterator = MARKS.int2ObjectEntrySet().iterator();
 
       while (iterator.hasNext()) {
          Entry<HurtClock.Mark> entry = (Entry<HurtClock.Mark>)iterator.next();
-         if (lastLevel.method_8469(entry.getIntKey()) instanceof class_1309 target && target.method_5805()) {
+         if (lastLevel.getEntity(entry.getIntKey()) instanceof LivingEntity target && target.isAlive()) {
             HurtClock.Mark mark = (HurtClock.Mark)entry.getValue();
             if (mark.removedAt != -1000 && !mark.confirmed && now - mark.removedAt > 3) {
                margin = Math.min(2, margin + 1);
@@ -81,16 +81,16 @@ public final class HurtClock {
       }
    }
 
-   public static boolean freshAt(class_1309 target, int ahead, int lead) {
-      if (target.field_6008 - ahead - lead > 10) {
+   public static boolean freshAt(LivingEntity target, int ahead, int lead) {
+      if (target.invulnerableTime - ahead - lead > 10) {
          return false;
       }
 
-      HurtClock.Mark mark = (HurtClock.Mark)MARKS.get(target.method_5628());
+      HurtClock.Mark mark = (HurtClock.Mark)MARKS.get(target.getId());
       return mark == null || mark.shotTick == -1000 || now + ahead - mark.shotTick >= 10 + margin;
    }
 
-   public static int opensIn(class_1309 target, int lead) {
+   public static int opensIn(LivingEntity target, int lead) {
       for (int ahead = 0; ahead < 20; ahead++) {
          if (freshAt(target, ahead, lead)) {
             return ahead;
@@ -101,20 +101,20 @@ public final class HurtClock {
    }
 
    public static float effective(CrystalDamage.Victim victim, float raw, int ahead, int lead) {
-      class_1309 target = victim.entity();
+      LivingEntity target = victim.entity();
       if (freshAt(target, ahead, lead)) {
          return victim.reduce(raw);
       }
 
-      HurtClock.Mark mark = (HurtClock.Mark)MARKS.get(target.method_5628());
+      HurtClock.Mark mark = (HurtClock.Mark)MARKS.get(target.getId());
       float last = mark == null ? Float.MAX_VALUE : mark.lastRaw;
       return raw > last ? victim.reduce(raw - last) : 0.0F;
    }
 
-   public static void shot(class_746 player, class_1309 target, float raw, Object key, int lead) {
-      HurtClock.Mark mark = (HurtClock.Mark)MARKS.computeIfAbsent(target.method_5628(), id -> new HurtClock.Mark());
+   public static void shot(LocalPlayer player, LivingEntity target, float raw, Object key, int lead) {
+      HurtClock.Mark mark = (HurtClock.Mark)MARKS.computeIfAbsent(target.getId(), id -> new HurtClock.Mark());
       if (freshAt(target, 0, lead)) {
-         mark.shotTick = player.field_6012;
+         mark.shotTick = player.tickCount;
          mark.shotRaw = raw;
          mark.lastRaw = raw;
          mark.shotKey = key;
@@ -125,17 +125,17 @@ public final class HurtClock {
       }
    }
 
-   private static void handle(class_746 player, class_2596<?> packet) {
-      if (packet instanceof class_8143 damage) {
+   private static void handle(LocalPlayer player, Packet<?> packet) {
+      if (packet instanceof ClientboundDamageEventPacket damage) {
          damaged(player, damage);
-      } else if (packet instanceof class_2716 remove) {
-         removed(remove.method_36548());
+      } else if (packet instanceof ClientboundRemoveEntitiesPacket remove) {
+         removed(remove.getEntityIds());
       }
    }
 
-   private static void damaged(class_746 player, class_8143 packet) {
-      if (player.method_73183().method_8469(packet.comp_1267()) instanceof class_1657 target && MeleeAttacks.isEnemy(player, target)) {
-         HurtClock.Mark mark = (HurtClock.Mark)MARKS.computeIfAbsent(target.method_5628(), id -> new HurtClock.Mark());
+   private static void damaged(LocalPlayer player, ClientboundDamageEventPacket packet) {
+      if (player.level().getEntity(packet.comp_1267()) instanceof Player target && MeleeAttacks.isEnemy(player, target)) {
+         HurtClock.Mark mark = (HurtClock.Mark)MARKS.computeIfAbsent(target.getId(), id -> new HurtClock.Mark());
          if (mark.shotTick != -1000 && !mark.confirmed && ours(player, mark, packet)) {
             mark.lastRaw = mark.shotRaw;
             mark.confirmed = true;
@@ -144,21 +144,21 @@ public final class HurtClock {
                streak = 0;
             }
          } else {
-            class_6880<class_8110> type = packet.comp_1268();
+            Holder<DamageType> type = packet.comp_1268();
             mark.shotTick = -1000;
             mark.removedAt = -1000;
-            mark.lastRaw = !type.method_40225(class_8111.field_42320) && !type.method_40225(class_8111.field_42360) ? Float.MAX_VALUE : 0.0F;
+            mark.lastRaw = !type.is(DamageTypes.PLAYER_ATTACK) && !type.is(DamageTypes.MOB_ATTACK) ? Float.MAX_VALUE : 0.0F;
          }
       }
    }
 
-   private static boolean ours(class_746 player, HurtClock.Mark mark, class_8143 packet) {
-      class_6880<class_8110> type = packet.comp_1268();
-      return type.method_40225(class_8111.field_42332)
-         ? packet.comp_1269() == player.method_5628() && mark.shotKey instanceof Integer crystal && packet.comp_1270() == crystal
-         : type.method_40225(class_8111.field_42334)
-            && mark.shotKey instanceof class_243 center
-            && packet.comp_1271().filter(at -> at.method_1025(center) < 0.25).isPresent();
+   private static boolean ours(LocalPlayer player, HurtClock.Mark mark, ClientboundDamageEventPacket packet) {
+      Holder<DamageType> type = packet.comp_1268();
+      return type.is(DamageTypes.PLAYER_EXPLOSION)
+         ? packet.comp_1269() == player.getId() && mark.shotKey instanceof Integer crystal && packet.comp_1270() == crystal
+         : type.is(DamageTypes.BAD_RESPAWN_POINT)
+            && mark.shotKey instanceof Vec3 center
+            && packet.comp_1271().filter(at -> at.distanceToSqr(center) < 0.25).isPresent();
    }
 
    private static void removed(IntList ids) {

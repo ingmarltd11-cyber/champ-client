@@ -14,11 +14,11 @@ import net.champ.client.module.setting.StringSetting;
 import net.champ.client.util.ItemEnchants;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_310;
-import net.minecraft.class_7439;
-import net.minecraft.class_746;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.client.player.LocalPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -128,14 +128,14 @@ public final class OrderAhSellerModule extends ClientModule {
 
    @Override
    protected void onEnable() {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null && mc.method_1548() != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.getUser() != null) {
          String problem = this.validate();
          if (problem != null) {
             this.info(ModuleChat.body().warn(problem));
             this.requestDisable();
          } else {
-            OrderAhBot created = new OrderAhBot(this, this.worker, this.buildProduct(), this.buildConfig(), mc.method_1548().method_1676());
+            OrderAhBot created = new OrderAhBot(this, this.worker, this.buildProduct(), this.buildConfig(), mc.getUser().getName());
             this.bot = created;
             this.worker.start(created::run, failure -> {
                LOGGER.error("[Champ Client] Order AH Trader stopped", failure);
@@ -158,11 +158,11 @@ public final class OrderAhSellerModule extends ClientModule {
       OrderAhBot stopped = this.bot;
       this.bot = null;
       this.worker.stop();
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       if (stopped != null && player != null) {
-         if (player.field_7512 != player.field_7498) {
-            player.method_7346();
+         if (player.containerMenu != player.inventoryMenu) {
+            player.closeContainer();
          } else {
             Dialogs.close(mc);
          }
@@ -174,14 +174,14 @@ public final class OrderAhSellerModule extends ClientModule {
    @EventHandler
    public void onPacket(PacketReceiveNettyEvent event) {
       OrderAhBot current = this.bot;
-      if (current != null && event.packet instanceof class_7439 chat && chat.comp_763() != null) {
+      if (current != null && event.packet instanceof ClientboundSystemChatPacket chat && chat.comp_763() != null) {
          current.onChat(chat.comp_763().getString());
       }
    }
 
    private String validate() {
       int i = this.selected();
-      class_1792 item = Product.resolveItem(this.items[i].get());
+      Item item = Product.resolveItem(this.items[i].get());
       if (item == null) {
          return "Product " + (i + 1) + ": unknown item '" + this.items[i].get() + "'.";
       } else if (ServerText.parseMoney(this.minPrices[i].get()) <= 0L) {
@@ -205,13 +205,13 @@ public final class OrderAhSellerModule extends ClientModule {
 
    private Product buildProduct() {
       int i = this.selected();
-      class_1792 item = Product.resolveItem(this.items[i].get());
+      Item item = Product.resolveItem(this.items[i].get());
       long max = this.maxPrices[i].get().isBlank() ? 0L : ServerText.parseMoney(this.maxPrices[i].get());
       return new Product(
          item,
          this.items[i].get().trim(),
          Product.searchText(item),
-         new class_1799(item).method_7964().getString(),
+         new ItemStack(item).getHoverName().getString(),
          ServerText.parseMoney(this.minPrices[i].get()),
          ItemEnchants.supports(item) ? Product.parseEnchants(this.enchants[i].get()) : List.of(),
          this.restock[i].get(),

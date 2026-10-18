@@ -10,15 +10,15 @@ import java.net.InetSocketAddress;
 import net.champ.client.proxy.ProxyRouting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_644;
+import net.minecraft.client.multiplayer.ServerStatusPinger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(value = class_644.class, priority = 1100)
+@Mixin(value = ServerStatusPinger.class, priority = 1100)
 public abstract class MixinProxyServerStatusPinger {
    @WrapOperation(
-      method = "method_3001",
+      method = "pingLegacyServer",
       at = @At(value = "INVOKE", target = "Lio/netty/bootstrap/Bootstrap;handler(Lio/netty/channel/ChannelHandler;)Lio/netty/bootstrap/AbstractBootstrap;"),
       require = 0
    )

@@ -50,8 +50,8 @@ import net.champ.client.module.setting.StringSetting;
 import net.champ.client.util.MobilePerformance;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_156;
-import net.minecraft.class_310;
+import net.minecraft.util.Util;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 
 @Environment(EnvType.CLIENT)
@@ -1694,7 +1694,7 @@ public final class ClickGuiRenderer {
       ConfigProfiles profiles = ConfigProfiles.getInstance();
 
       try {
-         String name = profiles.importCode(class_310.method_1551().field_1774.method_1460());
+         String name = profiles.importCode(Minecraft.getInstance().keyboardHandler.getClipboard());
          ConfigProfiles.Profile imported = profiles.find(name);
          profiles.backup(imported == null ? Set.of(ConfigProfiles.Part.MODULES) : imported.parts());
          profiles.load(name);
@@ -1722,7 +1722,7 @@ public final class ClickGuiRenderer {
       try {
          Path dir = profiles.directory();
          Files.createDirectories(dir);
-         class_156.method_668().method_60932(dir);
+         Util.getPlatform().openPath(dir);
       } catch (IOException | RuntimeException e) {
          this.setConfigMessage("Could not open the profiles folder", true);
       }
@@ -2207,13 +2207,13 @@ public final class ClickGuiRenderer {
       float y = ImGui.getCursorPosY() + ChampWidgets.s(6.0F);
       ImGui.setCursorPos(pad, y);
       if (ChampWidgets.chipButton("##copytheme", "Copy theme", buttonW, h, false)) {
-         class_310.method_1551().field_1774.method_1455(theme.exportString());
+         Minecraft.getInstance().keyboardHandler.setClipboard(theme.exportString());
          this.showThemeMessage("Theme copied to the clipboard", false);
       }
 
       ImGui.setCursorPos(pad + buttonW + gap, y);
       if (ChampWidgets.chipButton("##pastetheme", "Paste theme", buttonW, h, false)) {
-         boolean applied = theme.importString(class_310.method_1551().field_1774.method_1460());
+         boolean applied = theme.importString(Minecraft.getInstance().keyboardHandler.getClipboard());
          this.showThemeMessage(applied ? "Theme applied from the clipboard" : "The clipboard doesn't contain an Champ theme", !applied);
       }
 
@@ -2413,7 +2413,7 @@ public final class ClickGuiRenderer {
    }
 
    public static int scanPressedKey() {
-      long handle = class_310.method_1551().method_22683().method_4490();
+      long handle = Minecraft.getInstance().getWindow().handle();
 
       for (int key = 32; key <= 348; key++) {
          if (ChampKeys.getKey(handle, key) == 1) {
@@ -2540,13 +2540,13 @@ public final class ClickGuiRenderer {
 
    private void copyModuleConfig(ClientModule module) {
       String code = ModuleCodes.copy(module);
-      class_310.method_1551().field_1774.method_1455(code);
+      Minecraft.getInstance().keyboardHandler.setClipboard(code);
       this.setModuleCodeMessage(module, "Copied, " + code.length() + " characters", false);
    }
 
    private void pasteModuleConfig(ClientModule module) {
       try {
-         ModuleCodes.paste(module, class_310.method_1551().field_1774.method_1460());
+         ModuleCodes.paste(module, Minecraft.getInstance().keyboardHandler.getClipboard());
          this.setModuleCodeMessage(module, "Config pasted", false);
       } catch (ProfileException e) {
          this.setModuleCodeMessage(module, e.getMessage(), true);
@@ -2567,7 +2567,7 @@ public final class ClickGuiRenderer {
       float y = ImGui.getCursorPosY() + ChampWidgets.s(14.0F);
       ImGui.setCursorPos(pad, y);
       if (ChampWidgets.chipButton("##editlayout", "Edit Layout", buttonW, h, true)) {
-         class_310.method_1551().method_1507(new HudEditorScreen());
+         Minecraft.getInstance().setScreen(new HudEditorScreen());
       }
 
       ImGui.setCursorPos(pad + buttonW + gap, y);
@@ -2810,13 +2810,13 @@ public final class ClickGuiRenderer {
       float y = ImGui.getCursorPosY() + ChampWidgets.s(6.0F);
       ImGui.setCursorPos(pad, y);
       if (ChampWidgets.chipButton("##copyhudtheme", "Copy theme", buttonW, h, false)) {
-         class_310.method_1551().field_1774.method_1455(theme.exportString());
+         Minecraft.getInstance().keyboardHandler.setClipboard(theme.exportString());
          this.showHudMessage("HUD theme copied to the clipboard", false);
       }
 
       ImGui.setCursorPos(pad + buttonW + gap, y);
       if (ChampWidgets.chipButton("##pastehudtheme", "Paste theme", buttonW, h, false)) {
-         boolean applied = theme.importString(class_310.method_1551().field_1774.method_1460());
+         boolean applied = theme.importString(Minecraft.getInstance().keyboardHandler.getClipboard());
          this.showHudMessage(applied ? "HUD theme applied from the clipboard" : "The clipboard doesn't contain an Champ HUD theme", !applied);
       }
 

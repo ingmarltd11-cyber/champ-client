@@ -15,17 +15,17 @@ import net.champ.client.util.pvp.Rotation;
 import net.champ.client.util.pvp.ServerRotation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12125;
-import net.minecraft.class_12392;
-import net.minecraft.class_1297;
-import net.minecraft.class_1309;
-import net.minecraft.class_1657;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_3966;
-import net.minecraft.class_746;
-import net.minecraft.class_9334;
+import net.minecraft.world.item.component.PiercingWeapon;
+import net.minecraft.world.item.component.AttackRange;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.component.DataComponents;
 
 @Environment(EnvType.CLIENT)
 public final class TriggerbotModule extends ClientModule {
@@ -78,26 +78,26 @@ public final class TriggerbotModule extends ClientModule {
    @EventHandler(priority = EventPriority.LOWEST)
    public void onTick(TickEvent event) {
       this.ticks++;
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       if (!MeleeAttacks.canAct(mc)) {
          this.trackedId = -1;
       } else {
          this.trackCharge(player);
-         class_3966 hit = MeleeAttacks.crosshairHit(mc);
-         if (hit != null && hit.method_17782() instanceof class_1309 target && this.isTarget(player, target)) {
-            if (target.method_5628() != this.trackedId) {
-               this.trackedId = target.method_5628();
+         EntityHitResult hit = MeleeAttacks.crosshairHit(mc);
+         if (hit != null && hit.getEntity() instanceof LivingEntity target && this.isTarget(player, target)) {
+            if (target.getId() != this.trackedId) {
+               this.trackedId = target.getId();
                this.reactionDoneTick = this.ticks + this.reaction.getInt() + MeleeAttacks.spread(2);
             }
 
             this.seenTick = this.ticks;
             if (this.ticks >= this.reactionDoneTick && this.chargedTick >= 0 && this.ticks - this.chargedTick >= this.chargePause) {
-               if (!this.holdAttack.get() || mc.field_1690.field_1886.method_1434()) {
-                  if (!this.weaponsOnly.get() || MeleeAttacks.isMeleeWeapon(player.method_6047())) {
+               if (!this.holdAttack.get() || mc.options.keyAttack.isDown()) {
+                  if (!this.weaponsOnly.get() || MeleeAttacks.isMeleeWeapon(player.getMainHandItem())) {
                      if (!CombatMacroLock.heldByOther(this) && !MeleeAttacks.wastedOnShield(player, target)) {
-                        if (mc.field_1771 <= 0 && !MeleeAttacks.clickPending(mc) && !MeleeAttacks.rightClickComing(mc) && !ServerRotation.pending()) {
-                           boolean stabbing = player.method_6047().method_57826(class_9334.field_63631);
+                        if (mc.missTime <= 0 && !MeleeAttacks.clickPending(mc) && !MeleeAttacks.rightClickComing(mc) && !ServerRotation.pending()) {
+                           boolean stabbing = player.getMainHandItem().has(DataComponents.PIERCING_WEAPON);
                            if (stabbing || this.critsAllow(mc, player, target)) {
                               if (stabbing) {
                                  hit = this.stabHit(player, target);
@@ -124,7 +124,7 @@ public final class TriggerbotModule extends ClientModule {
       }
    }
 
-   private void trackCharge(class_746 player) {
+   private void trackCharge(LocalPlayer player) {
       if (MeleeAttacks.charge(player) < 1.0F) {
          this.chargedTick = -1;
       } else if (this.chargedTick < 0) {
@@ -133,49 +133,49 @@ public final class TriggerbotModule extends ClientModule {
       }
    }
 
-   private class_3966 stabHit(class_746 player, class_1309 target) {
+   private EntityHitResult stabHit(LocalPlayer player, LivingEntity target) {
       Rotation sent = ServerRotation.sent();
       if (sent == null) {
          return null;
       }
 
-      class_12392 range = player.method_76693();
-      class_243 look = class_243.method_1030(sent.pitch(), sent.yaw());
-      class_243 eye = player.method_33571();
-      class_243 start = eye.method_1019(look.method_1021(range.method_76732(player)));
-      class_243 end = eye.method_1019(look.method_1021(range.method_76739(player) + Math.max(0.0, player.method_60478().method_1026(look))));
+      AttackRange range = player.entityAttackRange();
+      Vec3 look = Vec3.directionFromRotation(sent.pitch(), sent.yaw());
+      Vec3 eye = player.getEyePosition();
+      Vec3 start = eye.add(look.scale(range.effectiveMinRange(player)));
+      Vec3 end = eye.add(look.scale(range.effectiveMaxRange(player) + Math.max(0.0, player.getKnownMovement().dot(look))));
       float margin = range.comp_5262();
-      class_243 at = (class_243)target.method_5829().method_1014(margin).method_992(eye, end).orElse(null);
+      Vec3 at = (Vec3)target.getBoundingBox().inflate(margin).clip(eye, end).orElse(null);
       if (at != null && MeleeAttacks.lineIsClear(player, eye, at)) {
-         for (class_1297 entity : player.method_73183().method_8335(player, new class_238(start, end).method_1014(1.0))) {
-            if (entity != target && entity instanceof class_1309 other && class_12125.method_75244(player, entity) && !this.isTarget(player, other)) {
-               class_238 box = entity.method_5829().method_1014(margin);
-               if (box.method_1006(start) || box.method_992(start, end).isPresent()) {
+         for (Entity entity : player.level().getEntities(player, new AABB(start, end).inflate(1.0))) {
+            if (entity != target && entity instanceof LivingEntity other && PiercingWeapon.canHitEntity(player, entity) && !this.isTarget(player, other)) {
+               AABB box = entity.getBoundingBox().inflate(margin);
+               if (box.contains(start) || box.clip(start, end).isPresent()) {
                   return null;
                }
             }
          }
 
-         return new class_3966(target, at);
+         return new EntityHitResult(target, at);
       } else {
          return null;
       }
    }
 
-   private boolean isTarget(class_746 self, class_1309 entity) {
+   private boolean isTarget(LocalPlayer self, LivingEntity entity) {
       if (!MeleeAttacks.isEnemy(self, entity)) {
          return false;
-      } else if (entity.method_5767() && !this.invisible.get()) {
+      } else if (entity.isInvisible() && !this.invisible.get()) {
          return false;
       } else {
-         return entity instanceof class_1657 ? this.players.get() : this.hostiles.get() && MeleeAttacks.isHostile(entity);
+         return entity instanceof Player ? this.players.get() : this.hostiles.get() && MeleeAttacks.isHostile(entity);
       }
    }
 
-   private boolean critsAllow(class_310 mc, class_746 player, class_1309 target) {
+   private boolean critsAllow(Minecraft mc, LocalPlayer player, LivingEntity target) {
       return switch (this.crits.get()) {
          case "Only" -> {
-            if (MeleeAttacks.airborne(player) && player.method_5624() && player.field_6017 > 0.0) {
+            if (MeleeAttacks.airborne(player) && player.isSprinting() && player.fallDistance > 0.0) {
                InputControl.dropSprint();
             }
 
@@ -185,7 +185,7 @@ public final class TriggerbotModule extends ClientModule {
             if (MeleeAttacks.wouldCrit(player, target)) {
                yield true;
             } else {
-               boolean jumping = player.method_24828() && mc.field_1690.field_1903.method_1434() && !player.method_5624();
+               boolean jumping = player.onGround() && mc.options.keyJump.isDown() && !player.isSprinting();
                if (!MeleeAttacks.critStance(player, target) && !jumping) {
                   yield true;
                } else {

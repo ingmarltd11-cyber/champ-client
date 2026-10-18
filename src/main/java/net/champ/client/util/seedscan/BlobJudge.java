@@ -13,11 +13,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2246;
-import net.minecraft.class_2248;
-import net.minecraft.class_2338;
-import net.minecraft.class_2680;
-import net.minecraft.class_7923;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 public final class BlobJudge {
@@ -30,53 +30,53 @@ public final class BlobJudge {
    public static final int SHELL_MODEL_CAVE = 16;
    public static final int SHELL_JUDGED = 32;
    public static final int SHELL_STONE = 64;
-   private static final Set<class_2248> NATURAL = set(
-      class_2246.field_27114,
-      class_2246.field_29032,
-      class_2246.field_27159,
-      class_2246.field_27160,
-      class_2246.field_28049,
-      class_2246.field_28048,
-      class_2246.field_28681,
-      class_2246.field_28680,
-      class_2246.field_28685,
-      class_2246.field_10460,
-      class_2246.field_37568,
-      class_2246.field_37569,
-      class_2246.field_37570,
-      class_2246.field_28108,
-      class_2246.field_37571,
-      class_2246.field_10092,
-      class_2246.field_10515,
-      class_2246.field_22423
+   private static final Set<Block> NATURAL = set(
+      Blocks.CALCITE,
+      Blocks.SMOOTH_BASALT,
+      Blocks.AMETHYST_BLOCK,
+      Blocks.BUDDING_AMETHYST,
+      Blocks.DRIPSTONE_BLOCK,
+      Blocks.POINTED_DRIPSTONE,
+      Blocks.MOSS_BLOCK,
+      Blocks.MOSS_CARPET,
+      Blocks.ROOTED_DIRT,
+      Blocks.CLAY,
+      Blocks.SCULK,
+      Blocks.SCULK_VEIN,
+      Blocks.SCULK_CATALYST,
+      Blocks.SCULK_SENSOR,
+      Blocks.SCULK_SHRIEKER,
+      Blocks.MAGMA_BLOCK,
+      Blocks.NETHERRACK,
+      Blocks.CRYING_OBSIDIAN
    );
-   private static final Set<class_2248> FAKES = set(
-      class_2246.field_10418,
-      class_2246.field_29219,
-      class_2246.field_10212,
-      class_2246.field_29027,
-      class_2246.field_27120,
-      class_2246.field_29221,
-      class_2246.field_10571,
-      class_2246.field_29026,
-      class_2246.field_10080,
-      class_2246.field_29030,
-      class_2246.field_10090,
-      class_2246.field_29028,
-      class_2246.field_10442,
-      class_2246.field_29029,
-      class_2246.field_10013,
-      class_2246.field_29220,
-      class_2246.field_33508,
-      class_2246.field_33509,
-      class_2246.field_10277,
-      class_2246.field_29224,
-      class_2246.field_9989,
-      class_2246.field_10540,
-      class_2246.field_10034,
-      class_2246.field_10443
+   private static final Set<Block> FAKES = set(
+      Blocks.COAL_ORE,
+      Blocks.DEEPSLATE_COAL_ORE,
+      Blocks.IRON_ORE,
+      Blocks.DEEPSLATE_IRON_ORE,
+      Blocks.COPPER_ORE,
+      Blocks.DEEPSLATE_COPPER_ORE,
+      Blocks.GOLD_ORE,
+      Blocks.DEEPSLATE_GOLD_ORE,
+      Blocks.REDSTONE_ORE,
+      Blocks.DEEPSLATE_REDSTONE_ORE,
+      Blocks.LAPIS_ORE,
+      Blocks.DEEPSLATE_LAPIS_ORE,
+      Blocks.DIAMOND_ORE,
+      Blocks.DEEPSLATE_DIAMOND_ORE,
+      Blocks.EMERALD_ORE,
+      Blocks.DEEPSLATE_EMERALD_ORE,
+      Blocks.RAW_IRON_BLOCK,
+      Blocks.RAW_COPPER_BLOCK,
+      Blocks.INFESTED_STONE,
+      Blocks.INFESTED_DEEPSLATE,
+      Blocks.MOSSY_COBBLESTONE,
+      Blocks.OBSIDIAN,
+      Blocks.CHEST,
+      Blocks.ENDER_CHEST
    );
-   private static final Map<class_2248, Boolean> STRUCTURE = new ConcurrentHashMap<>();
+   private static final Map<Block, Boolean> STRUCTURE = new ConcurrentHashMap<>();
 
    private BlobJudge() {
    }
@@ -98,10 +98,10 @@ public final class BlobJudge {
             for (int z = chunkZ << 4; z < (chunkZ << 4) + 16; z++) {
                for (int x = chunkX << 4; x < (chunkX << 4) + 16; x++) {
                   if ((band.families(x, y, z) & bit) != 0) {
-                     long start = class_2338.method_10064(x, y, z);
+                     long start = BlockPos.asLong(x, y, z);
                      if (!seen.contains(start)) {
                         BlobJudge.Cluster cluster = cluster(start, kind, bands, seen);
-                        if (class_2338.method_10061(cluster.owner()) >> 4 == chunkX && class_2338.method_10083(cluster.owner()) >> 4 == chunkZ) {
+                        if (BlockPos.getX(cluster.owner()) >> 4 == chunkX && BlockPos.getZ(cluster.owner()) >> 4 == chunkZ) {
                            clusters.add(cluster);
                         }
                      }
@@ -129,7 +129,7 @@ public final class BlobJudge {
       while (!open.isEmpty()) {
          long pos = open.dequeueLong();
          cells.add(pos);
-         int cy = class_2338.method_10071(pos);
+         int cy = BlockPos.getY(pos);
          if (cy >= 0 && cy <= 30) {
             if (!judgedLayers || before(pos, owner)) {
                owner = pos;
@@ -143,9 +143,9 @@ public final class BlobJudge {
             break;
          }
 
-         int px = class_2338.method_10061(pos);
-         int py = class_2338.method_10071(pos);
-         int pz = class_2338.method_10083(pos);
+         int px = BlockPos.getX(pos);
+         int py = BlockPos.getY(pos);
+         int pz = BlockPos.getZ(pos);
 
          for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
@@ -154,7 +154,7 @@ public final class BlobJudge {
                      int x = px + dx;
                      int y = py + dy;
                      int z = pz + dz;
-                     long next = class_2338.method_10064(x, y, z);
+                     long next = BlockPos.asLong(x, y, z);
                      if (!in.contains(next)) {
                         if (!VanillaBand.inBand(y)) {
                            outOfBand = true;
@@ -189,9 +189,9 @@ public final class BlobJudge {
 
       for (int i = 0; i < cells.size(); i++) {
          long pos = cells.getLong(i);
-         int px = class_2338.method_10061(pos);
-         int py = class_2338.method_10071(pos);
-         int pz = class_2338.method_10083(pos);
+         int px = BlockPos.getX(pos);
+         int py = BlockPos.getY(pos);
+         int pz = BlockPos.getZ(pos);
          if (py >= 0 && py <= 30 && vanilla.at(px, pz).certain(px, py, pz) == kind) {
             judged.add(pos);
          }
@@ -199,7 +199,7 @@ public final class BlobJudge {
          for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
                for (int dz = -1; dz <= 1; dz++) {
-                  long next = class_2338.method_10064(px + dx, py + dy, pz + dz);
+                  long next = BlockPos.asLong(px + dx, py + dy, pz + dz);
                   if (!in.contains(next)) {
                      shell.add(next);
                   }
@@ -212,9 +212,9 @@ public final class BlobJudge {
       ByteArrayList flags = new ByteArrayList(shellCells.length);
 
       for (long pos : shellCells) {
-         int x = class_2338.method_10061(pos);
-         int y = class_2338.method_10071(pos);
-         int z = class_2338.method_10083(pos);
+         int x = BlockPos.getX(pos);
+         int y = BlockPos.getY(pos);
+         int z = BlockPos.getZ(pos);
          int flag = 0;
          VanillaBand band = vanilla.at(x, z);
          if (band != null && VanillaBand.inBand(y)) {
@@ -249,7 +249,7 @@ public final class BlobJudge {
       boolean structure = false;
 
       for (long pos : cluster.cells()) {
-         class_2680 state = client.state(class_2338.method_10061(pos), class_2338.method_10071(pos), class_2338.method_10083(pos));
+         BlockState state = client.state(BlockPos.getX(pos), BlockPos.getY(pos), BlockPos.getZ(pos));
          if (state == null) {
             return verdict(BlobJudge.Status.INCOMPLETE, kind, owner);
          }
@@ -258,7 +258,7 @@ public final class BlobJudge {
             return verdict(BlobJudge.Status.OPEN, kind, owner);
          }
 
-         structure |= isStructure(state.method_26204());
+         structure |= isStructure(state.getBlock());
       }
 
       long[] shell = cluster.shell();
@@ -266,7 +266,7 @@ public final class BlobJudge {
       int filled = 0;
 
       for (int i = 0; i < shell.length; i++) {
-         class_2680 state = client.state(class_2338.method_10061(shell[i]), class_2338.method_10071(shell[i]), class_2338.method_10083(shell[i]));
+         BlockState state = client.state(BlockPos.getX(shell[i]), BlockPos.getY(shell[i]), BlockPos.getZ(shell[i]));
          if (state == null) {
             return verdict(BlobJudge.Status.INCOMPLETE, kind, owner);
          }
@@ -275,7 +275,7 @@ public final class BlobJudge {
             return verdict(BlobJudge.Status.OPEN, kind, owner);
          }
 
-         structure |= isStructure(state.method_26204());
+         structure |= isStructure(state.getBlock());
          if ((flags[i] & 16) != 0) {
             filled++;
          }
@@ -289,7 +289,7 @@ public final class BlobJudge {
          return verdict(BlobJudge.Status.TERRAIN, kind, owner);
       }
 
-      class_2248 block = VBlock.familyBlock(kind);
+      Block block = VBlock.familyBlock(kind);
       int judged = 0;
       int matches = 0;
       int fakes = 0;
@@ -297,7 +297,7 @@ public final class BlobJudge {
       LongArrayList outside = new LongArrayList();
 
       for (long pos : cluster.judged()) {
-         class_2248 shown = client.state(class_2338.method_10061(pos), class_2338.method_10071(pos), class_2338.method_10083(pos)).method_26204();
+         Block shown = client.state(BlockPos.getX(pos), BlockPos.getY(pos), BlockPos.getZ(pos)).getBlock();
          if (shown == block) {
             judged++;
             matches++;
@@ -311,10 +311,10 @@ public final class BlobJudge {
 
       for (int i = 0; i < shell.length; i++) {
          if ((flags[i] & 32) != 0 && (flags[i] & 16) == 0) {
-            int x = class_2338.method_10061(shell[i]);
-            int y = class_2338.method_10071(shell[i]);
-            int z = class_2338.method_10083(shell[i]);
-            class_2680 state = client.state(x, y, z);
+            int x = BlockPos.getX(shell[i]);
+            int y = BlockPos.getY(shell[i]);
+            int z = BlockPos.getZ(shell[i]);
+            BlockState state = client.state(x, y, z);
             byte shown = VBlock.of(state);
             int shownBit = VBlock.familyBit(shown);
             if (shownBit != 0) {
@@ -323,8 +323,8 @@ public final class BlobJudge {
                }
             } else if ((flags[i] & 64) != 0
                && shown != 3
-               && !FAKES.contains(state.method_26204())
-               && !NATURAL.contains(state.method_26204())
+               && !FAKES.contains(state.getBlock())
+               && !NATURAL.contains(state.getBlock())
                && !nearOpen(client, x, y, z)) {
                outside.add(shell[i]);
             }
@@ -361,15 +361,15 @@ public final class BlobJudge {
       return new BlobJudge.Verdict(status, kind, owner, new long[0]);
    }
 
-   public static boolean open(class_2680 state) {
-      return state.method_26215() || !state.method_26227().method_15769();
+   public static boolean open(BlockState state) {
+      return state.isAir() || !state.getFluidState().isEmpty();
    }
 
    private static boolean nearOpen(BlobJudge.Client client, int x, int y, int z) {
       for (int dx = -1; dx <= 1; dx++) {
          for (int dy = -1; dy <= 1; dy++) {
             for (int dz = -1; dz <= 1; dz++) {
-               class_2680 state = client.state(x + dx, y + dy, z + dz);
+               BlockState state = client.state(x + dx, y + dy, z + dz);
                if (state == null || open(state)) {
                   return true;
                }
@@ -381,29 +381,29 @@ public final class BlobJudge {
    }
 
    private static boolean before(long a, long b) {
-      if (class_2338.method_10071(a) != class_2338.method_10071(b)) {
-         return class_2338.method_10071(a) < class_2338.method_10071(b);
+      if (BlockPos.getY(a) != BlockPos.getY(b)) {
+         return BlockPos.getY(a) < BlockPos.getY(b);
       } else {
-         return class_2338.method_10083(a) != class_2338.method_10083(b)
-            ? class_2338.method_10083(a) < class_2338.method_10083(b)
-            : class_2338.method_10061(a) < class_2338.method_10061(b);
+         return BlockPos.getZ(a) != BlockPos.getZ(b)
+            ? BlockPos.getZ(a) < BlockPos.getZ(b)
+            : BlockPos.getX(a) < BlockPos.getX(b);
       }
    }
 
-   static boolean isStructure(class_2248 block) {
+   static boolean isStructure(Block block) {
       Boolean known = STRUCTURE.get(block);
       return known != null ? known : STRUCTURE.computeIfAbsent(block, BlobJudge::structureBlock);
    }
 
-   private static boolean structureBlock(class_2248 block) {
-      if (block != class_2246.field_10166
-         && block != class_2246.field_10260
-         && block != class_2246.field_47336
-         && block != class_2246.field_48851
-         && block != class_2246.field_10398
-         && block != class_2246.field_38420
-         && block != class_2246.field_10174) {
-         String path = class_7923.field_41175.method_10221(block).method_12832();
+   private static boolean structureBlock(Block block) {
+      if (block != Blocks.BONE_BLOCK
+         && block != Blocks.SPAWNER
+         && block != Blocks.TRIAL_SPAWNER
+         && block != Blocks.VAULT
+         && block != Blocks.END_PORTAL_FRAME
+         && block != Blocks.REINFORCED_DEEPSLATE
+         && block != Blocks.SEA_LANTERN) {
+         String path = BuiltInRegistries.BLOCK.getKey(block).getPath();
          return path.contains("stone_brick")
             || path.contains("tuff") && !path.equals("tuff")
             || path.contains("copper") && !path.contains("ore") && !path.equals("raw_copper_block")
@@ -422,8 +422,8 @@ public final class BlobJudge {
       }
    }
 
-   private static Set<class_2248> set(class_2248... blocks) {
-      Set<class_2248> set = Collections.newSetFromMap(new IdentityHashMap<>());
+   private static Set<Block> set(Block... blocks) {
+      Set<Block> set = Collections.newSetFromMap(new IdentityHashMap<>());
       Collections.addAll(set, blocks);
       return set;
    }
@@ -457,7 +457,7 @@ public final class BlobJudge {
 
    @Environment(EnvType.CLIENT)
    public interface Client {
-      class_2680 state(int var1, int var2, int var3);
+      BlockState state(int var1, int var2, int var3);
    }
 
    @Environment(EnvType.CLIENT)

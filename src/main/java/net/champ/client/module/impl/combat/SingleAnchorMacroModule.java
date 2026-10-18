@@ -19,27 +19,27 @@ import net.champ.client.util.pvp.RotationUtils;
 import net.champ.client.util.pvp.ServerRotation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1661;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_1937;
-import net.minecraft.class_2246;
-import net.minecraft.class_2248;
-import net.minecraft.class_2338;
-import net.minecraft.class_2350;
-import net.minecraft.class_243;
-import net.minecraft.class_2626;
-import net.minecraft.class_2637;
-import net.minecraft.class_2680;
-import net.minecraft.class_304;
-import net.minecraft.class_310;
-import net.minecraft.class_3965;
-import net.minecraft.class_465;
-import net.minecraft.class_4969;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
-import net.minecraft.class_239.class_240;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.level.block.RespawnAnchorBlock;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.phys.HitResult.Type;
 
 @Environment(EnvType.CLIENT)
 public final class SingleAnchorMacroModule extends ClientModule {
@@ -63,12 +63,12 @@ public final class SingleAnchorMacroModule extends ClientModule {
    private int previousSlot = -1;
    private int ownSlot = -1;
    private boolean refilled;
-   private class_2338 anchorPos;
-   private class_243 sightline;
-   private class_638 activeLevel;
+   private BlockPos anchorPos;
+   private Vec3 sightline;
+   private ClientLevel activeLevel;
    private AnchorGuard.Spot guard;
-   private class_2248 guardBlock;
-   private class_2680 guardReported;
+   private Block guardBlock;
+   private BlockState guardReported;
    private int guardTries;
 
    public SingleAnchorMacroModule() {
@@ -83,11 +83,11 @@ public final class SingleAnchorMacroModule extends ClientModule {
 
    @Override
    protected void onDisable() {
-      class_310 mc = class_310.method_1551();
-      if (this.step != SingleAnchorMacroModule.Step.IDLE && mc.field_1724 != null && !(mc.field_1755 instanceof class_465)) {
-         class_1661 inventory = mc.field_1724.method_31548();
+      Minecraft mc = Minecraft.getInstance();
+      if (this.step != SingleAnchorMacroModule.Step.IDLE && mc.player != null && !(mc.screen instanceof AbstractContainerScreen)) {
+         Inventory inventory = mc.player.getInventory();
          if (this.switchBackDue(inventory)) {
-            inventory.method_61496(this.previousSlot);
+            inventory.setSelectedSlot(this.previousSlot);
          }
       }
 
@@ -97,16 +97,16 @@ public final class SingleAnchorMacroModule extends ClientModule {
    @EventHandler
    public void onTick(TickEvent event) {
       this.tick++;
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      if (player != null && mc.field_1687 != null && mc.field_1761 != null && !player.method_29504()) {
-         class_1661 inventory = player.method_31548();
-         if (mc.field_1755 != null) {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      if (player != null && mc.level != null && mc.gameMode != null && !player.isDeadOrDying()) {
+         Inventory inventory = player.getInventory();
+         if (mc.screen != null) {
             if (this.step != SingleAnchorMacroModule.Step.IDLE && this.step != SingleAnchorMacroModule.Step.SWITCH_BACK) {
                this.wrapUp(inventory);
             }
          } else if (!AutoEatModule.isEating() && !AutoInvTotemModule.wantsHotbar()) {
-            if (this.step != SingleAnchorMacroModule.Step.IDLE && (this.hotbarMovedByPlayer(inventory) || mc.field_1687 != this.activeLevel)) {
+            if (this.step != SingleAnchorMacroModule.Step.IDLE && (this.hotbarMovedByPlayer(inventory) || mc.level != this.activeLevel)) {
                this.stop();
             }
 
@@ -115,7 +115,7 @@ public final class SingleAnchorMacroModule extends ClientModule {
                if (this.step == SingleAnchorMacroModule.Step.SWITCH_BACK) {
                   if (!MeleeAttacks.actedThisTick(player)) {
                      if (this.switchBackDue(inventory)) {
-                        inventory.method_61496(this.previousSlot);
+                        inventory.setSelectedSlot(this.previousSlot);
                      }
 
                      this.stop();
@@ -151,13 +151,13 @@ public final class SingleAnchorMacroModule extends ClientModule {
    @EventHandler
    public void onPacketApplied(PacketAppliedEvent event) {
       if (this.step == SingleAnchorMacroModule.Step.AWAIT_GUARD && this.guard != null) {
-         class_2338 spot = this.guard.pos();
-         if (event.packet instanceof class_2626 update) {
-            if (update.method_11309().equals(spot)) {
-               this.guardReported = update.method_11308();
+         BlockPos spot = this.guard.pos();
+         if (event.packet instanceof ClientboundBlockUpdatePacket update) {
+            if (update.getPos().equals(spot)) {
+               this.guardReported = update.getBlockState();
             }
-         } else if (event.packet instanceof class_2637 section) {
-            section.method_30621((pos, state) -> {
+         } else if (event.packet instanceof ClientboundSectionBlocksUpdatePacket section) {
+            section.runUpdates((pos, state) -> {
                if (pos.equals(spot)) {
                   this.guardReported = state;
                }
@@ -166,32 +166,32 @@ public final class SingleAnchorMacroModule extends ClientModule {
       }
    }
 
-   private boolean tryStart(class_310 mc, class_746 player) {
+   private boolean tryStart(Minecraft mc, LocalPlayer player) {
       if (MeleeAttacks.rightClickComing(mc) && !CombatMacroLock.heldByOther(this)) {
-         if (!player.method_7325()
+         if (!player.isSpectator()
             && canClick(player)
             && !MeleeAttacks.actedThisTick(player)
             && MeleeAttacks.handsFree(mc, player)
-            && !player.method_6079().method_31574(class_1802.field_8801)) {
-            if (player.method_5745(player.method_55754(), 1.0F, false) instanceof class_3965 hit && hit.method_17783() == class_240.field_1332) {
-               class_638 level = mc.field_1687;
-               class_2680 clicked = level.method_8320(hit.method_17777());
-               boolean onAnchor = clicked.method_27852(class_2246.field_23152);
-               class_2338 target;
+            && !player.getOffhandItem().is(Items.GLOWSTONE)) {
+            if (player.pick(player.blockInteractionRange(), 1.0F, false) instanceof BlockHitResult hit && hit.getType() == Type.BLOCK) {
+               ClientLevel level = mc.level;
+               BlockState clicked = level.getBlockState(hit.getBlockPos());
+               boolean onAnchor = clicked.is(Blocks.RESPAWN_ANCHOR);
+               BlockPos target;
                if (onAnchor) {
-                  target = hit.method_17777().method_10062();
+                  target = hit.getBlockPos().immutable();
                } else {
-                  if (!player.method_6047().method_31574(class_1802.field_23141) || ServerRotation.pending()) {
+                  if (!player.getMainHandItem().is(Items.RESPAWN_ANCHOR) || ServerRotation.pending()) {
                      return false;
                   }
 
                   target = Crystals.placedObsidian(level, player, hit, clicked);
                }
 
-               if (target != null && level.method_27983() != class_1937.field_25180) {
-                  class_1661 inventory = player.method_31548();
+               if (target != null && level.dimension() != Level.NETHER) {
+                  Inventory inventory = player.getInventory();
                   boolean charged = chargeOf(clicked) > 0;
-                  if (!charged && findHotbar(inventory, class_1802.field_8801) == -1) {
+                  if (!charged && findHotbar(inventory, Items.GLOWSTONE) == -1) {
                      return false;
                   }
 
@@ -207,10 +207,10 @@ public final class SingleAnchorMacroModule extends ClientModule {
                      return false;
                   }
 
-                  this.previousSlot = inventory.method_67532();
+                  this.previousSlot = inventory.getSelectedSlot();
                   this.activeLevel = level;
                   this.anchorPos = target;
-                  this.sightline = hit.method_17784();
+                  this.sightline = hit.getLocation();
                   SingleAnchorMacroModule.Step first = this.blastGuard.get() ? SingleAnchorMacroModule.Step.GUARD : SingleAnchorMacroModule.Step.CHARGE;
                   if (onAnchor) {
                      this.scheduleNow(first);
@@ -234,16 +234,16 @@ public final class SingleAnchorMacroModule extends ClientModule {
       }
    }
 
-   private static void swallowClicks(class_310 mc) {
+   private static void swallowClicks(Minecraft mc) {
       MeleeAttacks.takeAttackClicks(mc);
-      class_304 use = mc.field_1690.field_1904;
-      use.method_23481(false);
+      KeyMapping use = mc.options.keyUse;
+      use.setDown(false);
 
-      while (use.method_1436()) {
+      while (use.consumeClick()) {
       }
    }
 
-   private void runStep(class_310 mc, class_746 player) {
+   private void runStep(Minecraft mc, LocalPlayer player) {
       switch (this.step) {
          case GUARD:
             this.placeGuard(mc, player);
@@ -259,7 +259,7 @@ public final class SingleAnchorMacroModule extends ClientModule {
       }
    }
 
-   private void expire(class_1661 inventory) {
+   private void expire(Inventory inventory) {
       if (this.step != SingleAnchorMacroModule.Step.GUARD && this.step != SingleAnchorMacroModule.Step.AWAIT_GUARD) {
          this.wrapUp(inventory);
       } else {
@@ -267,31 +267,31 @@ public final class SingleAnchorMacroModule extends ClientModule {
       }
    }
 
-   private void placeGuard(class_310 mc, class_746 player) {
-      class_1661 inventory = player.method_31548();
-      class_2680 anchor = mc.field_1687.method_8320(this.anchorPos);
-      if (!anchor.method_27852(class_2246.field_23152)) {
+   private void placeGuard(Minecraft mc, LocalPlayer player) {
+      Inventory inventory = player.getInventory();
+      BlockState anchor = mc.level.getBlockState(this.anchorPos);
+      if (!anchor.is(Blocks.RESPAWN_ANCHOR)) {
          this.wrapUp(inventory);
       } else {
-         AnchorGuard.Spot spot = AnchorGuard.find(mc.field_1687, player, this.anchorPos, this.sightline);
+         AnchorGuard.Spot spot = AnchorGuard.find(mc.level, player, this.anchorPos, this.sightline);
          if (spot != null && spot.standing()) {
             this.guarded();
          } else {
             int slot = guardSlot(inventory, this.glowstoneNeeded(chargeOf(anchor) > 0));
             Rotation sent = ServerRotation.sent();
-            class_3965 hit = spot != null && sent != null ? AnchorGuard.hitAlong(mc.field_1687, player, sent, spot) : null;
+            BlockHitResult hit = spot != null && sent != null ? AnchorGuard.hitAlong(mc.level, player, sent, spot) : null;
             if (spot != null && slot != -1 && (hit != null || ServerRotation.canRotate(player))) {
                if (hit == null) {
-                  ServerRotation.request(RotationUtils.fromTo(player.method_33571(), spot.aim()));
+                  ServerRotation.request(RotationUtils.fromTo(player.getEyePosition(), spot.aim()));
                   MeleeAttacks.claimTick(mc);
                   this.readyAt = this.tick + 1;
                } else {
                   this.guard = spot;
-                  this.guardBlock = class_2248.method_9503(inventory.method_5438(slot).method_7909());
+                  this.guardBlock = Block.byItem(inventory.getItem(slot).getItem());
                   this.guardReported = null;
                   this.select(inventory, slot);
                   AnchorGuard.click(mc, player, hit);
-                  ServerRotation.request(RotationUtils.fromTo(player.method_33571(), class_243.method_24953(this.anchorPos)));
+                  ServerRotation.request(RotationUtils.fromTo(player.getEyePosition(), Vec3.atCenterOf(this.anchorPos)));
                   this.guardTries++;
                   if (this.withoutGuard.is("Cancel")) {
                      this.schedule(SingleAnchorMacroModule.Step.AWAIT_GUARD);
@@ -307,16 +307,16 @@ public final class SingleAnchorMacroModule extends ClientModule {
       }
    }
 
-   private void awaitGuard(class_310 mc, class_746 player) {
-      boolean shown = mc.field_1687.method_8320(this.guard.pos()).method_27852(this.guardBlock);
-      if (shown && this.guardReported != null && this.guardReported.method_27852(this.guardBlock)) {
+   private void awaitGuard(Minecraft mc, LocalPlayer player) {
+      boolean shown = mc.level.getBlockState(this.guard.pos()).is(this.guardBlock);
+      if (shown && this.guardReported != null && this.guardReported.is(this.guardBlock)) {
          this.guarded();
       } else if (shown) {
          this.readyAt = this.tick + 1;
       } else if (this.guardTries < 2) {
          this.scheduleNow(SingleAnchorMacroModule.Step.GUARD);
       } else {
-         this.skipGuard(player.method_31548());
+         this.skipGuard(player.getInventory());
       }
    }
 
@@ -325,7 +325,7 @@ public final class SingleAnchorMacroModule extends ClientModule {
       this.scheduleNow(SingleAnchorMacroModule.Step.CHARGE);
    }
 
-   private void skipGuard(class_1661 inventory) {
+   private void skipGuard(Inventory inventory) {
       this.guard = null;
       if (this.withoutGuard.is("Cancel")) {
          this.wrapUp(inventory);
@@ -334,17 +334,17 @@ public final class SingleAnchorMacroModule extends ClientModule {
       }
    }
 
-   private void charge(class_310 mc, class_746 player) {
-      class_1661 inventory = player.method_31548();
-      class_2680 state = mc.field_1687.method_8320(this.anchorPos);
-      if (!state.method_27852(class_2246.field_23152)) {
+   private void charge(Minecraft mc, LocalPlayer player) {
+      Inventory inventory = player.getInventory();
+      BlockState state = mc.level.getBlockState(this.anchorPos);
+      if (!state.is(Blocks.RESPAWN_ANCHOR)) {
          this.wrapUp(inventory);
       } else if (chargeOf(state) > 0 && !this.refilled) {
          this.scheduleNow(SingleAnchorMacroModule.Step.DETONATE);
       } else {
-         int glowstone = findHotbar(inventory, class_1802.field_8801);
+         int glowstone = findHotbar(inventory, Items.GLOWSTONE);
          if (glowstone != -1 && canClick(player)) {
-            class_3965 hit = AnchorGuard.anchorHit(mc.field_1687, player, this.anchorPos);
+            BlockHitResult hit = AnchorGuard.anchorHit(mc.level, player, this.anchorPos);
             if (hit == null) {
                this.readyAt = this.tick + 1;
             } else {
@@ -358,24 +358,24 @@ public final class SingleAnchorMacroModule extends ClientModule {
       }
    }
 
-   private void detonate(class_310 mc, class_746 player) {
-      class_1661 inventory = player.method_31548();
-      if (chargeOf(mc.field_1687.method_8320(this.anchorPos)) != 0 && canClick(player) && !player.method_6079().method_31574(class_1802.field_8801)) {
-         class_3965 hit = AnchorGuard.anchorHit(mc.field_1687, player, this.anchorPos);
+   private void detonate(Minecraft mc, LocalPlayer player) {
+      Inventory inventory = player.getInventory();
+      if (chargeOf(mc.level.getBlockState(this.anchorPos)) != 0 && canClick(player) && !player.getOffhandItem().is(Items.GLOWSTONE)) {
+         BlockHitResult hit = AnchorGuard.anchorHit(mc.level, player, this.anchorPos);
          if (hit == null) {
             this.readyAt = this.tick + 1;
          } else {
             int refillSlot = this.mode.is("Double")
                   && !this.refilled
-                  && hit.method_17780() == class_2350.field_11036
-                  && this.anchorPos.method_10264() >= player.method_31478()
-                  && findHotbar(inventory, class_1802.field_8801) != -1
-               ? findHotbar(inventory, class_1802.field_23141)
+                  && hit.getDirection() == Direction.UP
+                  && this.anchorPos.getY() >= player.getBlockY()
+                  && findHotbar(inventory, Items.GLOWSTONE) != -1
+               ? findHotbar(inventory, Items.RESPAWN_ANCHOR)
                : -1;
             int slot = refillSlot != -1 ? refillSlot : AnchorGuard.detonatorSlot(inventory);
             if (slot == -1) {
                this.wrapUp(inventory);
-            } else if (this.lethal(player, inventory.method_5438(slot))) {
+            } else if (this.lethal(player, inventory.getItem(slot))) {
                this.wrapUp(inventory);
             } else {
                this.select(inventory, slot);
@@ -394,16 +394,16 @@ public final class SingleAnchorMacroModule extends ClientModule {
       }
    }
 
-   private boolean lethal(class_746 player, class_1799 held) {
-      if (!held.method_31574(class_1802.field_8288) && !player.method_6079().method_31574(class_1802.field_8288)) {
-         float damage = CrystalDamage.estimate(class_243.method_24953(this.anchorPos), player, 5.0F, this.anchorPos);
+   private boolean lethal(LocalPlayer player, ItemStack held) {
+      if (!held.is(Items.TOTEM_OF_UNDYING) && !player.getOffhandItem().is(Items.TOTEM_OF_UNDYING)) {
+         float damage = CrystalDamage.estimate(Vec3.atCenterOf(this.anchorPos), player, 5.0F, this.anchorPos);
          return CrystalDamage.endangers(player, damage);
       } else {
          return false;
       }
    }
 
-   private void wrapUp(class_1661 inventory) {
+   private void wrapUp(Inventory inventory) {
       if (this.switchBackDue(inventory)) {
          this.step = SingleAnchorMacroModule.Step.SWITCH_BACK;
       } else {
@@ -411,16 +411,16 @@ public final class SingleAnchorMacroModule extends ClientModule {
       }
    }
 
-   private boolean switchBackDue(class_1661 inventory) {
+   private boolean switchBackDue(Inventory inventory) {
       return this.switchBack.get()
-         && class_1661.method_7380(this.previousSlot)
+         && Inventory.isHotbarSlot(this.previousSlot)
          && this.ownSlot != -1
          && this.ownSlot != this.previousSlot
-         && inventory.method_67532() == this.ownSlot;
+         && inventory.getSelectedSlot() == this.ownSlot;
    }
 
-   private boolean hotbarMovedByPlayer(class_1661 inventory) {
-      return inventory.method_67532() != (this.ownSlot != -1 ? this.ownSlot : this.previousSlot);
+   private boolean hotbarMovedByPlayer(Inventory inventory) {
+      return inventory.getSelectedSlot() != (this.ownSlot != -1 ? this.ownSlot : this.previousSlot);
    }
 
    private void stop() {
@@ -450,19 +450,19 @@ public final class SingleAnchorMacroModule extends ClientModule {
       this.deadline = this.tick + 5;
    }
 
-   private void select(class_1661 inventory, int slot) {
-      if (inventory.method_67532() != slot) {
-         inventory.method_61496(slot);
+   private void select(Inventory inventory, int slot) {
+      if (inventory.getSelectedSlot() != slot) {
+         inventory.setSelectedSlot(slot);
          this.ownSlot = slot;
       }
    }
 
-   private static boolean canClick(class_746 player) {
-      return !player.method_21823();
+   private static boolean canClick(LocalPlayer player) {
+      return !player.isSecondaryUseActive();
    }
 
-   private static int chargeOf(class_2680 state) {
-      return state.method_27852(class_2246.field_23152) ? (Integer)state.method_11654(class_4969.field_23153) : 0;
+   private static int chargeOf(BlockState state) {
+      return state.is(Blocks.RESPAWN_ANCHOR) ? (Integer)state.getValue(RespawnAnchorBlock.CHARGE) : 0;
    }
 
    private int glowstoneNeeded(boolean charged) {
@@ -470,13 +470,13 @@ public final class SingleAnchorMacroModule extends ClientModule {
       return this.mode.is("Double") ? needed + 1 : needed;
    }
 
-   private static int guardSlot(class_1661 inventory, int glowstoneNeeded) {
+   private static int guardSlot(Inventory inventory, int glowstoneNeeded) {
       int weaker = -1;
 
       for (int i = 0; i < 9; i++) {
-         class_1799 stack = inventory.method_5438(i);
-         if (!stack.method_31574(class_1802.field_8801) && AnchorGuard.isGuardBlock(stack)) {
-            if (class_2248.method_9503(stack.method_7909()).method_9520() >= 600.0F) {
+         ItemStack stack = inventory.getItem(i);
+         if (!stack.is(Items.GLOWSTONE) && AnchorGuard.isGuardBlock(stack)) {
+            if (Block.byItem(stack.getItem()).getExplosionResistance() >= 600.0F) {
                return i;
             }
 
@@ -490,13 +490,13 @@ public final class SingleAnchorMacroModule extends ClientModule {
          return weaker;
       }
 
-      int glowstone = findHotbar(inventory, class_1802.field_8801);
-      return glowstone != -1 && countHotbar(inventory, class_1802.field_8801) > glowstoneNeeded ? glowstone : -1;
+      int glowstone = findHotbar(inventory, Items.GLOWSTONE);
+      return glowstone != -1 && countHotbar(inventory, Items.GLOWSTONE) > glowstoneNeeded ? glowstone : -1;
    }
 
-   private static int findHotbar(class_1661 inventory, class_1792 item) {
+   private static int findHotbar(Inventory inventory, Item item) {
       for (int i = 0; i < 9; i++) {
-         if (inventory.method_5438(i).method_31574(item)) {
+         if (inventory.getItem(i).is(item)) {
             return i;
          }
       }
@@ -504,13 +504,13 @@ public final class SingleAnchorMacroModule extends ClientModule {
       return -1;
    }
 
-   private static int countHotbar(class_1661 inventory, class_1792 item) {
+   private static int countHotbar(Inventory inventory, Item item) {
       int count = 0;
 
       for (int i = 0; i < 9; i++) {
-         class_1799 stack = inventory.method_5438(i);
-         if (stack.method_31574(item)) {
-            count += stack.method_7947();
+         ItemStack stack = inventory.getItem(i);
+         if (stack.is(item)) {
+            count += stack.getCount();
          }
       }
 

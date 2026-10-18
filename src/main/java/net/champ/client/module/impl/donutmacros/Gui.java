@@ -5,17 +5,17 @@ import java.util.List;
 import java.util.function.Predicate;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1661;
-import net.minecraft.class_1703;
-import net.minecraft.class_1713;
-import net.minecraft.class_1735;
-import net.minecraft.class_1799;
-import net.minecraft.class_2815;
-import net.minecraft.class_310;
-import net.minecraft.class_418;
-import net.minecraft.class_465;
-import net.minecraft.class_746;
-import net.minecraft.class_7923;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.DeathScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 final class Gui {
@@ -26,12 +26,12 @@ final class Gui {
       this.worker = worker;
    }
 
-   static class_310 mc() {
-      return class_310.method_1551();
+   static Minecraft mc() {
+      return Minecraft.getInstance();
    }
 
-   static class_746 player() {
-      class_746 player = mc().field_1724;
+   static LocalPlayer player() {
+      LocalPlayer player = mc().player;
       if (player == null) {
          throw new IllegalStateException("Not in a world");
       } else {
@@ -40,7 +40,7 @@ final class Gui {
    }
 
    String title() {
-      return this.worker.call(() -> mc().field_1755 == null ? "" : ServerText.normalize(mc().field_1755.method_25440()));
+      return this.worker.call(() -> mc().screen == null ? "" : ServerText.normalize(mc().screen.getTitle()));
    }
 
    boolean containerOpen() {
@@ -48,24 +48,24 @@ final class Gui {
    }
 
    static boolean containerOpenNow() {
-      class_746 player = mc().field_1724;
-      return player != null && player.field_7512 != player.field_7498 && mc().field_1755 instanceof class_465;
+      LocalPlayer player = mc().player;
+      return player != null && player.containerMenu != player.inventoryMenu && mc().screen instanceof AbstractContainerScreen;
    }
 
    int syncId() {
-      return this.worker.call(() -> player().field_7512.field_7763);
+      return this.worker.call(() -> player().containerMenu.containerId);
    }
 
-   static List<class_1799> containerNow() {
-      List<class_1799> out = new ArrayList<>();
-      class_746 player = mc().field_1724;
-      if (player != null && player.field_7512 != player.field_7498) {
-         for (class_1735 slot : player.field_7512.field_7761) {
-            if (slot.field_7871 instanceof class_1661) {
+   static List<ItemStack> containerNow() {
+      List<ItemStack> out = new ArrayList<>();
+      LocalPlayer player = mc().player;
+      if (player != null && player.containerMenu != player.inventoryMenu) {
+         for (Slot slot : player.containerMenu.slots) {
+            if (slot.container instanceof Inventory) {
                break;
             }
 
-            out.add(slot.method_7677().method_7972());
+            out.add(slot.getItem().copy());
          }
 
          return out;
@@ -74,23 +74,23 @@ final class Gui {
       }
    }
 
-   List<class_1799> container() {
+   List<ItemStack> container() {
       return this.worker.call(Gui::containerNow);
    }
 
    static String fingerprintNow() {
       StringBuilder text = new StringBuilder();
-      class_746 player = mc().field_1724;
+      LocalPlayer player = mc().player;
       if (player != null) {
-         text.append(player.field_7512.field_7763).append('#');
+         text.append(player.containerMenu.containerId).append('#');
       }
 
-      for (class_1799 stack : containerNow()) {
-         text.append(class_7923.field_41178.method_10221(stack.method_7909()))
+      for (ItemStack stack : containerNow()) {
+         text.append(BuiltInRegistries.ITEM.getKey(stack.getItem()))
             .append(':')
-            .append(stack.method_7947())
+            .append(stack.getCount())
             .append(':')
-            .append(stack.method_7964().getString())
+            .append(stack.getHoverName().getString())
             .append('|');
       }
 
@@ -101,16 +101,16 @@ final class Gui {
       return this.worker.call(Gui::fingerprintNow);
    }
 
-   static class_1799 slotNow(int index) {
-      List<class_1799> stacks = containerNow();
-      return index >= 0 && index < stacks.size() ? stacks.get(index) : class_1799.field_8037;
+   static ItemStack slotNow(int index) {
+      List<ItemStack> stacks = containerNow();
+      return index >= 0 && index < stacks.size() ? stacks.get(index) : ItemStack.EMPTY;
    }
 
-   static int findNow(Predicate<class_1799> test, int limit) {
-      List<class_1799> stacks = containerNow();
+   static int findNow(Predicate<ItemStack> test, int limit) {
+      List<ItemStack> stacks = containerNow();
 
       for (int i = 0; i < stacks.size() && i < limit; i++) {
-         if (!stacks.get(i).method_7960() && test.test(stacks.get(i))) {
+         if (!stacks.get(i).isEmpty() && test.test(stacks.get(i))) {
             return i;
          }
       }
@@ -118,50 +118,50 @@ final class Gui {
       return -1;
    }
 
-   static String nameOf(class_1799 stack) {
-      return ServerText.normalize(stack.method_7964());
+   static String nameOf(ItemStack stack) {
+      return ServerText.normalize(stack.getHoverName());
    }
 
-   void click(int slot, int button, class_1713 type) {
+   void click(int slot, int button, ClickType type) {
       this.worker.run(() -> {
-         class_746 player = player();
-         class_1703 menu = player.field_7512;
-         mc().field_1761.method_2906(menu.field_7763, slot, button, type, player);
+         LocalPlayer player = player();
+         AbstractContainerMenu menu = player.containerMenu;
+         mc().gameMode.handleInventoryMouseClick(menu.containerId, slot, button, type, player);
       });
    }
 
-   void clickInventory(int slot, int button, class_1713 type) {
+   void clickInventory(int slot, int button, ClickType type) {
       this.worker.run(() -> {
-         class_746 player = player();
-         mc().field_1761.method_2906(player.field_7498.field_7763, slot, button, type, player);
+         LocalPlayer player = player();
+         mc().gameMode.handleInventoryMouseClick(player.inventoryMenu.containerId, slot, button, type, player);
       });
    }
 
    void closeInventory() {
       this.worker.run(() -> {
-         class_746 player = player();
-         if (player.field_7512 == player.field_7498) {
-            player.field_3944.method_52787(new class_2815(player.field_7498.field_7763));
+         LocalPlayer player = player();
+         if (player.containerMenu == player.inventoryMenu) {
+            player.connection.send(new ServerboundContainerClosePacket(player.inventoryMenu.containerId));
          }
       });
    }
 
    void command(String command) {
-      this.worker.run(() -> player().field_3944.method_45730(command));
+      this.worker.run(() -> player().connection.sendCommand(command));
       this.worker.sleep(200L);
    }
 
    void closeAll() {
       for (int i = 0; i < 4; i++) {
          boolean open = this.worker.call(() -> {
-            class_746 player = mc().field_1724;
+            LocalPlayer player = mc().player;
             if (player == null) {
                return false;
-            } else if (player.field_7512 != player.field_7498) {
-               player.method_7346();
+            } else if (player.containerMenu != player.inventoryMenu) {
+               player.closeContainer();
                return true;
-            } else if (mc().field_1755 != null && !(mc().field_1755 instanceof class_418)) {
-               mc().field_1755.method_25419();
+            } else if (mc().screen != null && !(mc().screen instanceof DeathScreen)) {
+               mc().screen.onClose();
                return true;
             } else {
                return false;

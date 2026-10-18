@@ -2,17 +2,17 @@ package com.example.client.mixin;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10444;
-import net.minecraft.class_10444.class_10446;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.renderer.item.ItemStackRenderState.LayerRenderState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_10444.class)
+@Mixin(ItemStackRenderState.class)
 public interface AccessorHandItemRenderState {
-   @Accessor("field_55340")
-   class_10446[] champ$handLayers();
+   @Accessor("layers")
+   LayerRenderState[] champ$handLayers();
 
-   @Accessor("field_55339")
+   @Accessor("activeLayerCount")
    int champ$handLayerCount();
 }

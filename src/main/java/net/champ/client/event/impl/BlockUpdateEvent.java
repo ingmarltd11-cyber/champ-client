@@ -4,21 +4,21 @@ import net.champ.client.event.Event;
 import net.champ.client.event.EventType;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2338;
-import net.minecraft.class_2680;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
 
 @Environment(EnvType.CLIENT)
 public final class BlockUpdateEvent extends Event {
    public static final EventType<BlockUpdateEvent> TYPE = new EventType<>("BlockUpdateEvent");
-   public class_2338 pos;
-   public class_2680 oldState;
-   public class_2680 newState;
+   public BlockPos pos;
+   public BlockState oldState;
+   public BlockState newState;
    private static final BlockUpdateEvent INSTANCE = new BlockUpdateEvent();
 
    private BlockUpdateEvent() {
    }
 
-   public static void dispatch(class_2338 pos, class_2680 oldState, class_2680 newState) {
+   public static void dispatch(BlockPos pos, BlockState oldState, BlockState newState) {
       if (TYPE.hasPreListeners()) {
          INSTANCE.pos = pos;
          INSTANCE.oldState = oldState;

@@ -7,11 +7,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2596;
-import net.minecraft.class_2639;
-import net.minecraft.class_2805;
-import net.minecraft.class_310;
-import net.minecraft.class_634;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundCommandSuggestionsPacket;
+import net.minecraft.network.protocol.game.ServerboundCommandSuggestionPacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 
 @Environment(EnvType.CLIENT)
 final class CompletionRequests {
@@ -35,7 +35,7 @@ final class CompletionRequests {
    }
 
    int fire(String partial, CompletionRequests.Form using) {
-      class_634 connection = class_310.method_1551().method_1562();
+      ClientPacketListener connection = Minecraft.getInstance().getConnection();
       if (connection == null) {
          return -1;
       }
@@ -49,11 +49,11 @@ final class CompletionRequests {
 
       try {
          if (using != CompletionRequests.Form.BARE) {
-            connection.method_52787(new class_2805(id, "/" + partial));
+            connection.send(new ServerboundCommandSuggestionPacket(id, "/" + partial));
          }
 
          if (using != CompletionRequests.Form.SLASH) {
-            connection.method_52787(new class_2805(id, partial));
+            connection.send(new ServerboundCommandSuggestionPacket(id, partial));
          }
 
          return id;
@@ -84,8 +84,8 @@ final class CompletionRequests {
       this.form = CompletionRequests.Form.BOTH;
    }
 
-   boolean ingest(class_2596<?> packet) {
-      if (packet instanceof class_2639 suggestions) {
+   boolean ingest(Packet<?> packet) {
+      if (packet instanceof ClientboundCommandSuggestionsPacket suggestions) {
          CompletionRequests.Request request = this.requests.get(suggestions.comp_2262());
          if (request == null) {
             return false;
@@ -94,7 +94,7 @@ final class CompletionRequests {
          if (request.names == null) {
             List<String> names = new ArrayList<>();
 
-            for (Suggestion suggestion : suggestions.method_11397().getList()) {
+            for (Suggestion suggestion : suggestions.toSuggestions().getList()) {
                String text = suggestion.getText();
                if (text != null && !text.isBlank()) {
                   names.add(text.trim());

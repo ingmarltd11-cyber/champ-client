@@ -12,24 +12,24 @@ import java.util.Set;
 import java.util.function.Function;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1959;
-import net.minecraft.class_2246;
-import net.minecraft.class_2248;
-import net.minecraft.class_2794;
-import net.minecraft.class_2975;
-import net.minecraft.class_3031;
-import net.minecraft.class_3124;
-import net.minecraft.class_3481;
-import net.minecraft.class_3532;
-import net.minecraft.class_3825;
-import net.minecraft.class_6796;
-import net.minecraft.class_6797;
-import net.minecraft.class_6862;
-import net.minecraft.class_6880;
-import net.minecraft.class_7923;
-import net.minecraft.class_2893.class_2895;
-import net.minecraft.class_3124.class_5876;
-import net.minecraft.class_7510.class_6827;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.levelgen.structure.templatesystem.RuleTest;
+import net.minecraft.world.level.levelgen.placement.PlacedFeature;
+import net.minecraft.world.level.levelgen.placement.PlacementModifier;
+import net.minecraft.tags.TagKey;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.levelgen.GenerationStep.Decoration;
+import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration.TargetBlockState;
+import net.minecraft.world.level.biome.FeatureSorter.StepFeatureData;
 
 @Environment(EnvType.CLIENT)
 public record OreSpec(
@@ -47,16 +47,16 @@ public record OreSpec(
    int size,
    float discard,
    byte kind,
-   Set<class_6880<class_1959>> biomes
+   Set<Holder<Biome>> biomes
 ) {
-   private static final int[] STEPS = new int[]{class_2895.field_13176.ordinal(), class_2895.field_13177.ordinal()};
+   private static final int[] STEPS = new int[]{Decoration.UNDERGROUND_ORES.ordinal(), Decoration.UNDERGROUND_DECORATION.ordinal()};
 
    public int reach() {
-      return class_3532.method_15386((this.size / 16.0F * 2.0F + 1.0F) / 2.0F);
+      return Mth.ceil((this.size / 16.0F * 2.0F + 1.0F) / 2.0F);
    }
 
    public int halfWidth() {
-      return class_3532.method_15386(this.size / 8.0F) + this.reach();
+      return Mth.ceil(this.size / 8.0F) + this.reach();
    }
 
    public boolean drawsOnTerrain() {
@@ -90,7 +90,7 @@ public record OreSpec(
       return this.yMin + random.between(0, m) + random.between(0, l);
    }
 
-   boolean inBiome(class_6880<class_1959> biome) {
+   boolean inBiome(Holder<Biome> biome) {
       return this.biomes == null || this.biomes.contains(biome);
    }
 
@@ -100,25 +100,25 @@ public record OreSpec(
    }
 
    static List<OreSpec> derive(
-      List<class_6827> steps, List<class_6880<class_1959>> biomes, class_2794 generator, Function<class_6796, String> names, int minY, int maxY
+      List<StepFeatureData> steps, List<Holder<Biome>> biomes, ChunkGenerator generator, Function<PlacedFeature, String> names, int minY, int maxY
    ) {
       checkTags();
       List<OreSpec> specs = new ArrayList<>();
 
       for (int step : STEPS) {
          if (step < steps.size()) {
-            List<class_6796> features = steps.get(step).comp_303();
+            List<PlacedFeature> features = steps.get(step).comp_303();
 
             for (int index = 0; index < features.size(); index++) {
-               class_6796 placed = features.get(index);
-               class_2975<?, ?> configured = (class_2975<?, ?>)placed.comp_334().comp_349();
-               if (configured.comp_332() == class_3031.field_13517) {
-                  class_3124 config = (class_3124)configured.comp_333();
+               PlacedFeature placed = features.get(index);
+               ConfiguredFeature<?, ?> configured = (ConfiguredFeature<?, ?>)placed.comp_334().comp_349();
+               if (configured.comp_332() == Feature.ORE) {
+                  OreConfiguration config = (OreConfiguration)configured.comp_333();
                   String id = names.apply(placed);
-                  Set<class_6880<class_1959>> carriers = Collections.newSetFromMap(new IdentityHashMap<>());
+                  Set<Holder<Biome>> carriers = Collections.newSetFromMap(new IdentityHashMap<>());
 
-                  for (class_6880<class_1959> biome : biomes) {
-                     if (generator.method_44216(biome).method_38105(placed)) {
+                  for (Holder<Biome> biome : biomes) {
+                     if (generator.getBiomeGenerationSettings(biome).hasFeature(placed)) {
                         carriers.add(biome);
                      }
                   }
@@ -133,9 +133,9 @@ public record OreSpec(
    }
 
    private static OreSpec read(
-      String id, int step, int index, int order, class_6796 placed, class_3124 config, Set<class_6880<class_1959>> biomes, int minY, int maxY
+      String id, int step, int index, int order, PlacedFeature placed, OreConfiguration config, Set<Holder<Biome>> biomes, int minY, int maxY
    ) {
-      List<class_6797> mods = placed.comp_335();
+      List<PlacementModifier> mods = placed.comp_335();
       if (mods.size() != 4) {
          throw unsupported(id, "placement " + mods.size() + " modifiers");
       }
@@ -192,7 +192,7 @@ public record OreSpec(
       int yMin = anchor(id, height.getAsJsonObject("min_inclusive"), minY, maxY);
       int yMax = anchor(id, height.getAsJsonObject("max_inclusive"), minY, maxY);
       return new OreSpec(
-         id, step, index, order, countMin, countMax, rarity, trapezoid, yMin, yMax, plateau, config.field_13723, config.field_29064, kindOf(id, config), biomes
+         id, step, index, order, countMin, countMax, rarity, trapezoid, yMin, yMax, plateau, config.size, config.discardChanceOnAirExposure, kindOf(id, config), biomes
       );
    }
 
@@ -208,20 +208,20 @@ public record OreSpec(
       }
    }
 
-   private static byte kindOf(String id, class_3124 config) {
+   private static byte kindOf(String id, OreConfiguration config) {
       Set<String> tags = new HashSet<>();
       byte kind = -1;
 
-      for (class_5876 target : config.field_29063) {
-         JsonObject test = ((JsonElement)class_3825.field_25012.encodeStart(JsonOps.INSTANCE, target.field_29068).getOrThrow()).getAsJsonObject();
+      for (TargetBlockState target : config.targetStates) {
+         JsonObject test = ((JsonElement)RuleTest.CODEC.encodeStart(JsonOps.INSTANCE, target.target).getOrThrow()).getAsJsonObject();
          if (!test.get("predicate_type").getAsString().equals("minecraft:tag_match")) {
             throw unsupported(id, "target " + test);
          }
 
          tags.add(test.get("tag").getAsString());
-         byte written = VBlock.of(target.field_29069);
+         byte written = VBlock.of(target.state);
          if (written == 12 || written == 0 || kind != -1 && kind != written) {
-            throw unsupported(id, "writes " + target.field_29069);
+            throw unsupported(id, "writes " + target.state);
          }
 
          kind = written;
@@ -238,25 +238,25 @@ public record OreSpec(
 
    static void checkTags() {
       expect(
-         class_3481.field_25806,
-         class_2246.field_10340,
-         class_2246.field_10474,
-         class_2246.field_10508,
-         class_2246.field_10115,
-         class_2246.field_27165,
-         class_2246.field_28888
+         BlockTags.BASE_STONE_OVERWORLD,
+         Blocks.STONE,
+         Blocks.GRANITE,
+         Blocks.DIORITE,
+         Blocks.ANDESITE,
+         Blocks.TUFF,
+         Blocks.DEEPSLATE
       );
-      expect(class_3481.field_28992, class_2246.field_10340, class_2246.field_10474, class_2246.field_10508, class_2246.field_10115);
-      expect(class_3481.field_28993, class_2246.field_28888, class_2246.field_27165);
+      expect(BlockTags.STONE_ORE_REPLACEABLES, Blocks.STONE, Blocks.GRANITE, Blocks.DIORITE, Blocks.ANDESITE);
+      expect(BlockTags.DEEPSLATE_ORE_REPLACEABLES, Blocks.DEEPSLATE, Blocks.TUFF);
    }
 
-   private static void expect(class_6862<class_2248> tag, class_2248... blocks) {
-      Set<class_2248> want = Collections.newSetFromMap(new IdentityHashMap<>());
+   private static void expect(TagKey<Block> tag, Block... blocks) {
+      Set<Block> want = Collections.newSetFromMap(new IdentityHashMap<>());
       Collections.addAll(want, blocks);
-      Set<class_2248> have = Collections.newSetFromMap(new IdentityHashMap<>());
+      Set<Block> have = Collections.newSetFromMap(new IdentityHashMap<>());
 
-      for (class_6880<class_2248> holder : class_7923.field_41175.method_40286(tag)) {
-         have.add((class_2248)holder.comp_349());
+      for (Holder<Block> holder : BuiltInRegistries.BLOCK.getTagOrEmpty(tag)) {
+         have.add((Block)holder.comp_349());
       }
 
       if (!have.equals(want)) {
@@ -264,9 +264,9 @@ public record OreSpec(
       }
    }
 
-   private static JsonObject json(String id, class_6797 modifier) {
+   private static JsonObject json(String id, PlacementModifier modifier) {
       try {
-         return ((JsonElement)class_6797.field_35736.encodeStart(JsonOps.INSTANCE, modifier).getOrThrow()).getAsJsonObject();
+         return ((JsonElement)PlacementModifier.CODEC.encodeStart(JsonOps.INSTANCE, modifier).getOrThrow()).getAsJsonObject();
       } catch (RuntimeException e) {
          throw unsupported(id, "modifier " + modifier + ": " + e.getMessage());
       }

@@ -11,12 +11,12 @@ import net.champ.client.chat.ModuleChat;
 import net.champ.client.module.ClientModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1661;
-import net.minecraft.class_1713;
-import net.minecraft.class_1799;
-import net.minecraft.class_418;
-import net.minecraft.class_746;
-import net.minecraft.class_7923;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.gui.screens.DeathScreen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 final class AuctionHouse {
@@ -55,7 +55,7 @@ final class AuctionHouse {
    }
 
    boolean inWorld() {
-      return this.worker.call(() -> Gui.mc().field_1724 != null && Gui.mc().method_1562() != null);
+      return this.worker.call(() -> Gui.mc().player != null && Gui.mc().getConnection() != null);
    }
 
    void ensurePrice(AuctionHouse.Stock stock) {
@@ -158,17 +158,17 @@ final class AuctionHouse {
             return new double[]{0.0, 0.0, -1.0};
          } else {
             double[] result = this.worker.call(() -> {
-               List<class_1799> stacks = Gui.containerNow();
+               List<ItemStack> stacks = Gui.containerNow();
                boolean matched = false;
                double cheapest = -1.0;
 
                for (int i = 0; i < stacks.size() && i < 45; i++) {
-                  class_1799 stack = stacks.get(i);
+                  ItemStack stack = stacks.get(i);
                   if (product.matches(stack)) {
                      matched = true;
                      double total = ServerText.listingPrice(stack);
                      if (!(total <= 0.0)) {
-                        double unit = total / Math.max(1, stack.method_7947());
+                        double unit = total / Math.max(1, stack.getCount());
                         if (!this.ownListing(stock, stack, unit) && (cheapest < 0.0 || unit < cheapest)) {
                            cheapest = unit;
                         }
@@ -185,7 +185,7 @@ final class AuctionHouse {
       }
    }
 
-   private boolean ownListing(AuctionHouse.Stock stock, class_1799 stack, double unit) {
+   private boolean ownListing(AuctionHouse.Stock stock, ItemStack stack, double unit) {
       for (String line : ServerText.lore(stack)) {
          if (!this.ignKey.isEmpty() && ServerText.key(line).contains(this.ignKey)) {
             return true;
@@ -196,13 +196,13 @@ final class AuctionHouse {
    }
 
    private boolean hasContent() {
-      List<class_1799> stacks = Gui.containerNow();
-      if (stacks.size() > 49 && !stacks.get(49).method_7960()) {
+      List<ItemStack> stacks = Gui.containerNow();
+      if (stacks.size() > 49 && !stacks.get(49).isEmpty()) {
          return true;
       }
 
       for (int i = 0; i <= 10 && i < stacks.size(); i++) {
-         if (!stacks.get(i).method_7960()) {
+         if (!stacks.get(i).isEmpty()) {
             return true;
          }
       }
@@ -214,7 +214,7 @@ final class AuctionHouse {
       if (!Gui.containerOpenNow()) {
          return false;
       } else {
-         String title = ServerText.normalize(Gui.mc().field_1755.method_25440());
+         String title = ServerText.normalize(Gui.mc().screen.getTitle());
          if (title.contains("order")) {
             return false;
          } else {
@@ -227,16 +227,16 @@ final class AuctionHouse {
       if (!Gui.containerOpenNow()) {
          return false;
       } else {
-         return ServerText.normalize(Gui.mc().field_1755.method_25440()).contains("order") ? false : isChest(Gui.slotNow(51));
+         return ServerText.normalize(Gui.mc().screen.getTitle()).contains("order") ? false : isChest(Gui.slotNow(51));
       }
    }
 
-   private static boolean isChest(class_1799 stack) {
-      if (stack.method_7960()) {
+   private static boolean isChest(ItemStack stack) {
+      if (stack.isEmpty()) {
          return false;
       }
 
-      String path = class_7923.field_41178.method_10221(stack.method_7909()).method_12832();
+      String path = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
       return path.equals("chest") || path.equals("trapped_chest");
    }
 
@@ -250,7 +250,7 @@ final class AuctionHouse {
 
       for (int attempt = 0; attempt < 2; attempt++) {
          String before = this.gui.fingerprint();
-         this.gui.click(51, 0, class_1713.field_7790);
+         this.gui.click(51, 0, ClickType.PICKUP);
          if (this.gui.waitChange(before, 4000L)) {
             this.worker.sleep(200L);
             return this.worker.call(Gui::containerOpenNow);
@@ -269,7 +269,7 @@ final class AuctionHouse {
       int[] counts = this.worker.call(() -> {
          int[] found = new int[stocks.size()];
 
-         for (class_1799 stack : Gui.containerNow()) {
+         for (ItemStack stack : Gui.containerNow()) {
             for (int ix = 0; ix < stocks.size(); ix++) {
                if (stocks.get(ix).product.matches(stack)) {
                   found[ix]++;
@@ -339,7 +339,7 @@ final class AuctionHouse {
 
       while (collected < limit && this.worker.call(Gui::containerOpenNow)) {
          int slot = this.worker.call(() -> {
-            List<class_1799> stacks = Gui.containerNow();
+            List<ItemStack> stacks = Gui.containerNow();
 
             for (int i = 0; i < stacks.size(); i++) {
                if (!skipped.contains(i) && product.matches(stacks.get(i))) {
@@ -354,7 +354,7 @@ final class AuctionHouse {
          }
 
          long mark = System.currentTimeMillis();
-         this.gui.click(slot, 0, class_1713.field_7790);
+         this.gui.click(slot, 0, ClickType.PICKUP);
          this.worker.ticks(3);
          if (this.alreadyBoughtAt >= mark) {
             skipped.add(slot);
@@ -380,7 +380,7 @@ final class AuctionHouse {
 
       this.gui.closeAll();
       this.gui.closeInventory();
-      int previous = this.worker.call(() -> Gui.player().method_31548().method_67532());
+      int previous = this.worker.call(() -> Gui.player().getInventory().getSelectedSlot());
       int done = 0;
       int failures = 0;
 
@@ -416,9 +416,9 @@ final class AuctionHouse {
          }
       } finally {
          this.worker.run(() -> {
-            class_746 player = Gui.mc().field_1724;
+            LocalPlayer player = Gui.mc().player;
             if (player != null) {
-               player.method_31548().method_61496(previous);
+               player.getInventory().setSelectedSlot(previous);
             }
          });
       }
@@ -443,9 +443,9 @@ final class AuctionHouse {
 
    private AuctionHouse.Listing listFrom(AuctionHouse.Stock stock, int hotbar) {
       Product product = stock.product;
-      this.worker.run(() -> Gui.player().method_31548().method_61496(hotbar));
+      this.worker.run(() -> Gui.player().getInventory().setSelectedSlot(hotbar));
       this.worker.ticks(2);
-      int before = this.worker.call(() -> Gui.player().method_31548().method_5438(hotbar).method_7947());
+      int before = this.worker.call(() -> Gui.player().getInventory().getItem(hotbar).getCount());
       long mark = System.currentTimeMillis();
       this.gui.command("ah sell " + ServerText.exactMoney(stock.price * this.config.perListing()));
       long end = mark + 15000L;
@@ -487,13 +487,13 @@ final class AuctionHouse {
 
                      return 0;
                   } else if (Gui.containerOpenNow()) {
-                     class_746 player = Gui.player();
-                     int sync = player.field_7512.field_7763;
-                     class_1799 button = Gui.slotNow(15);
+                     LocalPlayer player = Gui.player();
+                     int sync = player.containerMenu.containerId;
+                     ItemStack button = Gui.slotNow(15);
                      if (sync != pressedChest[0]
-                        && !button.method_7960()
-                        && class_7923.field_41178.method_10221(button.method_7909()).method_12832().contains("lime")) {
-                        Gui.mc().field_1761.method_2906(sync, 15, 0, class_1713.field_7790, player);
+                        && !button.isEmpty()
+                        && BuiltInRegistries.ITEM.getKey(button.getItem()).getPath().contains("lime")) {
+                        Gui.mc().gameMode.handleInventoryMouseClick(sync, 15, 0, ClickType.PICKUP, player);
                         pressedChest[0] = sync;
                         confirmed[0] = true;
                         return 1;
@@ -501,8 +501,8 @@ final class AuctionHouse {
                         return 0;
                      }
                   } else {
-                     class_1799 held = Gui.player().method_31548().method_5438(hotbar);
-                     boolean gone = !product.matches(held) || held.method_7947() < before;
+                     ItemStack held = Gui.player().getInventory().getItem(hotbar);
+                     boolean gone = !product.matches(held) || held.getCount() < before;
                      return !gone || !confirmed[0] && elapsed <= 2000L ? 0 : 2;
                   }
                }
@@ -536,7 +536,7 @@ final class AuctionHouse {
             }
 
             for (int i = 2; i < plan.length; i += 2) {
-               this.gui.clickInventory(plan[i] >> 1, plan[i] & 1, plan[i + 1] == 1 ? class_1713.field_7794 : class_1713.field_7790);
+               this.gui.clickInventory(plan[i] >> 1, plan[i] & 1, plan[i + 1] == 1 ? ClickType.QUICK_MOVE : ClickType.PICKUP);
                clicked = true;
                this.worker.ticks(1);
             }
@@ -552,17 +552,17 @@ final class AuctionHouse {
    }
 
    private static int[] planStage(Product product, int n) {
-      class_746 player = Gui.player();
-      class_1661 inventory = player.method_31548();
-      class_1799 carried = player.field_7498.method_34255();
-      if (!carried.method_7960()) {
+      LocalPlayer player = Gui.player();
+      Inventory inventory = player.getInventory();
+      ItemStack carried = player.inventoryMenu.getCarried();
+      if (!carried.isEmpty()) {
          int empty = emptyMain(inventory);
          return empty < 0 ? new int[]{-1} : new int[]{1, 0, click(menuSlot(empty), 0), 0};
       }
 
       for (int h = 0; h < 9; h++) {
-         class_1799 stack = inventory.method_5438(h);
-         if (product.matches(stack) && stack.method_7947() == n) {
+         ItemStack stack = inventory.getItem(h);
+         if (product.matches(stack) && stack.getCount() == n) {
             return new int[]{0, h};
          }
       }
@@ -570,8 +570,8 @@ final class AuctionHouse {
       int target = -1;
 
       for (int h = 0; h < 9; h++) {
-         class_1799 stack = inventory.method_5438(h);
-         if (product.matches(stack) && stack.method_7947() < n) {
+         ItemStack stack = inventory.getItem(h);
+         if (product.matches(stack) && stack.getCount() < n) {
             target = h;
             break;
          }
@@ -579,7 +579,7 @@ final class AuctionHouse {
 
       if (target < 0) {
          for (int h = 0; h < 9; h++) {
-            if (inventory.method_5438(h).method_7960()) {
+            if (inventory.getItem(h).isEmpty()) {
                target = h;
                break;
             }
@@ -590,7 +590,7 @@ final class AuctionHouse {
          int victim = -1;
 
          for (int h = 8; h >= 0; h--) {
-            if (!product.matches(inventory.method_5438(h))) {
+            if (!product.matches(inventory.getItem(h))) {
                victim = h;
                break;
             }
@@ -602,15 +602,15 @@ final class AuctionHouse {
 
          return emptyMain(inventory) < 0 ? new int[]{-1} : new int[]{1, 0, click(menuSlot(victim), 0), 1};
       } else {
-         int have = product.matches(inventory.method_5438(target)) ? inventory.method_5438(target).method_7947() : 0;
+         int have = product.matches(inventory.getItem(target)) ? inventory.getItem(target).getCount() : 0;
          int source = -1;
          int best = 0;
 
          for (int index = 0; index < 36; index++) {
             if (index != target) {
-               class_1799 stack = inventory.method_5438(index);
-               if (product.matches(stack) && stack.method_7947() > best) {
-                  best = stack.method_7947();
+               ItemStack stack = inventory.getItem(index);
+               if (product.matches(stack) && stack.getCount() > best) {
+                  best = stack.getCount();
                   source = index;
                }
             }
@@ -651,9 +651,9 @@ final class AuctionHouse {
       return inventoryIndex < 9 ? 36 + inventoryIndex : inventoryIndex;
    }
 
-   private static int emptyMain(class_1661 inventory) {
+   private static int emptyMain(Inventory inventory) {
       for (int index = 9; index < 36; index++) {
-         if (inventory.method_5438(index).method_7960()) {
+         if (inventory.getItem(index).isEmpty()) {
             return index;
          }
       }
@@ -663,7 +663,7 @@ final class AuctionHouse {
 
    int countInventory(Product product) {
       return this.worker.call(() -> {
-         class_746 player = Gui.mc().field_1724;
+         LocalPlayer player = Gui.mc().player;
          if (player == null) {
             return 0;
          }
@@ -671,9 +671,9 @@ final class AuctionHouse {
          int total = 0;
 
          for (int index = 0; index < 36; index++) {
-            class_1799 stack = player.method_31548().method_5438(index);
+            ItemStack stack = player.getInventory().getItem(index);
             if (product.matches(stack)) {
-               total += stack.method_7947();
+               total += stack.getCount();
             }
          }
 
@@ -683,15 +683,15 @@ final class AuctionHouse {
 
    boolean inventoryCapReached(Product product) {
       return this.worker.call(() -> {
-         class_1661 inventory = Gui.player().method_31548();
+         Inventory inventory = Gui.player().getInventory();
          int used = 0;
          int empty = 0;
 
          for (int index = 0; index < 36; index++) {
-            class_1799 stack = inventory.method_5438(index);
-            if (stack.method_7960()) {
+            ItemStack stack = inventory.getItem(index);
+            if (stack.isEmpty()) {
                empty++;
-            } else if (stack.method_31574(product.item())) {
+            } else if (stack.is(product.item())) {
                used++;
             }
          }
@@ -701,22 +701,22 @@ final class AuctionHouse {
    }
 
    void ensureAlive() {
-      if (this.worker.call(() -> Gui.mc().field_1724 != null && Gui.mc().field_1724.method_29504())) {
+      if (this.worker.call(() -> Gui.mc().player != null && Gui.mc().player.isDeadOrDying())) {
          this.say(ModuleChat.body().danger("You died").text(", respawning."));
          long end = System.currentTimeMillis() + 30000L;
          long next = System.currentTimeMillis() + 700L;
 
          while (System.currentTimeMillis() < end) {
-            boolean dead = this.worker.call(() -> Gui.mc().field_1724 != null && Gui.mc().field_1724.method_29504());
+            boolean dead = this.worker.call(() -> Gui.mc().player != null && Gui.mc().player.isDeadOrDying());
             if (!dead) {
                break;
             }
 
             if (System.currentTimeMillis() >= next) {
                this.worker.run(() -> {
-                  class_746 player = Gui.mc().field_1724;
+                  LocalPlayer player = Gui.mc().player;
                   if (player != null) {
-                     player.method_7331();
+                     player.respawn();
                   }
                });
                next = System.currentTimeMillis() + 1500L;
@@ -726,8 +726,8 @@ final class AuctionHouse {
          }
 
          this.worker.run(() -> {
-            if (Gui.mc().field_1755 instanceof class_418) {
-               Gui.mc().method_1507(null);
+            if (Gui.mc().screen instanceof DeathScreen) {
+               Gui.mc().setScreen(null);
             }
          });
          throw new AuctionHouse.Problem("Respawned");

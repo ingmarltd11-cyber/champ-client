@@ -13,7 +13,7 @@ import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.vertex.VertexFormat.class_5596;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -23,33 +23,33 @@ import java.util.function.Supplier;
 import net.champ.client.util.MobilePerformance;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10017;
-import net.minecraft.class_10055;
-import net.minecraft.class_10366;
-import net.minecraft.class_10789;
-import net.minecraft.class_11286;
-import net.minecraft.class_11661;
-import net.minecraft.class_11684;
-import net.minecraft.class_12075;
-import net.minecraft.class_1297;
-import net.minecraft.class_1921;
-import net.minecraft.class_243;
-import net.minecraft.class_276;
-import net.minecraft.class_290;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_4184;
-import net.minecraft.class_4587;
-import net.minecraft.class_4588;
-import net.minecraft.class_4618;
-import net.minecraft.class_6367;
-import net.minecraft.class_777;
-import net.minecraft.class_8921;
-import net.minecraft.class_898;
-import net.minecraft.class_9779;
-import net.minecraft.class_9799;
-import net.minecraft.class_4587.class_4665;
-import net.minecraft.class_4597.class_4598;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import com.mojang.blaze3d.ProjectionType;
+import com.mojang.blaze3d.shaders.UniformType;
+import net.minecraft.client.renderer.PerspectiveProjectionMatrixBuffer;
+import net.minecraft.client.renderer.SubmitNodeStorage;
+import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
+import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.world.phys.Vec3;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Camera;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.OutlineBufferSource;
+import com.mojang.blaze3d.pipeline.TextureTarget;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.world.TickRateManager;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.DeltaTracker;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.lwjgl.BufferUtils;
@@ -64,12 +64,12 @@ final class ShaderEspPass {
    private static final Supplier<String> PASS_LABEL = () -> "Champ Client glow esp";
    private static final Supplier<String> CONFIG_LABEL = () -> "Champ Client glow esp config";
    private static final int CONFIG_SIZE = 32;
-   private static final class_12075 CAMERA = new class_12075();
-   private static final class_4587 POSE = new class_4587();
-   private static final Map<class_1297, class_10017> KEPT = new IdentityHashMap<>();
+   private static final CameraRenderState CAMERA = new CameraRenderState();
+   private static final PoseStack POSE = new PoseStack();
+   private static final Map<Entity, EntityRenderState> KEPT = new IdentityHashMap<>();
    private static ShaderEspPass.Rig rig;
-   private static class_11286 projectionBuffer;
-   private static class_6367 mask;
+   private static PerspectiveProjectionMatrixBuffer projectionBuffer;
+   private static TextureTarget mask;
    private static AuraBlur blur;
    private static GpuBuffer config;
    private static GpuBufferSlice configSlice;
@@ -79,17 +79,17 @@ final class ShaderEspPass {
 
    private static RenderPipeline pipeline(boolean mobile) {
       Builder builder = RenderPipeline.builder(new Snippet[0])
-         .withLocation(class_2960.method_60655("champ", mobile ? "pipeline/glow_esp_mobile" : "pipeline/glow_esp"))
+         .withLocation(Identifier.fromNamespaceAndPath("champ", mobile ? "pipeline/glow_esp_mobile" : "pipeline/glow_esp"))
          .withVertexShader("core/screenquad")
-         .withFragmentShader(class_2960.method_60655("champ", "core/glow_esp"))
+         .withFragmentShader(Identifier.fromNamespaceAndPath("champ", "core/glow_esp"))
          .withSampler("SilhouetteSampler")
          .withSampler("HaloSampler")
-         .withUniform("GlowEspConfig", class_10789.field_60031)
+         .withUniform("GlowEspConfig", UniformType.UNIFORM_BUFFER)
          .withBlend(BlendFunction.TRANSLUCENT_PREMULTIPLIED_ALPHA)
          .withColorWrite(true, false)
          .withDepthWrite(false)
          .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
-         .withVertexFormat(class_290.field_60033, class_5596.field_27379);
+         .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES);
       if (mobile) {
          builder.withShaderDefine("CHAMP_MOBILE_OUTLINE");
       }
@@ -104,7 +104,7 @@ final class ShaderEspPass {
    private ShaderEspPass() {
    }
 
-   static void keep(class_1297 entity, class_10017 state, long frame) {
+   static void keep(Entity entity, EntityRenderState state, long frame) {
       if (keptFrame != frame) {
          KEPT.clear();
          keptFrame = frame;
@@ -118,25 +118,25 @@ final class ShaderEspPass {
       keptFrame = Long.MIN_VALUE;
    }
 
-   static boolean paint(class_4184 camera, Matrix4f viewRotation, Matrix4f projection, class_1297[] entities, int[] tints, int count, long frame) {
-      class_310 mc = class_310.method_1551();
-      class_276 main = mc.method_1522();
+   static boolean paint(Camera camera, Matrix4f viewRotation, Matrix4f projection, Entity[] entities, int[] tints, int count, long frame) {
+      Minecraft mc = Minecraft.getInstance();
+      RenderTarget main = mc.getMainRenderTarget();
       if (count > 0
-         && mc.field_1687 != null
-         && mc.method_53466()
-         && !mc.field_1773.method_35765()
-         && main.method_30277() != null
-         && main.field_1482 > 0
-         && main.field_1481 > 0) {
+         && mc.level != null
+         && mc.isGameLoadFinished()
+         && !mc.gameRenderer.isPanoramicMode()
+         && main.getColorTexture() != null
+         && main.width > 0
+         && main.height > 0) {
          GpuDevice device = RenderSystem.getDevice();
          if (!shaderReady(device)) {
             return false;
          }
 
          if (mask == null) {
-            allocate(main.field_1482, main.field_1481);
-         } else if (mask.field_1482 != main.field_1482 || mask.field_1481 != main.field_1481) {
-            mask.method_1234(main.field_1482, main.field_1481);
+            allocate(main.width, main.height);
+         } else if (mask.width != main.width || mask.height != main.height) {
+            mask.resize(main.width, main.height);
          }
 
          if (rig == null) {
@@ -144,10 +144,10 @@ final class ShaderEspPass {
          }
 
          if (projectionBuffer == null) {
-            projectionBuffer = new class_11286("champ glow esp");
+            projectionBuffer = new PerspectiveProjectionMatrixBuffer("champ glow esp");
          }
 
-         device.createCommandEncoder().clearColorTexture(mask.method_30277(), 0);
+         device.createCommandEncoder().clearColorTexture(mask.getColorTexture(), 0);
          submit(mc, camera, entities, tints, count, frame);
          flush(viewRotation, projection);
          return true;
@@ -156,43 +156,43 @@ final class ShaderEspPass {
       }
    }
 
-   private static void submit(class_310 mc, class_4184 camera, class_1297[] entities, int[] tints, int count, long frame) {
-      class_898 dispatcher = mc.method_1561();
-      class_9779 delta = mc.method_61966();
-      class_8921 ticks = mc.field_1687.method_54719();
-      class_243 eye = camera.method_71156();
-      class_1297 viewer = camera.method_19331();
+   private static void submit(Minecraft mc, Camera camera, Entity[] entities, int[] tints, int count, long frame) {
+      EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
+      DeltaTracker delta = mc.getDeltaTracker();
+      TickRateManager ticks = mc.level.tickRateManager();
+      Vec3 eye = camera.position();
+      Entity viewer = camera.entity();
       boolean reuse = keptFrame == frame;
-      CAMERA.field_63079 = camera.method_19332();
-      CAMERA.field_63078 = eye;
-      CAMERA.field_63077 = camera.method_19328();
-      CAMERA.field_63080 = viewer == null ? eye : viewer.method_30950(delta.method_60637(true));
-      CAMERA.field_63081.set(camera.method_23767());
+      CAMERA.initialized = camera.isInitialized();
+      CAMERA.pos = eye;
+      CAMERA.blockPos = camera.blockPosition();
+      CAMERA.entityPos = viewer == null ? eye : viewer.getPosition(delta.getGameTimeDeltaPartialTick(true));
+      CAMERA.orientation.set(camera.rotation());
 
       for (int i = 0; i < count; i++) {
-         class_1297 entity = entities[i];
-         if (entity != null && !entity.method_31481()) {
-            class_10017 state = reuse ? KEPT.get(entity) : null;
+         Entity entity = entities[i];
+         if (entity != null && !entity.isRemoved()) {
+            EntityRenderState state = reuse ? KEPT.get(entity) : null;
             if (state == null) {
-               state = dispatcher.method_72977(entity, delta.method_60637(!ticks.method_54746(entity)));
+               state = dispatcher.extractEntity(entity, delta.getGameTimeDeltaPartialTick(!ticks.isEntityFrozen(entity)));
             }
 
             silhouetteOnly(state);
-            state.field_61821 = tints[i] | 0xFF000000;
-            dispatcher.method_72976(
-               state, CAMERA, state.field_53325 - eye.field_1352, state.field_53326 - eye.field_1351, state.field_53327 - eye.field_1350, POSE, rig.storage
+            state.outlineColor = tints[i] | 0xFF000000;
+            dispatcher.submit(
+               state, CAMERA, state.x - eye.x, state.y - eye.y, state.z - eye.z, POSE, rig.storage
             );
          }
       }
    }
 
-   private static void silhouetteOnly(class_10017 state) {
-      state.field_53337 = null;
-      state.field_60160 = null;
-      state.field_53335 = false;
-      state.field_61823.clear();
-      if (state instanceof class_10055 avatar) {
-         avatar.field_53525 = null;
+   private static void silhouetteOnly(EntityRenderState state) {
+      state.nameTag = null;
+      state.leashStates = null;
+      state.displayFireAnimation = false;
+      state.shadowPieces.clear();
+      if (state instanceof AvatarRenderState avatar) {
+         avatar.scoreText = null;
       }
    }
 
@@ -201,30 +201,30 @@ final class ShaderEspPass {
       GpuTextureView previousDepth = RenderSystem.outputDepthTextureOverride;
       Matrix4fStack modelView = RenderSystem.getModelViewStack();
       RenderSystem.backupProjectionMatrix();
-      RenderSystem.setProjectionMatrix(projectionBuffer.method_71123(projection), class_10366.field_54953);
+      RenderSystem.setProjectionMatrix(projectionBuffer.getBuffer(projection), ProjectionType.PERSPECTIVE);
       modelView.pushMatrix();
       modelView.mul(viewRotation);
-      RenderSystem.outputColorTextureOverride = mask.method_71639();
+      RenderSystem.outputColorTextureOverride = mask.getColorTextureView();
       RenderSystem.outputDepthTextureOverride = null;
 
       try {
-         rig.features.method_73002();
-         rig.outlines.method_23285();
+         rig.features.renderAllFeatures();
+         rig.outlines.endOutlineBatch();
       } finally {
          RenderSystem.outputColorTextureOverride = previousColor;
          RenderSystem.outputDepthTextureOverride = previousDepth;
          modelView.popMatrix();
          RenderSystem.restoreProjectionMatrix();
-         rig.storage.method_72953();
+         rig.storage.clear();
       }
 
-      rig.storage.method_72954();
+      rig.storage.endFrame();
    }
 
    static void compose(float strokePx, float aura, float reachPx, float fill, float phase, int sheenArgb, float sheen) {
-      class_276 main = class_310.method_1551().method_1522();
+      RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
       CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-      GpuTextureView halo = blur.spread(encoder, mask.method_71639(), mask.field_1482, mask.field_1481, Math.max(reachPx, strokePx + 2.0F));
+      GpuTextureView halo = blur.spread(encoder, mask.getColorTextureView(), mask.width, mask.height, Math.max(reachPx, strokePx + 2.0F));
       configData.putFloat(0, strokePx);
       configData.putFloat(4, aura);
       configData.putFloat(8, fill);
@@ -234,13 +234,13 @@ final class ShaderEspPass {
       configData.putFloat(24, (sheenArgb & 0xFF) / 255.0F);
       configData.putFloat(28, sheen);
       encoder.writeToBuffer(configSlice, configData);
-      RenderPass pass = encoder.createRenderPass(PASS_LABEL, main.method_71639(), OptionalInt.empty());
+      RenderPass pass = encoder.createRenderPass(PASS_LABEL, main.getColorTextureView(), OptionalInt.empty());
 
       try {
          pass.setPipeline(selectedPipeline(RenderSystem.getDevice()));
          pass.setUniform("GlowEspConfig", configSlice);
-         pass.bindTexture("SilhouetteSampler", mask.method_71639(), RenderSystem.getSamplerCache().method_75294(FilterMode.LINEAR));
-         pass.bindTexture("HaloSampler", halo, RenderSystem.getSamplerCache().method_75294(FilterMode.LINEAR));
+         pass.bindTexture("SilhouetteSampler", mask.getColorTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+         pass.bindTexture("HaloSampler", halo, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
          pass.draw(0, 3);
       } catch (Throwable var14) {
          if (pass != null) {
@@ -274,7 +274,7 @@ final class ShaderEspPass {
    }
 
    private static void allocate(int width, int height) {
-      mask = new class_6367("Champ Client glow esp mask", width, height, false);
+      mask = new TextureTarget("Champ Client glow esp mask", width, height, false);
       blur = new AuraBlur("Champ Client glow esp aura", false);
       config = RenderSystem.getDevice().createBuffer(CONFIG_LABEL, 136, 32L);
       configSlice = config.slice();
@@ -289,7 +289,7 @@ final class ShaderEspPass {
       }
 
       if (mask != null) {
-         mask.method_1238();
+         mask.destroyBuffers();
          mask = null;
       }
 
@@ -313,18 +313,18 @@ final class ShaderEspPass {
    }
 
    @Environment(EnvType.CLIENT)
-   private static final class Drain extends class_4598 {
-      private final Map<class_1921, class_4588> sinks = new IdentityHashMap<>();
+   private static final class Drain extends BufferSource {
+      private final Map<RenderType, VertexConsumer> sinks = new IdentityHashMap<>();
 
       Drain() {
-         super(new class_9799(64), new LinkedHashMap());
+         super(new ByteBufferBuilder(64), new LinkedHashMap());
       }
 
       void close() {
-         this.field_52156.close();
+         this.sharedBuffer.close();
       }
 
-      public class_4588 method_73477(class_1921 renderType) {
+      public VertexConsumer method_73477(RenderType renderType) {
          return this.sinks.computeIfAbsent(renderType, type -> new ShaderEspPass.Nowhere());
       }
 
@@ -334,64 +334,64 @@ final class ShaderEspPass {
       public void method_22993() {
       }
 
-      public void method_22994(class_1921 renderType) {
+      public void method_22994(RenderType renderType) {
       }
    }
 
    @Environment(EnvType.CLIENT)
-   private static final class Nowhere implements class_4588 {
-      public class_4588 method_22912(float x, float y, float z) {
+   private static final class Nowhere implements VertexConsumer {
+      public VertexConsumer method_22912(float x, float y, float z) {
          return this;
       }
 
       public void method_23919(float x, float y, float z, int color, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ) {
       }
 
-      public void method_22919(class_4665 pose, class_777 quad, float red, float green, float blue, float alpha, int light, int overlay) {
+      public void method_22919(Pose pose, BakedQuad quad, float red, float green, float blue, float alpha, int light, int overlay) {
       }
 
-      public void method_22920(class_4665 pose, class_777 quad, float[] brightness, float red, float green, float blue, float alpha, int[] lights, int overlay) {
+      public void method_22920(Pose pose, BakedQuad quad, float[] brightness, float red, float green, float blue, float alpha, int[] lights, int overlay) {
       }
 
-      public class_4588 method_1336(int red, int green, int blue, int alpha) {
+      public VertexConsumer method_1336(int red, int green, int blue, int alpha) {
          return this;
       }
 
-      public class_4588 method_39415(int argb) {
+      public VertexConsumer method_39415(int argb) {
          return this;
       }
 
-      public class_4588 method_22913(float u, float v) {
+      public VertexConsumer method_22913(float u, float v) {
          return this;
       }
 
-      public class_4588 method_60796(int u, int v) {
+      public VertexConsumer method_60796(int u, int v) {
          return this;
       }
 
-      public class_4588 method_22921(int u, int v) {
+      public VertexConsumer method_22921(int u, int v) {
          return this;
       }
 
-      public class_4588 method_22914(float x, float y, float z) {
+      public VertexConsumer method_22914(float x, float y, float z) {
          return this;
       }
 
-      public class_4588 method_75298(float width) {
+      public VertexConsumer method_75298(float width) {
          return this;
       }
    }
 
    @Environment(EnvType.CLIENT)
    private static final class Rig {
-      final class_11661 storage = new class_11661();
+      final SubmitNodeStorage storage = new SubmitNodeStorage();
       final ShaderEspPass.Drain drain = new ShaderEspPass.Drain();
-      final class_4618 outlines;
-      final class_11684 features;
+      final OutlineBufferSource outlines;
+      final FeatureRenderDispatcher features;
 
-      Rig(class_310 mc) {
-         this.outlines = mc.method_22940().method_23003();
-         this.features = new class_11684(this.storage, mc.method_1541(), this.drain, mc.method_72703(), this.outlines, this.drain, mc.field_1772);
+      Rig(Minecraft mc) {
+         this.outlines = mc.renderBuffers().outlineBufferSource();
+         this.features = new FeatureRenderDispatcher(this.storage, mc.getBlockRenderer(), this.drain, mc.getAtlasManager(), this.outlines, this.drain, mc.font);
       }
 
       void close() {

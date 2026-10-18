@@ -8,19 +8,19 @@ import java.lang.invoke.MethodType;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.class_10366;
-import net.minecraft.class_11286;
-import net.minecraft.class_12075;
-import net.minecraft.class_12160;
-import net.minecraft.class_12180;
-import net.minecraft.class_12185;
-import net.minecraft.class_156;
-import net.minecraft.class_310;
-import net.minecraft.class_4184;
-import net.minecraft.class_4587;
-import net.minecraft.class_12180.class_12181;
-import net.minecraft.class_12185.class_12186;
-import net.minecraft.class_4597.class_4598;
+import com.mojang.blaze3d.ProjectionType;
+import net.minecraft.client.renderer.PerspectiveProjectionMatrixBuffer;
+import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.client.renderer.gizmos.DrawableGizmoPrimitives;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.gizmos.SimpleGizmoCollector;
+import net.minecraft.util.Util;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Camera;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.gizmos.Gizmos.TemporaryCollection;
+import net.minecraft.gizmos.SimpleGizmoCollector.GizmoInstance;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
@@ -28,8 +28,8 @@ import org.joml.Quaternionf;
 @Environment(EnvType.CLIENT)
 public final class ShaderOverlay {
    private static final MethodHandle SHADER_PACK_IN_USE = irisProbe();
-   private static final class_12185 COLLECTOR = new class_12185();
-   private static class_11286 projectionBuffer;
+   private static final SimpleGizmoCollector COLLECTOR = new SimpleGizmoCollector();
+   private static PerspectiveProjectionMatrixBuffer projectionBuffer;
 
    private ShaderOverlay() {
    }
@@ -60,64 +60,64 @@ public final class ShaderOverlay {
       }
    }
 
-   public static class_12181 capture() {
+   public static TemporaryCollection capture() {
       if (!shaderPackInUse()) {
          return null;
       }
 
       if (pending()) {
-         COLLECTOR.method_75558();
+         COLLECTOR.drainGizmos();
       }
 
-      return class_12180.method_75554(COLLECTOR);
+      return Gizmos.withCollector(COLLECTOR);
    }
 
    public static boolean pending() {
-      return !COLLECTOR.method_75560().isEmpty();
+      return !COLLECTOR.getGizmos().isEmpty();
    }
 
-   public static void render(class_4184 camera, Matrix4f viewRotation, Matrix4f projection, GpuBufferSlice fog, GpuBufferSlice onTopFog) {
+   public static void render(Camera camera, Matrix4f viewRotation, Matrix4f projection, GpuBufferSlice fog, GpuBufferSlice onTopFog) {
       if (pending()) {
-         class_12160 standard = new class_12160();
-         class_12160 onTop = new class_12160();
-         long now = class_156.method_658();
+         DrawableGizmoPrimitives standard = new DrawableGizmoPrimitives();
+         DrawableGizmoPrimitives onTop = new DrawableGizmoPrimitives();
+         long now = Util.getMillis();
 
-         for (class_12186 instance : COLLECTOR.method_75558()) {
-            instance.method_75563().method_75531(instance.method_75562() ? onTop : standard, instance.method_75857(now));
+         for (GizmoInstance instance : COLLECTOR.drainGizmos()) {
+            instance.gizmo().emit(instance.isAlwaysOnTop() ? onTop : standard, instance.getAlphaMultiplier(now));
          }
 
-         if (!standard.method_76659() || !onTop.method_76659()) {
-            class_12075 state = new class_12075();
-            state.field_63079 = camera.method_19332();
-            state.field_63078 = camera.method_71156();
-            state.field_63077 = camera.method_19328();
-            state.field_63081 = new Quaternionf(camera.method_23767());
-            class_310 mc = class_310.method_1551();
+         if (!standard.isEmpty() || !onTop.isEmpty()) {
+            CameraRenderState state = new CameraRenderState();
+            state.initialized = camera.isInitialized();
+            state.pos = camera.position();
+            state.blockPos = camera.blockPosition();
+            state.orientation = new Quaternionf(camera.rotation());
+            Minecraft mc = Minecraft.getInstance();
             if (projectionBuffer == null) {
-               projectionBuffer = new class_11286("champ overlay");
+               projectionBuffer = new PerspectiveProjectionMatrixBuffer("champ overlay");
             }
 
-            class_4598 buffers = mc.method_22940().method_23000();
-            class_4587 poseStack = new class_4587();
+            BufferSource buffers = mc.renderBuffers().bufferSource();
+            PoseStack poseStack = new PoseStack();
             Matrix4fStack modelView = RenderSystem.getModelViewStack();
             GpuBufferSlice previousFog = RenderSystem.getShaderFog();
             RenderSystem.backupProjectionMatrix();
-            RenderSystem.setProjectionMatrix(projectionBuffer.method_71123(projection), class_10366.field_54953);
+            RenderSystem.setProjectionMatrix(projectionBuffer.getBuffer(projection), ProjectionType.PERSPECTIVE);
             modelView.pushMatrix();
             modelView.mul(viewRotation);
 
             try {
-               if (!standard.method_76659()) {
+               if (!standard.isEmpty()) {
                   RenderSystem.setShaderFog(fog);
-                  standard.method_75477(poseStack, buffers, state, viewRotation);
-                  buffers.method_22993();
+                  standard.render(poseStack, buffers, state, viewRotation);
+                  buffers.endBatch();
                }
 
-               if (!onTop.method_76659()) {
-                  RenderSystem.getDevice().createCommandEncoder().clearDepthTexture(mc.method_1522().method_30278(), 1.0);
+               if (!onTop.isEmpty()) {
+                  RenderSystem.getDevice().createCommandEncoder().clearDepthTexture(mc.getMainRenderTarget().getDepthTexture(), 1.0);
                   RenderSystem.setShaderFog(onTopFog);
-                  onTop.method_75477(poseStack, buffers, state, viewRotation);
-                  buffers.method_22993();
+                  onTop.render(poseStack, buffers, state, viewRotation);
+                  buffers.endBatch();
                }
             } finally {
                modelView.popMatrix();

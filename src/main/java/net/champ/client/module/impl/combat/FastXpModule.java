@@ -11,12 +11,12 @@ import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.util.pvp.ServerRotation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1747;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_304;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class FastXpModule extends ClientModule {
@@ -28,10 +28,10 @@ public final class FastXpModule extends ClientModule {
 
    @EventHandler(priority = EventPriority.LOWEST)
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      if (player != null && mc.field_1755 == null && mc.field_1690.field_1904.method_1434()) {
-         if (!player.method_6115() && holdsXp(player)) {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      if (player != null && mc.screen == null && mc.options.keyUse.isDown()) {
+         if (!player.isUsingItem() && holdsXp(player)) {
             AccessorCombatMinecraft access = (AccessorCombatMinecraft)mc;
             int wait = access.champ$rightClickDelay();
             if (!ServerRotation.pending() && !MeleeAttacks.actedThisTick(player)) {
@@ -40,18 +40,18 @@ public final class FastXpModule extends ClientModule {
                }
             } else {
                access.champ$setRightClickDelay(Math.max(wait, 2));
-               class_304 use = mc.field_1690.field_1904;
+               KeyMapping use = mc.options.keyUse;
 
-               while (use.method_1436()) {
+               while (use.consumeClick()) {
                }
             }
          }
       }
    }
 
-   private static boolean holdsXp(class_746 player) {
-      class_1799 main = player.method_6047();
-      return main.method_31574(class_1802.field_8287)
-         || player.method_6079().method_31574(class_1802.field_8287) && !(main.method_7909() instanceof class_1747);
+   private static boolean holdsXp(LocalPlayer player) {
+      ItemStack main = player.getMainHandItem();
+      return main.is(Items.EXPERIENCE_BOTTLE)
+         || player.getOffhandItem().is(Items.EXPERIENCE_BOTTLE) && !(main.getItem() instanceof BlockItem);
    }
 }

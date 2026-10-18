@@ -7,10 +7,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1799;
-import net.minecraft.class_2561;
-import net.minecraft.class_9290;
-import net.minecraft.class_9334;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.core.component.DataComponents;
 
 @Environment(EnvType.CLIENT)
 final class ServerText {
@@ -47,7 +47,7 @@ final class ServerText {
       return out.toString().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ").trim();
    }
 
-   static String normalize(class_2561 component) {
+   static String normalize(Component component) {
       return component == null ? "" : normalize(component.getString());
    }
 
@@ -179,17 +179,17 @@ final class ServerText {
       return space > 0 && roman(text.substring(space + 1)) > 0 ? text.substring(0, space) : text;
    }
 
-   static List<String> lore(class_1799 stack) {
+   static List<String> lore(ItemStack stack) {
       List<String> out = new ArrayList<>();
 
-      for (class_2561 line : ((class_9290)stack.method_58695(class_9334.field_49632, class_9290.field_49340)).comp_2400()) {
+      for (Component line : ((ItemLore)stack.getOrDefault(DataComponents.LORE, ItemLore.EMPTY)).comp_2400()) {
          out.add(line.getString());
       }
 
       return out;
    }
 
-   static double listingPrice(class_1799 stack) {
+   static double listingPrice(ItemStack stack) {
       List<String> lore = lore(stack);
       double best = -1.0;
 
@@ -221,7 +221,7 @@ final class ServerText {
       return best;
    }
 
-   static double orderPrice(class_1799 stack) {
+   static double orderPrice(ItemStack stack) {
       List<String> lore = lore(stack);
       double best = -1.0;
 

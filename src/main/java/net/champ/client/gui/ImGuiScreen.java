@@ -8,26 +8,26 @@ import net.champ.client.config.ThemeStore;
 import net.champ.client.imgui.ImGuiManager;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_11908;
-import net.minecraft.class_2561;
-import net.minecraft.class_332;
-import net.minecraft.class_437;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
 
 @Environment(EnvType.CLIENT)
-public final class ImGuiScreen extends class_437 {
+public final class ImGuiScreen extends Screen {
    private final ClickGuiRenderer clickGui = new ClickGuiRenderer();
 
    public ImGuiScreen() {
-      super(class_2561.method_43470("CHAMP"));
+      super(Component.literal("CHAMP"));
    }
 
    protected void method_25426() {
-      super.method_25426();
+      super.init();
       ImGuiManager.getInstance().activate(this.clickGui::render);
    }
 
    public void method_25432() {
-      super.method_25432();
+      super.removed();
       this.clickGui.handleEscape();
       ImGuiManager.getInstance().deactivate();
       ModuleConfigStore.getInstance().save();
@@ -35,9 +35,9 @@ public final class ImGuiScreen extends class_437 {
       HudTheme.get().save();
    }
 
-   public void method_25420(class_332 guiGraphics, int mouseX, int mouseY, float partialTick) {
+   public void method_25420(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
       if (ThemeStore.get().menuBlur.get()) {
-         super.method_25420(guiGraphics, mouseX, mouseY, partialTick);
+         super.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
       }
    }
 
@@ -45,12 +45,12 @@ public final class ImGuiScreen extends class_437 {
       this.clickGui.onFilesDropped(paths);
    }
 
-   public void method_25394(class_332 graphics, int mouseX, int mouseY, float tickDelta) {
+   public void method_25394(GuiGraphics graphics, int mouseX, int mouseY, float tickDelta) {
       ImGuiManager.getInstance().requestCursor(graphics);
    }
 
-   public boolean method_25404(class_11908 event) {
-      return event.comp_4795() == 256 && this.clickGui.handleEscape() ? true : super.method_25404(event);
+   public boolean method_25404(KeyEvent event) {
+      return event.comp_4795() == 256 && this.clickGui.handleEscape() ? true : super.keyPressed(event);
    }
 
    public boolean capturesKeys() {

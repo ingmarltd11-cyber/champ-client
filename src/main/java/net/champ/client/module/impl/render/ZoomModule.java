@@ -6,7 +6,7 @@ import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class ZoomModule extends ClientModule {
@@ -39,9 +39,9 @@ public final class ZoomModule extends ClientModule {
    protected void onEnable() {
       target = this.zoom.get();
       if (this.cinematic.get()) {
-         class_310 mc = class_310.method_1551();
-         this.smoothBefore = mc.field_1690.field_1914;
-         mc.field_1690.field_1914 = true;
+         Minecraft mc = Minecraft.getInstance();
+         this.smoothBefore = mc.options.smoothCamera;
+         mc.options.smoothCamera = true;
          this.smoothPushed = true;
       }
    }
@@ -50,7 +50,7 @@ public final class ZoomModule extends ClientModule {
    protected void onDisable() {
       target = 1.0F;
       if (this.smoothPushed) {
-         class_310.method_1551().field_1690.field_1914 = this.smoothBefore;
+         Minecraft.getInstance().options.smoothCamera = this.smoothBefore;
          this.smoothPushed = false;
       }
    }

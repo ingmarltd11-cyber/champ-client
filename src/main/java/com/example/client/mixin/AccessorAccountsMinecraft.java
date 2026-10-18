@@ -6,42 +6,42 @@ import com.mojang.authlib.yggdrasil.ProfileResult;
 import java.util.concurrent.CompletableFuture;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_320;
-import net.minecraft.class_5520;
-import net.minecraft.class_7574;
-import net.minecraft.class_7853;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.User;
+import net.minecraft.client.gui.screens.social.PlayerSocialManager;
+import net.minecraft.client.multiplayer.chat.report.ReportingContext;
+import net.minecraft.client.multiplayer.ProfileKeyPairManager;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_310.class)
+@Mixin(Minecraft.class)
 public interface AccessorAccountsMinecraft {
    @Mutable
-   @Accessor("field_1726")
-   void champ$setUser(class_320 var1);
+   @Accessor("user")
+   void champ$setUser(User var1);
 
    @Mutable
-   @Accessor("field_26902")
+   @Accessor("userApiService")
    void champ$setUserApiService(UserApiService var1);
 
    @Mutable
-   @Accessor("field_47680")
+   @Accessor("userPropertiesFuture")
    void champ$setUserPropertiesFuture(CompletableFuture<UserProperties> var1);
 
    @Mutable
-   @Accessor("field_45899")
+   @Accessor("profileFuture")
    void champ$setProfileFuture(CompletableFuture<ProfileResult> var1);
 
    @Mutable
-   @Accessor("field_26842")
-   void champ$setPlayerSocialManager(class_5520 var1);
+   @Accessor("playerSocialManager")
+   void champ$setPlayerSocialManager(PlayerSocialManager var1);
 
    @Mutable
-   @Accessor("field_39068")
-   void champ$setProfileKeyPairManager(class_7853 var1);
+   @Accessor("profileKeyPairManager")
+   void champ$setProfileKeyPairManager(ProfileKeyPairManager var1);
 
-   @Accessor("field_39492")
-   void champ$setReportingContext(class_7574 var1);
+   @Accessor("reportingContext")
+   void champ$setReportingContext(ReportingContext var1);
 }

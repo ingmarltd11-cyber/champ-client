@@ -22,15 +22,15 @@ import net.champ.client.module.setting.StringSetting;
 import net.champ.client.util.ItemEnchants;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_1887;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_6880;
-import net.minecraft.class_7923;
-import net.minecraft.class_9334;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.component.DataComponents;
 
 @Environment(EnvType.CLIENT)
 final class ItemPickerEditor {
@@ -80,8 +80,8 @@ final class ItemPickerEditor {
    private static final int LEV_SUBSTITUTE = 8;
    private static final int LEV_DELETE = 8;
    private static final List<ItemPickerEditor.ItemInfo> ITEMS = new ArrayList<>();
-   private static final Reference2ObjectOpenHashMap<class_1792, ItemPickerEditor.ItemInfo> BY_ITEM = new Reference2ObjectOpenHashMap();
-   private static final Map<StringSetting.Preset, class_1799> PRESET_ICONS = new HashMap<>();
+   private static final Reference2ObjectOpenHashMap<Item, ItemPickerEditor.ItemInfo> BY_ITEM = new Reference2ObjectOpenHashMap();
+   private static final Map<StringSetting.Preset, ItemStack> PRESET_ICONS = new HashMap<>();
    private static String language;
    private static int namesGeneration;
    private static int[] levPrev = new int[64];
@@ -109,7 +109,7 @@ final class ItemPickerEditor {
    private String columnsKey;
    private int columnsGeneration = -1;
    private StringSetting enchantTarget;
-   private class_1792 enchantItem;
+   private Item enchantItem;
    private String enchantSubtitle;
    private final List<ItemPickerEditor.EnchantRow> enchantRows = new ArrayList<>();
    private boolean enchantsLoaded;
@@ -213,7 +213,7 @@ final class ItemPickerEditor {
 
          ChampWidgets.cross(dl, right - btn * 0.5F, cy, ChampWidgets.s(3.5F), clearHovered ? -10856974 : -4542808);
          float textRight = right - btn - ChampWidgets.s(8.0F);
-         class_1792 item = ItemEnchants.resolve(raw);
+         Item item = ItemEnchants.resolve(raw);
          float ix = bx + ChampWidgets.s(8.0F);
          if (item != null) {
             ItemPickerEditor.ItemInfo info = info(item);
@@ -292,7 +292,7 @@ final class ItemPickerEditor {
       }
 
       boolean otherChosen = chosen == null && !value.isEmpty();
-      class_1792 other = otherChosen ? ItemEnchants.resolve(value) : null;
+      Item other = otherChosen ? ItemEnchants.resolve(value) : null;
       float rowY = top + tileH + gap;
       float rowH = ChampWidgets.s(38.0F) + ChampWidgets.s(4.0F) * 2.0F;
       float bx = cardX0 + pad;
@@ -345,16 +345,16 @@ final class ItemPickerEditor {
       }
    }
 
-   private static class_1799 presetIcon(StringSetting.Preset preset) {
-      class_1799 stack = PRESET_ICONS.get(preset);
+   private static ItemStack presetIcon(StringSetting.Preset preset) {
+      ItemStack stack = PRESET_ICONS.get(preset);
       if (stack != null) {
          return stack;
       }
 
-      class_1792 item = ItemEnchants.resolve(preset.icon());
-      stack = new class_1799(item == null ? class_1802.field_8077 : item);
+      Item item = ItemEnchants.resolve(preset.icon());
+      stack = new ItemStack(item == null ? Items.BARRIER : item);
       if (preset.glint()) {
-         stack.method_57379(class_9334.field_49641, true);
+         stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
       }
 
       PRESET_ICONS.put(preset, stack);
@@ -469,7 +469,7 @@ final class ItemPickerEditor {
          ImGui.popID();
          right -= btn + ChampWidgets.s(8.0F);
          float ix = x0 + ChampWidgets.s(8.0F);
-         class_1792 item = ItemEnchants.resolve(value);
+         Item item = ItemEnchants.resolve(value);
          if (item != null) {
             ItemPickerEditor.ItemInfo info = info(item);
             ItemIcons.draw(dl, item, ix, cy - icon * 0.5F, icon, 1.0F);
@@ -656,7 +656,7 @@ final class ItemPickerEditor {
          } else {
             float colW = w - pad * 2.0F;
             columnHeader(dl, font, small, x + pad, headerY, headerH, colW, "All items", Integer.toString(this.availableCount));
-            class_1792 current = ItemEnchants.resolve(this.itemTarget.get());
+            Item current = ItemEnchants.resolve(this.itemTarget.get());
             ItemPickerEditor.ItemInfo choice = this.column(
                "##single",
                this.available,
@@ -706,7 +706,7 @@ final class ItemPickerEditor {
    private void pickItem(ItemPickerEditor.ItemInfo picked) {
       StringSetting setting = this.itemTarget;
       ClientModule module = this.pickerModule;
-      class_1792 previous = ItemEnchants.resolve(setting.get());
+      Item previous = ItemEnchants.resolve(setting.get());
       setting.set(picked.stored);
       this.closePicker();
       StringSetting enchants = setting.enchantSetting();
@@ -721,7 +721,7 @@ final class ItemPickerEditor {
       }
    }
 
-   private static void removeFromList(StringListSetting setting, class_1792 item) {
+   private static void removeFromList(StringListSetting setting, Item item) {
       for (String value : setting.get()) {
          if (ItemEnchants.resolve(value) == item) {
             setting.removeValue(value);
@@ -735,7 +735,7 @@ final class ItemPickerEditor {
       ItemPickerEditor.ItemInfo[] rows,
       int count,
       boolean adding,
-      class_1792 current,
+      Item current,
       float x,
       float y,
       float w,
@@ -834,10 +834,10 @@ final class ItemPickerEditor {
          this.columnsRevision = revision;
          this.columnsKey = key;
          this.columnsGeneration = namesGeneration;
-         ReferenceOpenHashSet<class_1792> picked = new ReferenceOpenHashSet();
+         ReferenceOpenHashSet<Item> picked = new ReferenceOpenHashSet();
          if (this.listTarget != null) {
             for (String value : this.listTarget.get()) {
-               class_1792 item = ItemEnchants.resolve(value);
+               Item item = ItemEnchants.resolve(value);
                if (item != null) {
                   picked.add(item);
                }
@@ -879,7 +879,7 @@ final class ItemPickerEditor {
          int shown = 0;
          if (this.listTarget != null) {
             for (String value : this.listTarget.get()) {
-               class_1792 item = ItemEnchants.resolve(value);
+               Item item = ItemEnchants.resolve(value);
                if (item != null) {
                   ItemPickerEditor.ItemInfo info = info(item);
                   if (filter.isEmpty() || matchDistance(info, filter, words) >= 0) {
@@ -913,11 +913,11 @@ final class ItemPickerEditor {
 
    private void loadEnchantRows() {
       this.enchantRows.clear();
-      this.enchantsLoaded = class_310.method_1551().field_1687 != null;
+      this.enchantsLoaded = Minecraft.getInstance().level != null;
       if (this.enchantsLoaded && this.enchantItem != null) {
          Map<String, Integer> current = ItemEnchants.parse(this.enchantTarget.get());
 
-         for (class_6880<class_1887> holder : ItemEnchants.applicable(this.enchantItem)) {
+         for (Holder<Enchantment> holder : ItemEnchants.applicable(this.enchantItem)) {
             ItemPickerEditor.EnchantRow row = new ItemPickerEditor.EnchantRow(holder);
             Integer level = current.get(row.key);
             if (level == null) {
@@ -950,7 +950,7 @@ final class ItemPickerEditor {
       row.on = !row.on;
       if (row.on) {
          for (ItemPickerEditor.EnchantRow other : this.enchantRows) {
-            if (other != row && other.on && !class_1887.method_60033(row.holder, other.holder)) {
+            if (other != row && other.on && !Enchantment.areCompatible(row.holder, other.holder)) {
                other.on = false;
             }
          }
@@ -1190,16 +1190,16 @@ final class ItemPickerEditor {
 
       Map<String, Integer> parsed = ItemEnchants.parse(setting.get());
       List<String> parts = new ArrayList<>();
-      List<class_6880<class_1887>> all = ItemEnchants.all();
+      List<Holder<Enchantment>> all = ItemEnchants.all();
 
       for (Entry<String, Integer> entry : parsed.entrySet()) {
          String name = null;
          int max = 0;
 
-         for (class_6880<class_1887> holder : all) {
+         for (Holder<Enchantment> holder : all) {
             if (ItemEnchants.key(ItemEnchants.path(holder)).equals(entry.getKey())) {
-               name = ((class_1887)holder.comp_349()).comp_2686().getString();
-               max = ((class_1887)holder.comp_349()).method_8183();
+               name = ((Enchantment)holder.comp_349()).comp_2686().getString();
+               max = ((Enchantment)holder.comp_349()).getMaxLevel();
                break;
             }
          }
@@ -1268,12 +1268,12 @@ final class ItemPickerEditor {
       refreshNames();
    }
 
-   private static ItemPickerEditor.ItemInfo info(class_1792 item) {
+   private static ItemPickerEditor.ItemInfo info(Item item) {
       refreshNames();
       ItemPickerEditor.ItemInfo info = (ItemPickerEditor.ItemInfo)BY_ITEM.get(item);
       if (info == null) {
          info = new ItemPickerEditor.ItemInfo(item);
-         info.name = item.method_7854().method_7964().getString();
+         info.name = item.getDefaultInstance().getHoverName().getString();
          info.nameLower = info.name.toLowerCase(Locale.ROOT);
          BY_ITEM.put(item, info);
       }
@@ -1282,12 +1282,12 @@ final class ItemPickerEditor {
    }
 
    private static void refreshNames() {
-      String selected = class_310.method_1551().method_1526().method_4669();
+      String selected = Minecraft.getInstance().getLanguageManager().getSelected();
       if (!selected.equals(language) || ITEMS.isEmpty()) {
          language = selected;
          if (ITEMS.isEmpty()) {
-            for (class_1792 item : class_7923.field_41178) {
-               if (item != class_1802.field_8162) {
+            for (Item item : BuiltInRegistries.ITEM) {
+               if (item != Items.AIR) {
                   ItemPickerEditor.ItemInfo info = new ItemPickerEditor.ItemInfo(item);
                   ITEMS.add(info);
                   BY_ITEM.put(item, info);
@@ -1296,7 +1296,7 @@ final class ItemPickerEditor {
          }
 
          for (ItemPickerEditor.ItemInfo info : ITEMS) {
-            info.name = info.item.method_7854().method_7964().getString();
+            info.name = info.item.getDefaultInstance().getHoverName().getString();
             info.nameLower = info.name.toLowerCase(Locale.ROOT);
          }
 
@@ -1379,7 +1379,7 @@ final class ItemPickerEditor {
 
    @Environment(EnvType.CLIENT)
    private static final class EnchantRow {
-      final class_6880<class_1887> holder;
+      final Holder<Enchantment> holder;
       final String path;
       final String key;
       final String name;
@@ -1387,19 +1387,19 @@ final class ItemPickerEditor {
       int level;
       boolean on;
 
-      EnchantRow(class_6880<class_1887> holder) {
+      EnchantRow(Holder<Enchantment> holder) {
          this.holder = holder;
          this.path = ItemEnchants.path(holder);
          this.key = ItemEnchants.key(this.path);
-         this.name = ((class_1887)holder.comp_349()).comp_2686().getString();
-         this.max = Math.max(1, ((class_1887)holder.comp_349()).method_8183());
+         this.name = ((Enchantment)holder.comp_349()).comp_2686().getString();
+         this.max = Math.max(1, ((Enchantment)holder.comp_349()).getMaxLevel());
          this.level = this.max;
       }
    }
 
    @Environment(EnvType.CLIENT)
    private static final class ItemInfo {
-      final class_1792 item;
+      final Item item;
       final int rawId;
       final String id;
       final String stored;
@@ -1407,10 +1407,10 @@ final class ItemPickerEditor {
       String name;
       String nameLower;
 
-      ItemInfo(class_1792 item) {
+      ItemInfo(Item item) {
          this.item = item;
-         this.rawId = class_7923.field_41178.method_10206(item);
-         class_2960 key = class_7923.field_41178.method_10221(item);
+         this.rawId = BuiltInRegistries.ITEM.getId(item);
+         Identifier key = BuiltInRegistries.ITEM.getKey(item);
          this.id = key.toString();
          this.stored = ItemEnchants.stored(item);
          this.idLower = this.id.toLowerCase(Locale.ROOT);

@@ -3,11 +3,11 @@ package net.champ.client.module.impl.movement.speed;
 import net.champ.client.module.impl.movement.SpeedModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10185;
-import net.minecraft.class_1293;
-import net.minecraft.class_1294;
-import net.minecraft.class_243;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class VanillaSpeedMode extends SpeedMode {
@@ -18,50 +18,50 @@ public final class VanillaSpeedMode extends SpeedMode {
    }
 
    @Override
-   public class_243 onMove(class_746 player, class_243 movement) {
-      class_243 vel = horizontalVelocity(player, this.settings.vanillaSpeed());
-      double velX = vel.field_1352;
-      double velZ = vel.field_1350;
-      class_1293 speedEffect = player.method_6112(class_1294.field_5904);
+   public Vec3 onMove(LocalPlayer player, Vec3 movement) {
+      Vec3 vel = horizontalVelocity(player, this.settings.vanillaSpeed());
+      double velX = vel.x;
+      double velZ = vel.z;
+      MobEffectInstance speedEffect = player.getEffect(MobEffects.SPEED);
       if (speedEffect != null) {
-         double value = (speedEffect.method_5578() + 1) * 0.205;
+         double value = (speedEffect.getAmplifier() + 1) * 0.205;
          velX += velX * value;
          velZ += velZ * value;
       }
 
-      return new class_243(velX, movement.field_1351, velZ);
+      return new Vec3(velX, movement.y, velZ);
    }
 
-   private static class_243 horizontalVelocity(class_746 player, double bps) {
-      float yaw = player.method_36454();
-      class_243 forward = class_243.method_1030(0.0F, yaw);
-      class_243 right = class_243.method_1030(0.0F, yaw + 90.0F);
-      class_10185 keys = player.field_3913.field_54155;
+   private static Vec3 horizontalVelocity(LocalPlayer player, double bps) {
+      float yaw = player.getYRot();
+      Vec3 forward = Vec3.directionFromRotation(0.0F, yaw);
+      Vec3 right = Vec3.directionFromRotation(0.0F, yaw + 90.0F);
+      Input keys = player.input.keyPresses;
       double velX = 0.0;
       double velZ = 0.0;
       boolean a = false;
       if (keys.comp_3159()) {
-         velX += forward.field_1352 / 20.0 * bps;
-         velZ += forward.field_1350 / 20.0 * bps;
+         velX += forward.x / 20.0 * bps;
+         velZ += forward.z / 20.0 * bps;
          a = true;
       }
 
       if (keys.comp_3160()) {
-         velX -= forward.field_1352 / 20.0 * bps;
-         velZ -= forward.field_1350 / 20.0 * bps;
+         velX -= forward.x / 20.0 * bps;
+         velZ -= forward.z / 20.0 * bps;
          a = true;
       }
 
       boolean b = false;
       if (keys.comp_3162()) {
-         velX += right.field_1352 / 20.0 * bps;
-         velZ += right.field_1350 / 20.0 * bps;
+         velX += right.x / 20.0 * bps;
+         velZ += right.z / 20.0 * bps;
          b = true;
       }
 
       if (keys.comp_3161()) {
-         velX -= right.field_1352 / 20.0 * bps;
-         velZ -= right.field_1350 / 20.0 * bps;
+         velX -= right.x / 20.0 * bps;
+         velZ -= right.z / 20.0 * bps;
          b = true;
       }
 
@@ -70,6 +70,6 @@ public final class VanillaSpeedMode extends SpeedMode {
          velZ *= DIAGONAL;
       }
 
-      return new class_243(velX, 0.0, velZ);
+      return new Vec3(velX, 0.0, velZ);
    }
 }

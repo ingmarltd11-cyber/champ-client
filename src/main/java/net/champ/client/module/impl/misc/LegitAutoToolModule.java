@@ -8,25 +8,25 @@ import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.util.antivanish.AntiVanishText;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1292;
-import net.minecraft.class_1293;
-import net.minecraft.class_1294;
-import net.minecraft.class_1304;
-import net.minecraft.class_1661;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_2338;
-import net.minecraft.class_2561;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
-import net.minecraft.class_3486;
-import net.minecraft.class_3489;
-import net.minecraft.class_3965;
-import net.minecraft.class_5134;
-import net.minecraft.class_746;
-import net.minecraft.class_9290;
-import net.minecraft.class_9334;
-import net.minecraft.class_239.class_240;
+import net.minecraft.world.effect.MobEffectUtil;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.phys.HitResult.Type;
 
 @Environment(EnvType.CLIENT)
 public final class LegitAutoToolModule extends ClientModule {
@@ -35,7 +35,7 @@ public final class LegitAutoToolModule extends ClientModule {
    private static final String SHARD_LORE = "breaks 9 blocks at once";
    private final BooleanSetting drill = this.addSetting("use-drill-for-instabreak", new BooleanSetting("Drill Instabreak", true));
    private final BooleanSetting delayed = this.addSetting("delay", new BooleanSetting("Delay", true));
-   private class_2338 target;
+   private BlockPos target;
    private int pending = -1;
    private int delay;
    private int origin = -1;
@@ -53,7 +53,7 @@ public final class LegitAutoToolModule extends ClientModule {
 
    @Override
    protected void onDisable() {
-      if (this.origin != -1 && class_310.method_1551().field_1724 != null) {
+      if (this.origin != -1 && Minecraft.getInstance().player != null) {
          this.select(this.origin);
       }
 
@@ -71,24 +71,24 @@ public final class LegitAutoToolModule extends ClientModule {
 
    @EventHandler
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      if (player != null && mc.field_1687 != null) {
-         int selected = player.method_31548().method_67532();
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      if (player != null && mc.level != null) {
+         int selected = player.getInventory().getSelectedSlot();
          if (this.origin != -1 && selected != this.ourSlot) {
             this.origin = -1;
          }
 
-         class_2338 aimed = mc.field_1755 == null && mc.field_1690.field_1886.method_1434() ? aimedBlock(mc) : null;
-         class_2680 state = aimed == null ? null : mc.field_1687.method_8320(aimed);
-         if (aimed != null && !state.method_26215()) {
+         BlockPos aimed = mc.screen == null && mc.options.keyAttack.isDown() ? aimedBlock(mc) : null;
+         BlockState state = aimed == null ? null : mc.level.getBlockState(aimed);
+         if (aimed != null && !state.isAir()) {
             if (!aimed.equals(this.target)) {
-               this.target = aimed.method_10062();
+               this.target = aimed.immutable();
                this.pending = -1;
                this.delay = 0;
             }
 
-            int shard = shardSlot(player.method_31548(), state, selected);
+            int shard = shardSlot(player.getInventory(), state, selected);
             if (this.drill.get()) {
                int drillSlot = this.drillSlot(mc, state, aimed, shard);
                if (drillSlot != -1) {
@@ -128,20 +128,20 @@ public final class LegitAutoToolModule extends ClientModule {
       }
    }
 
-   private static class_2338 aimedBlock(class_310 mc) {
-      return mc.field_1765 instanceof class_3965 hit && hit.method_17783() == class_240.field_1332 ? hit.method_17777() : null;
+   private static BlockPos aimedBlock(Minecraft mc) {
+      return mc.hitResult instanceof BlockHitResult hit && hit.getType() == Type.BLOCK ? hit.getBlockPos() : null;
    }
 
-   private int drillSlot(class_310 mc, class_2680 state, class_2338 pos, int shard) {
+   private int drillSlot(Minecraft mc, BlockState state, BlockPos pos, int shard) {
       if (shard != -1) {
          return breakingDelta(mc, shard, state, pos) >= 1.0F ? shard : -1;
       }
 
-      class_1661 inventory = mc.field_1724.method_31548();
+      Inventory inventory = mc.player.getInventory();
 
       for (int slot = 0; slot < 9; slot++) {
-         class_1799 stack = inventory.method_5438(slot);
-         if (stack.method_31574(class_1802.field_22024) && !stack.method_63692() && breakingDelta(mc, slot, state, pos) >= 1.0F) {
+         ItemStack stack = inventory.getItem(slot);
+         if (stack.is(Items.NETHERITE_PICKAXE) && !stack.nextDamageWillBreak() && breakingDelta(mc, slot, state, pos) >= 1.0F) {
             return slot;
          }
       }
@@ -149,16 +149,16 @@ public final class LegitAutoToolModule extends ClientModule {
       return -1;
    }
 
-   private int bestSlot(class_310 mc, class_2680 state, class_2338 pos, int selected, int shard) {
-      class_1661 inventory = mc.field_1724.method_31548();
-      class_1799 held = inventory.method_5438(selected);
-      boolean dropHeld = selected == this.ourSlot && this.origin != -1 && held.method_63692();
+   private int bestSlot(Minecraft mc, BlockState state, BlockPos pos, int selected, int shard) {
+      Inventory inventory = mc.player.getInventory();
+      ItemStack held = inventory.getItem(selected);
+      boolean dropHeld = selected == this.ourSlot && this.origin != -1 && held.nextDamageWillBreak();
       int best = selected;
       float bestDelta = dropHeld ? -1.0F : breakingDelta(mc, selected, state, pos);
 
       for (int slot = 0; slot < 9; slot++) {
-         class_1799 stack = inventory.method_5438(slot);
-         if (slot != selected && !stack.method_7960() && !stack.method_63692()) {
+         ItemStack stack = inventory.getItem(slot);
+         if (slot != selected && !stack.isEmpty() && !stack.nextDamageWillBreak()) {
             float delta = breakingDelta(mc, slot, state, pos);
             if (delta > bestDelta) {
                bestDelta = delta;
@@ -167,16 +167,16 @@ public final class LegitAutoToolModule extends ClientModule {
          }
       }
 
-      return shard != -1 && inventory.method_5438(best).method_31573(class_3489.field_42614) ? shard : best;
+      return shard != -1 && inventory.getItem(best).is(ItemTags.PICKAXES) ? shard : best;
    }
 
-   private static int shardSlot(class_1661 inventory, class_2680 state, int selected) {
-      if (isShardFor(inventory.method_5438(selected), state)) {
+   private static int shardSlot(Inventory inventory, BlockState state, int selected) {
+      if (isShardFor(inventory.getItem(selected), state)) {
          return selected;
       }
 
       for (int slot = 0; slot < 9; slot++) {
-         if (slot != selected && isShardFor(inventory.method_5438(slot), state)) {
+         if (slot != selected && isShardFor(inventory.getItem(slot), state)) {
             return slot;
          }
       }
@@ -184,20 +184,20 @@ public final class LegitAutoToolModule extends ClientModule {
       return -1;
    }
 
-   private static boolean isShardFor(class_1799 stack, class_2680 state) {
-      return !stack.method_63692() && stack.method_7951(state) && isShardPickaxe(stack);
+   private static boolean isShardFor(ItemStack stack, BlockState state) {
+      return !stack.nextDamageWillBreak() && stack.isCorrectToolForDrops(state) && isShardPickaxe(stack);
    }
 
-   private static boolean isShardPickaxe(class_1799 stack) {
-      if (!stack.method_31573(class_3489.field_42614)) {
+   private static boolean isShardPickaxe(ItemStack stack) {
+      if (!stack.is(ItemTags.PICKAXES)) {
          return false;
       }
 
-      if (AntiVanishText.normalize(stack.method_7964().getString()).contains("shard pickaxe")) {
+      if (AntiVanishText.normalize(stack.getHoverName().getString()).contains("shard pickaxe")) {
          return true;
       }
 
-      for (class_2561 line : ((class_9290)stack.method_58695(class_9334.field_49632, class_9290.field_49340)).comp_2400()) {
+      for (Component line : ((ItemLore)stack.getOrDefault(DataComponents.LORE, ItemLore.EMPTY)).comp_2400()) {
          if (AntiVanishText.normalize(line.getString()).contains("breaks 9 blocks at once")) {
             return true;
          }
@@ -206,37 +206,37 @@ public final class LegitAutoToolModule extends ClientModule {
       return false;
    }
 
-   private static float breakingDelta(class_310 mc, int slot, class_2680 state, class_2338 pos) {
-      float hardness = state.method_26214(mc.field_1687, pos);
+   private static float breakingDelta(Minecraft mc, int slot, BlockState state, BlockPos pos) {
+      float hardness = state.getDestroySpeed(mc.level, pos);
       if (hardness == -1.0F) {
          return 0.0F;
       }
 
-      class_746 player = mc.field_1724;
-      class_1799 stack = player.method_31548().method_5438(slot);
-      float speed = stack.method_7924(state);
+      LocalPlayer player = mc.player;
+      ItemStack stack = player.getInventory().getItem(slot);
+      float speed = stack.getDestroySpeed(state);
       if (speed > 1.0F) {
          double[] own = new double[]{0.0};
-         stack.method_57354(class_1304.field_6173, (attribute, modifier) -> {
-            if (attribute == class_5134.field_51581) {
+         stack.forEachModifier(EquipmentSlot.MAINHAND, (attribute, modifier) -> {
+            if (attribute == Attributes.MINING_EFFICIENCY) {
                own[0] += modifier.comp_2449();
             }
          });
          speed += (float)own[0];
       }
 
-      boolean correct = !state.method_29291() || stack.method_7951(state);
+      boolean correct = !state.requiresCorrectToolForDrops() || stack.isCorrectToolForDrops(state);
       return withMiningModifiers(player, speed) / hardness / (correct ? 30 : 100);
    }
 
-   private static float withMiningModifiers(class_746 player, float speed) {
-      if (class_1292.method_5576(player)) {
-         speed *= 1.0F + (class_1292.method_5575(player) + 1) * 0.2F;
+   private static float withMiningModifiers(LocalPlayer player, float speed) {
+      if (MobEffectUtil.hasDigSpeed(player)) {
+         speed *= 1.0F + (MobEffectUtil.getDigSpeedAmplification(player) + 1) * 0.2F;
       }
 
-      class_1293 fatigue = player.method_6112(class_1294.field_5901);
+      MobEffectInstance fatigue = player.getEffect(MobEffects.MINING_FATIGUE);
       if (fatigue != null) {
-         speed *= switch (fatigue.method_5578()) {
+         speed *= switch (fatigue.getAmplifier()) {
             case 0 -> 0.3F;
             case 1 -> 0.09F;
             case 2 -> 0.0027F;
@@ -244,12 +244,12 @@ public final class LegitAutoToolModule extends ClientModule {
          };
       }
 
-      speed *= (float)player.method_45325(class_5134.field_49076);
-      if (player.method_5777(class_3486.field_15517)) {
-         speed *= (float)player.method_45325(class_5134.field_51576);
+      speed *= (float)player.getAttributeValue(Attributes.BLOCK_BREAK_SPEED);
+      if (player.isEyeInFluid(FluidTags.WATER)) {
+         speed *= (float)player.getAttributeValue(Attributes.SUBMERGED_MINING_SPEED);
       }
 
-      if (!player.method_24828()) {
+      if (!player.onGround()) {
          speed /= 5.0F;
       }
 
@@ -257,12 +257,12 @@ public final class LegitAutoToolModule extends ClientModule {
    }
 
    private void select(int slot) {
-      class_1661 inventory = class_310.method_1551().field_1724.method_31548();
+      Inventory inventory = Minecraft.getInstance().player.getInventory();
       if (this.origin == -1) {
-         this.origin = inventory.method_67532();
+         this.origin = inventory.getSelectedSlot();
       }
 
-      inventory.method_61496(slot);
+      inventory.setSelectedSlot(slot);
       this.ourSlot = slot;
       this.returnDelay = this.switchDelay();
    }

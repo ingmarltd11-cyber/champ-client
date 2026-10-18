@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.Objects;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2540;
-import net.minecraft.class_6603;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
 
 @Environment(EnvType.CLIENT)
 public final class HiddenDebrisScanner {
@@ -18,13 +18,13 @@ public final class HiddenDebrisScanner {
    private HiddenDebrisScanner() {
    }
 
-   public static List<Integer> findHiddenSections(class_6603 data, int sectionCount, int minSectionY, int targetStateId) {
+   public static List<Integer> findHiddenSections(ClientboundLevelChunkPacketData data, int sectionCount, int minSectionY, int targetStateId) {
       Objects.requireNonNull(data, "data");
       if (targetStateId < 0) {
          throw new IllegalArgumentException("targetStateId must be non-negative");
       }
 
-      class_2540 buf = data.method_38586();
+      FriendlyByteBuf buf = data.getReadBuffer();
 
       try {
          List<Integer> sections = scanSections(buf, sectionCount, minSectionY, targetStateId);
@@ -36,7 +36,7 @@ public final class HiddenDebrisScanner {
       }
    }
 
-   static List<Integer> scanSections(class_2540 buf, int sectionCount, int minSectionY, int targetStateId) {
+   static List<Integer> scanSections(FriendlyByteBuf buf, int sectionCount, int minSectionY, int targetStateId) {
       Objects.requireNonNull(buf, "buf");
       if (sectionCount >= 0 && targetStateId >= 0) {
          List<Integer> hidden = new ArrayList<>();
@@ -56,16 +56,16 @@ public final class HiddenDebrisScanner {
       }
    }
 
-   private static HiddenDebrisScanner.PaletteRead readPalette(class_2540 buf, int valueCount, int maxPaletteBits, int minBits, int target) {
+   private static HiddenDebrisScanner.PaletteRead readPalette(FriendlyByteBuf buf, int valueCount, int maxPaletteBits, int minBits, int target) {
       int bits = buf.readUnsignedByte();
       int storageBits;
       int[] palette;
       if (bits == 0) {
          storageBits = 0;
-         palette = new int[]{buf.method_10816()};
+         palette = new int[]{buf.readVarInt()};
       } else if (bits <= maxPaletteBits) {
          storageBits = Math.max(minBits, bits);
-         int size = buf.method_10816();
+         int size = buf.readVarInt();
          if (size <= 0 || size > 1 << storageBits) {
             throw new IllegalArgumentException("invalid local palette size");
          }
@@ -73,7 +73,7 @@ public final class HiddenDebrisScanner {
          palette = new int[size];
 
          for (int i = 0; i < size; i++) {
-            palette[i] = buf.method_10816();
+            palette[i] = buf.readVarInt();
          }
       } else {
          storageBits = bits;
@@ -97,7 +97,7 @@ public final class HiddenDebrisScanner {
 
       boolean paletteHasTarget = palette != null && contains(palette, target);
       if (!paletteHasTarget) {
-         buf.method_52994((int)bytes);
+         buf.skipBytes((int)bytes);
          return new HiddenDebrisScanner.PaletteRead(false, true);
       }
 
@@ -121,7 +121,7 @@ public final class HiddenDebrisScanner {
          }
       }
 
-      buf.method_52994((int)bytes);
+      buf.skipBytes((int)bytes);
       return new HiddenDebrisScanner.PaletteRead(paletteHasTarget, used == 0);
    }
 

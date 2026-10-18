@@ -8,17 +8,17 @@ import net.champ.client.module.impl.client.HudModule;
 import net.champ.client.module.impl.misc.NoInvLeakModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1304;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 final class ArmorStatus {
-   private static final class_1304[] ARMOR = new class_1304[]{class_1304.field_6169, class_1304.field_6174, class_1304.field_6172, class_1304.field_6166};
-   private static final class_1304[] ARMOR_AND_HANDS = new class_1304[]{
-      class_1304.field_6169, class_1304.field_6174, class_1304.field_6172, class_1304.field_6166, class_1304.field_6173, class_1304.field_6171
+   private static final EquipmentSlot[] ARMOR = new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
+   private static final EquipmentSlot[] ARMOR_AND_HANDS = new EquipmentSlot[]{
+      EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET, EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND
    };
    private static final float PAD = 6.0F;
    private static final float ICON = 18.0F;
@@ -37,7 +37,7 @@ final class ArmorStatus {
    private static final String[] PERCENT = new String[101];
    private static final String[] COUNT = new String[100];
    private final float[] wear = new float[ARMOR_AND_HANDS.length];
-   private final class_1792[] seen = new class_1792[ARMOR_AND_HANDS.length];
+   private final Item[] seen = new Item[ARMOR_AND_HANDS.length];
    private float presence;
    private float clock;
    private boolean column;
@@ -57,26 +57,26 @@ final class ArmorStatus {
       return this.presence > 0.0F;
    }
 
-   void update(class_310 mc, HudModule hud, boolean active, boolean editMode, float dt) {
+   void update(Minecraft mc, HudModule hud, boolean active, boolean editMode, float dt) {
       this.clock += dt;
       this.column = hud.armorColumn();
       this.hands = hud.armorHands();
       HudModule.ArmorWear mode = hud.armorWear();
       this.gauge = mode != HudModule.ArmorWear.PERCENT;
       this.percent = mode != HudModule.ArmorWear.GAUGE;
-      class_746 player = mc.field_1724;
+      LocalPlayer player = mc.player;
       boolean worn = false;
-      class_1304[] order = this.order();
+      EquipmentSlot[] order = this.order();
 
       for (int i = 0; i < order.length; i++) {
-         class_1799 stack = player == null ? class_1799.field_8037 : player.method_6118(order[i]);
-         if (!stack.method_7960()) {
+         ItemStack stack = player == null ? ItemStack.EMPTY : player.getItemBySlot(order[i]);
+         if (!stack.isEmpty()) {
             worn = true;
          }
 
          float target = remaining(stack);
-         if (stack.method_7909() != this.seen[i]) {
-            this.seen[i] = stack.method_7909();
+         if (stack.getItem() != this.seen[i]) {
+            this.seen[i] = stack.getItem();
             this.wear[i] = target;
          } else {
             this.wear[i] = target < 0.0F ? target : HudGlyphs.approach(Math.max(0.0F, this.wear[i]), target, 10.0F, dt);
@@ -91,13 +91,13 @@ final class ArmorStatus {
       }
    }
 
-   private class_1304[] order() {
+   private EquipmentSlot[] order() {
       return this.hands ? ARMOR_AND_HANDS : ARMOR;
    }
 
-   private static float remaining(class_1799 stack) {
-      return !stack.method_7960() && stack.method_7963() && stack.method_7936() > 0
-         ? Math.max(0.0F, 1.0F - (float)stack.method_7919() / stack.method_7936())
+   private static float remaining(ItemStack stack) {
+      return !stack.isEmpty() && stack.isDamageableItem() && stack.getMaxDamage() > 0
+         ? Math.max(0.0F, 1.0F - (float)stack.getDamageValue() / stack.getMaxDamage())
          : -1.0F;
    }
 
@@ -137,9 +137,9 @@ final class ArmorStatus {
       return Math.max(2.0F, Math.round(3.0F * s));
    }
 
-   void draw(ImDrawList dl, HudLayoutStore.HudElementState state, float x, float y, float alpha, boolean shadow, class_310 mc) {
+   void draw(ImDrawList dl, HudLayoutStore.HudElementState state, float x, float y, float alpha, boolean shadow, Minecraft mc) {
       float a = alpha * HudGlyphs.easeOutQuint(this.presence);
-      if (!(a <= 0.004F) && mc.field_1724 != null) {
+      if (!(a <= 0.004F) && mc.player != null) {
          float s = HudRenderer.scaleOf(state);
          float w = state.width;
          float h = state.height;
@@ -152,7 +152,7 @@ final class ArmorStatus {
          float pad = Math.round(6.0F * s);
          float pctW = this.percent ? (float)Math.ceil(percentWidth(s)) : 0.0F;
          float tile = Math.max(icon, pctW);
-         class_1304[] order = this.order();
+         EquipmentSlot[] order = this.order();
          float cx = x + pad;
          float cy = y + pad;
 
@@ -166,8 +166,8 @@ final class ArmorStatus {
                }
             }
 
-            class_1799 worn = mc.field_1724.method_6118(order[i]);
-            class_1799 stack = NoInvLeakModule.shownInHud(worn, order[i]);
+            ItemStack worn = mc.player.getItemBySlot(order[i]);
+            ItemStack stack = NoInvLeakModule.shownInHud(worn, order[i]);
             float left = stack == worn ? this.wear[i] : -1.0F;
             if (this.column) {
                this.drawSideways(dl, stack, left, cx, Math.round(cy), icon, pctW, label, labelPx, s, a, guard);
@@ -195,7 +195,7 @@ final class ArmorStatus {
    }
 
    private void drawStacked(
-      ImDrawList dl, class_1799 stack, float left, float tx, float ty, int icon, float tile, ImFont label, int labelPx, float s, float a, boolean guard
+      ImDrawList dl, ItemStack stack, float left, float tx, float ty, int icon, float tile, ImFont label, int labelPx, float s, float a, boolean guard
    ) {
       float ix = Math.round(tx + (tile - icon) * 0.5F);
       this.drawIcon(dl, stack, left, ix, ty, icon, label, labelPx, s, a);
@@ -223,7 +223,7 @@ final class ArmorStatus {
    }
 
    private void drawSideways(
-      ImDrawList dl, class_1799 stack, float left, float tx, float ty, int icon, float pctW, ImFont label, int labelPx, float s, float a, boolean guard
+      ImDrawList dl, ItemStack stack, float left, float tx, float ty, int icon, float pctW, ImFont label, int labelPx, float s, float a, boolean guard
    ) {
       this.drawIcon(dl, stack, left, tx, ty, icon, label, labelPx, s, a);
       float cx = tx + icon + 7.0F * s;
@@ -252,8 +252,8 @@ final class ArmorStatus {
       }
    }
 
-   private void drawIcon(ImDrawList dl, class_1799 stack, float left, float ix, float iy, int icon, ImFont label, int labelPx, float s, float a) {
-      if (stack.method_7960()) {
+   private void drawIcon(ImDrawList dl, ItemStack stack, float left, float ix, float iy, int icon, ImFont label, int labelPx, float s, float a) {
+      if (stack.isEmpty()) {
          float inset = Math.max(1.0F, Math.round(2.0F * s));
          dl.addRect(ix + inset, iy + inset, ix + icon - inset, iy + icon - inset, HudChrome.scaleAlpha(536870911, a), Math.max(1.0F, 3.0F * s), 0, 1.0F);
          dl.addCircleFilled(ix + icon * 0.5F, iy + icon * 0.5F, Math.max(1.0F, 1.2F * s), HudChrome.scaleAlpha(536870911, a), 8);
@@ -264,11 +264,11 @@ final class ArmorStatus {
          }
 
          ItemIcons.draw(dl, stack, ix, iy, icon, a);
-         if (stack.method_7958()) {
+         if (stack.hasFoil()) {
             HudGlyphs.sparkle(dl, ix + icon - 1.5F * s, iy + 1.5F * s, 2.8F * s, HudGlyphs.ink(-11654, a * 0.9F));
          }
 
-         int count = stack.method_7947();
+         int count = stack.getCount();
          if (count > 1) {
             String value = countText(count);
             float vw = HudChrome.width(label, labelPx, value);
@@ -279,11 +279,11 @@ final class ArmorStatus {
       }
    }
 
-   private void drawGauge(ImDrawList dl, class_1799 stack, float left, float gx, float gy, float gw, float s, float a) {
+   private void drawGauge(ImDrawList dl, ItemStack stack, float left, float gx, float gy, float gw, float s, float a) {
       float gh = gaugeHeight(s);
       float r = gh * 0.5F;
       dl.addRectFilled(gx, gy, gx + gw, gy + gh, HudChrome.scaleAlpha(452984831, a), r);
-      if (!stack.method_7960() && !(left < 0.0F)) {
+      if (!stack.isEmpty() && !(left < 0.0F)) {
          float fill = gw * Math.max(0.0F, Math.min(1.0F, left));
          if (!(fill < 0.5F)) {
             dl.addRectFilled(gx, gy, gx + fill, gy + gh, HudGlyphs.ink(HudGlyphs.vitality(left), a * this.criticalPulse(left)), Math.min(r, fill * 0.5F));

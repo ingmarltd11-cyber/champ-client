@@ -2,13 +2,13 @@ package com.example.client.mixin;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_636;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_636.class)
+@Mixin(MultiPlayerGameMode.class)
 public interface AccessorElytraFlyMultiPlayerGameMode {
-   @Invoker("method_2911")
+   @Invoker("ensureHasSentCarriedItem")
    void champ$elytraFlySyncSelected();
 }

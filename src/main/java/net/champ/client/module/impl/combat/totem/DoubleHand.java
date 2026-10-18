@@ -4,12 +4,12 @@ import net.champ.client.module.impl.combat.crystal.CrystalDamage;
 import net.champ.client.module.impl.combat.melee.MeleeAttacks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1511;
-import net.minecraft.class_1661;
-import net.minecraft.class_1802;
-import net.minecraft.class_310;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Items;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class DoubleHand {
@@ -26,11 +26,11 @@ public final class DoubleHand {
       return this.holding;
    }
 
-   public void tick(class_310 mc, class_746 player, boolean on) {
-      class_1661 inventory = player.method_31548();
-      int selected = inventory.method_67532();
-      boolean mainTotem = player.method_6047().method_31574(class_1802.field_8288);
-      boolean danger = on && inDanger(mc.field_1687, player);
+   public void tick(Minecraft mc, LocalPlayer player, boolean on) {
+      Inventory inventory = player.getInventory();
+      int selected = inventory.getSelectedSlot();
+      boolean mainTotem = player.getMainHandItem().is(Items.TOTEM_OF_UNDYING);
+      boolean danger = on && inDanger(mc.level, player);
       this.safeTicks = danger ? 0 : Math.min(this.safeTicks + 1, 10);
       if (this.safeTicks == 10) {
          this.holding = false;
@@ -43,7 +43,7 @@ public final class DoubleHand {
          this.returnSlot = -1;
       }
 
-      boolean clean = mc.field_1755 == null && !player.method_6115() && !MeleeAttacks.actedThisTick(player);
+      boolean clean = mc.screen == null && !player.isUsingItem() && !MeleeAttacks.actedThisTick(player);
       if (this.holding) {
          if (mainTotem || !clean) {
             return;
@@ -52,7 +52,7 @@ public final class DoubleHand {
          int next = hotbarTotem(inventory);
          if (next != -1) {
             this.holdSlot = next;
-            inventory.method_61496(next);
+            inventory.setSelectedSlot(next);
             return;
          }
 
@@ -69,11 +69,11 @@ public final class DoubleHand {
          }
 
          int slot = hotbarTotem(inventory);
-         if (slot != -1 && clean && player.method_6079().method_31574(class_1802.field_8288)) {
+         if (slot != -1 && clean && player.getOffhandItem().is(Items.TOTEM_OF_UNDYING)) {
             this.holding = true;
             this.holdSlot = slot;
             this.returnSlot = selected;
-            inventory.method_61496(slot);
+            inventory.setSelectedSlot(slot);
             return;
          }
       }
@@ -83,10 +83,10 @@ public final class DoubleHand {
       }
    }
 
-   public void putBack(class_1661 inventory) {
+   public void putBack(Inventory inventory) {
       if (this.returnSlot != -1) {
-         if (inventory.method_67532() == this.holdSlot) {
-            inventory.method_61496(this.returnSlot);
+         if (inventory.getSelectedSlot() == this.holdSlot) {
+            inventory.setSelectedSlot(this.returnSlot);
          }
 
          this.returnSlot = -1;
@@ -101,14 +101,14 @@ public final class DoubleHand {
       this.safeTicks = 0;
    }
 
-   private static boolean inDanger(class_638 level, class_746 player) {
+   private static boolean inDanger(ClientLevel level, LocalPlayer player) {
       float health = CrystalDamage.health(player);
       if (health <= 6.0F) {
          return true;
       }
 
-      for (class_1511 crystal : level.method_18467(class_1511.class, player.method_5829().method_1014(6.0))) {
-         if (player.method_5739(crystal) <= 6.0 && CrystalDamage.estimate(crystal.method_73189(), player) >= health) {
+      for (EndCrystal crystal : level.getEntitiesOfClass(EndCrystal.class, player.getBoundingBox().inflate(6.0))) {
+         if (player.distanceTo(crystal) <= 6.0 && CrystalDamage.estimate(crystal.position(), player) >= health) {
             return true;
          }
       }
@@ -116,15 +116,15 @@ public final class DoubleHand {
       return false;
    }
 
-   private static int hotbarTotem(class_1661 inventory) {
-      int selected = inventory.method_67532();
+   private static int hotbarTotem(Inventory inventory) {
+      int selected = inventory.getSelectedSlot();
 
       for (int i = 0; i < 9; i++) {
-         if (i != selected && inventory.method_5438(i).method_31574(class_1802.field_8288)) {
+         if (i != selected && inventory.getItem(i).is(Items.TOTEM_OF_UNDYING)) {
             return i;
          }
       }
 
-      return inventory.method_5438(selected).method_31574(class_1802.field_8288) ? selected : -1;
+      return inventory.getItem(selected).is(Items.TOTEM_OF_UNDYING) ? selected : -1;
    }
 }

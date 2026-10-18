@@ -3,17 +3,17 @@ package com.example.client.mixin;
 import net.champ.client.module.impl.render.XrayModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_775;
+import net.minecraft.client.renderer.block.LiquidBlockRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_775.class)
+@Mixin(LiquidBlockRenderer.class)
 public abstract class MixinLiquidBlockRenderer {
    @ModifyArg(
-      method = "method_23072",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/class_4588;method_22915(FFFF)Lnet/minecraft/class_4588;"),
+      method = "vertex",
+      at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/VertexConsumer;setColor(FFFF)Lcom/mojang/blaze3d/vertex/VertexConsumer;"),
       index = 3
    )
    private float champ$xrayFluidAlpha(float alpha) {

@@ -5,8 +5,8 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.ModeSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class SneakModule extends ClientModule {
@@ -36,7 +36,7 @@ public final class SneakModule extends ClientModule {
    }
 
    private static boolean isFlying() {
-      class_746 player = class_310.method_1551().field_1724;
-      return player == null || player.method_31549().field_7479;
+      LocalPlayer player = Minecraft.getInstance().player;
+      return player == null || player.getAbilities().flying;
    }
 }

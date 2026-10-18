@@ -14,41 +14,41 @@ import net.champ.client.util.pvp.Rotation;
 import net.champ.client.util.pvp.ServerRotation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10185;
-import net.minecraft.class_10255;
-import net.minecraft.class_10590;
-import net.minecraft.class_10707;
-import net.minecraft.class_12125;
-import net.minecraft.class_12392;
-import net.minecraft.class_1268;
-import net.minecraft.class_1282;
-import net.minecraft.class_1297;
-import net.minecraft.class_1304;
-import net.minecraft.class_1308;
-import net.minecraft.class_1309;
-import net.minecraft.class_1531;
-import net.minecraft.class_1569;
-import net.minecraft.class_1657;
-import net.minecraft.class_1661;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_304;
-import net.minecraft.class_310;
-import net.minecraft.class_3489;
-import net.minecraft.class_3532;
-import net.minecraft.class_3959;
-import net.minecraft.class_3965;
-import net.minecraft.class_3966;
-import net.minecraft.class_5134;
-import net.minecraft.class_5354;
-import net.minecraft.class_746;
-import net.minecraft.class_9334;
-import net.minecraft.class_1322.class_1323;
-import net.minecraft.class_239.class_240;
-import net.minecraft.class_3959.class_242;
-import net.minecraft.class_3959.class_3960;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
+import net.minecraft.world.item.component.Weapon;
+import net.minecraft.world.item.component.BlocksAttacks;
+import net.minecraft.world.item.component.PiercingWeapon;
+import net.minecraft.world.item.component.AttackRange;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.NeutralMob;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.level.ClipContext.Block;
 
 @Environment(EnvType.CLIENT)
 public final class MeleeAttacks {
@@ -63,62 +63,62 @@ public final class MeleeAttacks {
    private MeleeAttacks() {
    }
 
-   public static void noteAction(class_1657 player) {
-      actorId = player.method_5628();
-      actionTick = player.field_6012;
+   public static void noteAction(Player player) {
+      actorId = player.getId();
+      actionTick = player.tickCount;
    }
 
-   public static boolean actedThisTick(class_1657 player) {
-      return actionTick == player.field_6012 && actorId == player.method_5628();
+   public static boolean actedThisTick(Player player) {
+      return actionTick == player.tickCount && actorId == player.getId();
    }
 
-   public static boolean handsFree(class_310 mc, class_746 player) {
-      return !player.method_6115()
-         && !player.method_3144()
-         && !mc.field_1761.method_2923()
+   public static boolean handsFree(Minecraft mc, LocalPlayer player) {
+      return !player.isUsingItem()
+         && !player.isHandsBusy()
+         && !mc.gameMode.isDestroying()
          && !rowing(player)
-         && !clickPending(mc.field_1690.field_1831)
-         && !clickPending(mc.field_1690.field_1869);
+         && !clickPending(mc.options.keySwapOffhand)
+         && !clickPending(mc.options.keyDrop);
    }
 
-   private static boolean rowing(class_746 player) {
-      class_10185 sent = ((AccessorLocalPlayer)player).champ$lastSentInput();
-      return player.method_5854() instanceof class_10255 && (sent.comp_3159() != sent.comp_3160() || sent.comp_3161() != sent.comp_3162());
+   private static boolean rowing(LocalPlayer player) {
+      Input sent = ((AccessorLocalPlayer)player).champ$lastSentInput();
+      return player.getVehicle() instanceof AbstractBoat && (sent.comp_3159() != sent.comp_3160() || sent.comp_3161() != sent.comp_3162());
    }
 
-   public static boolean clickPending(class_310 mc) {
-      return clickPending(mc.field_1690.field_1886);
+   public static boolean clickPending(Minecraft mc) {
+      return clickPending(mc.options.keyAttack);
    }
 
-   public static boolean clickPending(class_304 key) {
+   public static boolean clickPending(KeyMapping key) {
       return ((AccessorTriggerbotKeyMapping)key).champ$triggerbotClickCount() > 0;
    }
 
-   public static boolean rightClickComing(class_310 mc) {
-      return mc.field_1690.field_1904.method_1434() || clickPending(mc.field_1690.field_1904);
+   public static boolean rightClickComing(Minecraft mc) {
+      return mc.options.keyUse.isDown() || clickPending(mc.options.keyUse);
    }
 
-   public static void takeAttackClicks(class_310 mc) {
-      class_304 attack = mc.field_1690.field_1886;
+   public static void takeAttackClicks(Minecraft mc) {
+      KeyMapping attack = mc.options.keyAttack;
 
-      while (attack.method_1436()) {
+      while (attack.consumeClick()) {
       }
    }
 
-   public static void claimTick(class_310 mc) {
+   public static void claimTick(Minecraft mc) {
       takeAttackClicks(mc);
-      class_304 use = mc.field_1690.field_1904;
+      KeyMapping use = mc.options.keyUse;
 
-      while (use.method_1436()) {
+      while (use.consumeClick()) {
       }
 
-      mc.field_1771 = Math.max(mc.field_1771, 1);
+      mc.missTime = Math.max(mc.missTime, 1);
       AccessorCombatMinecraft access = (AccessorCombatMinecraft)mc;
       access.champ$setRightClickDelay(Math.max(access.champ$rightClickDelay(), 2));
    }
 
-   public static boolean canAct(class_310 mc) {
-      if (mc.field_1724 == null || mc.field_1687 == null || mc.field_1761 == null || mc.field_1755 != null) {
+   public static boolean canAct(Minecraft mc) {
+      if (mc.player == null || mc.level == null || mc.gameMode == null || mc.screen != null) {
          return false;
       }
 
@@ -130,11 +130,11 @@ public final class MeleeAttacks {
       return freecam == null || !freecam.isEnabled();
    }
 
-   public static class_3966 crosshairHit(class_310 mc) {
-      class_746 player = mc.field_1724;
-      if (player != null && mc.field_1687 != null) {
-         if (player.method_76762(1.0F, player) instanceof class_3966 hit && hit.method_17783() == class_240.field_1331) {
-            return lineIsClear(player, player.method_33571(), hit.method_17784()) ? hit : null;
+   public static EntityHitResult crosshairHit(Minecraft mc) {
+      LocalPlayer player = mc.player;
+      if (player != null && mc.level != null) {
+         if (player.raycastHitResult(1.0F, player) instanceof EntityHitResult hit && hit.getType() == Type.ENTITY) {
+            return lineIsClear(player, player.getEyePosition(), hit.getLocation()) ? hit : null;
          } else {
             return null;
          }
@@ -143,53 +143,53 @@ public final class MeleeAttacks {
       }
    }
 
-   public static boolean lineIsClear(class_746 player, class_243 from, class_243 to) {
-      class_3965 block = player.method_73183().method_17742(new class_3959(from, to, class_3960.field_17558, class_242.field_1348, player));
-      return block.method_17783() == class_240.field_1333 || block.method_17784().method_1025(from) >= from.method_1025(to) - 0.001;
+   public static boolean lineIsClear(LocalPlayer player, Vec3 from, Vec3 to) {
+      BlockHitResult block = player.level().clip(new ClipContext(from, to, Block.COLLIDER, Fluid.NONE, player));
+      return block.getType() == Type.MISS || block.getLocation().distanceToSqr(from) >= from.distanceToSqr(to) - 0.001;
    }
 
-   public static boolean attack(class_310 mc, class_3966 hit) {
+   public static boolean attack(Minecraft mc, EntityHitResult hit) {
       return attack(mc, hit, 0.0);
    }
 
-   public static boolean attack(class_310 mc, class_3966 hit, double extraRange) {
-      class_746 player = mc.field_1724;
-      if (player == null || mc.field_1687 == null || mc.field_1761 == null) {
+   public static boolean attack(Minecraft mc, EntityHitResult hit, double extraRange) {
+      LocalPlayer player = mc.player;
+      if (player == null || mc.level == null || mc.gameMode == null) {
          return false;
       }
 
-      if (mc.field_1771 > 0 || actedThisTick(player)) {
+      if (mc.missTime > 0 || actedThisTick(player)) {
          return false;
       }
 
-      if (handsFree(mc, player) && !player.method_7325()) {
-         if (player.method_5624() != ((AccessorLocalPlayer)player).champ$wasSprinting()) {
+      if (handsFree(mc, player) && !player.isSpectator()) {
+         if (player.isSprinting() != ((AccessorLocalPlayer)player).champ$wasSprinting()) {
             return false;
          }
 
-         class_1799 held = player.method_6047();
-         if (held.method_57826(class_9334.field_63631)) {
+         ItemStack held = player.getMainHandItem();
+         if (held.has(DataComponents.PIERCING_WEAPON)) {
             return false;
          }
 
-         if (held.method_45435(mc.field_1687.method_45162()) && !player.method_75202(held, 0)) {
-            class_1297 target = hit.method_17782();
-            if (target.method_31481()) {
+         if (held.isItemEnabled(mc.level.enabledFeatures()) && !player.cannotAttackWithItem(held, 0)) {
+            Entity target = hit.getEntity();
+            if (target.isRemoved()) {
                return false;
             }
 
-            class_12392 range = (class_12392)held.method_58694(class_9334.field_64680);
-            boolean inReach = range != null ? range.method_76736(player, hit.method_17784()) : player.method_56092(target.method_5829(), extraRange);
+            AttackRange range = (AttackRange)held.get(DataComponents.ATTACK_RANGE);
+            boolean inReach = range != null ? range.isInRange(player, hit.getLocation()) : player.isWithinEntityInteractionRange(target.getBoundingBox(), extraRange);
             if (!inReach) {
                return false;
             }
 
-            mc.field_1761.method_2918(player, target);
+            mc.gameMode.attack(player, target);
             if (!actedThisTick(player)) {
                return false;
             }
 
-            player.method_6104(class_1268.field_5808);
+            player.swing(InteractionHand.MAIN_HAND);
             return true;
          } else {
             return false;
@@ -199,45 +199,45 @@ public final class MeleeAttacks {
       }
    }
 
-   public static boolean stab(class_310 mc, class_3966 hit) {
-      class_746 player = mc.field_1724;
-      if (player == null || mc.field_1687 == null || mc.field_1761 == null) {
+   public static boolean stab(Minecraft mc, EntityHitResult hit) {
+      LocalPlayer player = mc.player;
+      if (player == null || mc.level == null || mc.gameMode == null) {
          return false;
       }
 
-      if (mc.field_1771 > 0 || actedThisTick(player)) {
+      if (mc.missTime > 0 || actedThisTick(player)) {
          return false;
       }
 
-      if (handsFree(mc, player) && !player.method_7325()) {
-         if (player.method_5624() != ((AccessorLocalPlayer)player).champ$wasSprinting()) {
+      if (handsFree(mc, player) && !player.isSpectator()) {
+         if (player.isSprinting() != ((AccessorLocalPlayer)player).champ$wasSprinting()) {
             return false;
          }
 
-         class_1799 held = player.method_6047();
-         class_12125 piercing = (class_12125)held.method_58694(class_9334.field_63631);
+         ItemStack held = player.getMainHandItem();
+         PiercingWeapon piercing = (PiercingWeapon)held.get(DataComponents.PIERCING_WEAPON);
          if (piercing == null) {
             return false;
          }
 
-         if (held.method_45435(mc.field_1687.method_45162()) && !player.method_75202(held, 0)) {
-            class_1297 target = hit.method_17782();
-            if (target.method_31481()) {
+         if (held.isItemEnabled(mc.level.enabledFeatures()) && !player.cannotAttackWithItem(held, 0)) {
+            Entity target = hit.getEntity();
+            if (target.isRemoved()) {
                return false;
             }
 
-            class_12392 range = (class_12392)held.method_58694(class_9334.field_64680);
-            boolean inReach = range != null ? range.method_76736(player, hit.method_17784()) : player.method_56092(target.method_5829(), 0.0);
+            AttackRange range = (AttackRange)held.get(DataComponents.ATTACK_RANGE);
+            boolean inReach = range != null ? range.isInRange(player, hit.getLocation()) : player.isWithinEntityInteractionRange(target.getBoundingBox(), 0.0);
             if (!inReach) {
                return false;
             }
 
-            mc.field_1761.method_75407(piercing);
+            mc.gameMode.piercingAttack(piercing);
             if (!actedThisTick(player)) {
                return false;
             }
 
-            player.method_6104(class_1268.field_5808);
+            player.swing(InteractionHand.MAIN_HAND);
             return true;
          } else {
             return false;
@@ -247,23 +247,23 @@ public final class MeleeAttacks {
       }
    }
 
-   public static class_1297 stabTarget(class_746 player, Predicate<class_1297> wanted) {
-      class_12392 range = player.method_76693();
+   public static Entity stabTarget(LocalPlayer player, Predicate<Entity> wanted) {
+      AttackRange range = player.entityAttackRange();
       Rotation sent = ServerRotation.sent();
-      class_243 look = sent != null ? class_243.method_1030(sent.pitch(), sent.yaw()) : player.method_5828(1.0F);
-      class_243 eye = player.method_33571();
-      class_243 start = eye.method_1019(look.method_1021(range.method_76732(player)));
-      class_243 end = eye.method_1019(look.method_1021(range.method_76739(player) + Math.max(0.0, player.method_60478().method_1026(look))));
-      class_3965 wall = player.method_73183().method_17742(new class_3959(eye, end, class_3960.field_17558, class_242.field_1348, player));
-      if (wall.method_17783() != class_240.field_1333) {
-         end = wall.method_17784();
+      Vec3 look = sent != null ? Vec3.directionFromRotation(sent.pitch(), sent.yaw()) : player.getViewVector(1.0F);
+      Vec3 eye = player.getEyePosition();
+      Vec3 start = eye.add(look.scale(range.effectiveMinRange(player)));
+      Vec3 end = eye.add(look.scale(range.effectiveMaxRange(player) + Math.max(0.0, player.getKnownMovement().dot(look))));
+      BlockHitResult wall = player.level().clip(new ClipContext(eye, end, Block.COLLIDER, Fluid.NONE, player));
+      if (wall.getType() != Type.MISS) {
+         end = wall.getLocation();
       }
 
       float margin = range.comp_5262();
 
-      for (class_1297 entity : player.method_73183().method_8333(player, new class_238(eye, end).method_1014(margin + 1.0), wanted)) {
-         class_238 box = entity.method_5829().method_1014(margin);
-         if (box.method_1006(start) || box.method_992(start, end).isPresent()) {
+      for (Entity entity : player.level().getEntities(player, new AABB(eye, end).inflate(margin + 1.0), wanted)) {
+         AABB box = entity.getBoundingBox().inflate(margin);
+         if (box.contains(start) || box.clip(start, end).isPresent()) {
             return entity;
          }
       }
@@ -271,92 +271,92 @@ public final class MeleeAttacks {
       return null;
    }
 
-   private static boolean isHittable(class_746 self, class_1297 entity) {
-      if (!(entity instanceof class_1309 living && entity != self && !(entity instanceof class_1531))) {
+   private static boolean isHittable(LocalPlayer self, Entity entity) {
+      if (!(entity instanceof LivingEntity living && entity != self && !(entity instanceof ArmorStand))) {
          return false;
       } else {
-         return living.method_5805() && entity.method_5732() && self.method_5854() != entity
-            ? !(entity instanceof class_1657 player && (player.method_7325() || player.method_68878()))
+         return living.isAlive() && entity.isAttackable() && self.getVehicle() != entity
+            ? !(entity instanceof Player player && (player.isSpectator() || player.isCreative()))
             : false;
       }
    }
 
-   public static boolean isEnemy(class_746 self, class_1297 entity) {
+   public static boolean isEnemy(LocalPlayer self, Entity entity) {
       return isHittable(self, entity) && !isFriend(entity)
-         ? !(entity instanceof class_1657 player && (!self.method_7256(player) || self.field_3944.method_2871(player.method_5667()) == null))
+         ? !(entity instanceof Player player && (!self.canHarmPlayer(player) || self.connection.getPlayerInfo(player.getUUID()) == null))
          : false;
    }
 
-   public static boolean isHostile(class_1309 entity) {
-      return entity instanceof class_1569 && (!(entity instanceof class_5354) || entity instanceof class_1308 mob && mob.method_6510());
+   public static boolean isHostile(LivingEntity entity) {
+      return entity instanceof Enemy && (!(entity instanceof NeutralMob) || entity instanceof Mob mob && mob.isAggressive());
    }
 
-   public static float charge(class_1657 player) {
-      return player.method_7261(0.5F);
+   public static float charge(Player player) {
+      return player.getAttackStrengthScale(0.5F);
    }
 
-   public static int ticksToFull(class_1657 player) {
-      return Math.max(0, class_3532.method_15386((1.0F - charge(player)) * player.method_7279()));
+   public static int ticksToFull(Player player) {
+      return Math.max(0, Mth.ceil((1.0F - charge(player)) * player.getCurrentItemAttackStrengthDelay()));
    }
 
-   public static boolean airborne(class_1657 player) {
-      return !player.method_24828()
-         && !player.method_6101()
-         && !player.method_5799()
-         && !player.method_74025()
-         && !player.method_5765()
-         && !player.method_31549().field_7479
-         && !player.method_6128();
+   public static boolean airborne(Player player) {
+      return !player.onGround()
+         && !player.onClimbable()
+         && !player.isInWater()
+         && !player.isMobilityRestricted()
+         && !player.isPassenger()
+         && !player.getAbilities().flying
+         && !player.isFallFlying();
    }
 
-   public static boolean wouldCrit(class_1657 player, class_1297 target) {
-      return charge(player) > 0.9F && player.field_6017 > 0.0 && critStance(player, target);
+   public static boolean wouldCrit(Player player, Entity target) {
+      return charge(player) > 0.9F && player.fallDistance > 0.0 && critStance(player, target);
    }
 
-   public static boolean critStance(class_1657 player, class_1297 target) {
-      return !player.method_24828()
-         && !player.method_6101()
-         && !player.method_5799()
-         && !player.method_74025()
-         && !player.method_5765()
-         && !player.method_5624()
-         && target instanceof class_1309;
+   public static boolean critStance(Player player, Entity target) {
+      return !player.onGround()
+         && !player.onClimbable()
+         && !player.isInWater()
+         && !player.isMobilityRestricted()
+         && !player.isPassenger()
+         && !player.isSprinting()
+         && target instanceof LivingEntity;
    }
 
-   public static boolean shieldBlocks(class_1309 target, class_1657 attacker) {
-      return shieldBlocks(target, attacker, target.method_62821());
+   public static boolean shieldBlocks(LivingEntity target, Player attacker) {
+      return shieldBlocks(target, attacker, target.getItemBlockingWith());
    }
 
-   public static boolean shieldBlocks(class_1309 target, class_1657 attacker, class_1799 shield) {
+   public static boolean shieldBlocks(LivingEntity target, Player attacker, ItemStack shield) {
       if (shield == null) {
          return false;
       }
 
-      class_10707 blocks = (class_10707)shield.method_58694(class_9334.field_56396);
+      BlocksAttacks blocks = (BlocksAttacks)shield.get(DataComponents.BLOCKS_ATTACKS);
       if (blocks == null) {
          return false;
       }
 
-      class_1282 source = attacker.method_73183().method_48963().method_48802(attacker);
-      if (blocks.comp_3637().map(tag -> source.method_48789(tag)).orElse(false)) {
+      DamageSource source = attacker.level().damageSources().playerAttack(attacker);
+      if (blocks.comp_3637().map(tag -> source.is(tag)).orElse(false)) {
          return false;
       }
 
-      class_243 facing = target.method_5631(0.0F, target.method_5791());
-      class_243 toAttacker = attacker.method_73189().method_1020(target.method_73189());
-      class_243 flat = new class_243(toAttacker.field_1352, 0.0, toAttacker.field_1350).method_1029();
-      double angle = Math.acos(class_3532.method_15350(flat.method_1026(facing), -1.0, 1.0));
-      return blocks.method_67202(source, 1.0F, angle) > 0.0F;
+      Vec3 facing = target.calculateViewVector(0.0F, target.getYHeadRot());
+      Vec3 toAttacker = attacker.position().subtract(target.position());
+      Vec3 flat = new Vec3(toAttacker.x, 0.0, toAttacker.z).normalize();
+      double angle = Math.acos(Mth.clamp(flat.dot(facing), -1.0, 1.0));
+      return blocks.resolveBlockedDamage(source, 1.0F, angle) > 0.0F;
    }
 
-   public static boolean wastedOnShield(class_746 self, class_1309 target) {
-      if (shieldBlocks(target, self) && !shieldBroken(target) && !disablesShields(self.method_6047())) {
+   public static boolean wastedOnShield(LocalPlayer self, LivingEntity target) {
+      if (shieldBlocks(target, self) && !shieldBroken(target) && !disablesShields(self.getMainHandItem())) {
          ShieldBreakerModule breaker = ModuleRegistry.get(ShieldBreakerModule.class);
          if (breaker != null && breaker.isEnabled()) {
-            class_1661 inventory = self.method_31548();
+            Inventory inventory = self.getInventory();
 
-            for (int slot = 0; slot < class_1661.method_7368(); slot++) {
-               if (disablesShields(inventory.method_5438(slot))) {
+            for (int slot = 0; slot < Inventory.getSelectionSize(); slot++) {
+               if (disablesShields(inventory.getItem(slot))) {
                   return false;
                }
             }
@@ -370,40 +370,40 @@ public final class MeleeAttacks {
       }
    }
 
-   public static void noteShieldBroken(class_1309 target) {
-      shieldBrokenId = target.method_5628();
-      shieldBrokenUntil = target.field_6012 + 20;
+   public static void noteShieldBroken(LivingEntity target) {
+      shieldBrokenId = target.getId();
+      shieldBrokenUntil = target.tickCount + 20;
    }
 
-   public static boolean shieldBroken(class_1309 target) {
-      return target.method_5628() == shieldBrokenId && target.field_6012 < shieldBrokenUntil;
+   public static boolean shieldBroken(LivingEntity target) {
+      return target.getId() == shieldBrokenId && target.tickCount < shieldBrokenUntil;
    }
 
-   public static boolean disablesShields(class_1799 stack) {
-      class_10590 weapon = (class_10590)stack.method_58694(class_9334.field_55878);
+   public static boolean disablesShields(ItemStack stack) {
+      Weapon weapon = (Weapon)stack.get(DataComponents.WEAPON);
       return weapon != null && weapon.comp_3602() > 0.0F;
    }
 
-   public static boolean isMeleeWeapon(class_1799 stack) {
-      return stack.method_31573(class_3489.field_42611)
-         || stack.method_31573(class_3489.field_42612)
-         || stack.method_31573(class_3489.field_63257)
-         || stack.method_31574(class_1802.field_49814)
-         || stack.method_31574(class_1802.field_8547);
+   public static boolean isMeleeWeapon(ItemStack stack) {
+      return stack.is(ItemTags.SWORDS)
+         || stack.is(ItemTags.AXES)
+         || stack.is(ItemTags.SPEARS)
+         || stack.is(Items.MACE)
+         || stack.is(Items.TRIDENT);
    }
 
-   public static double attackDamage(class_1799 stack) {
+   public static double attackDamage(ItemStack stack) {
       double[] total = new double[]{0.0};
-      stack.method_57354(class_1304.field_6173, (attribute, modifier) -> {
-         if (class_5134.field_23721.equals(attribute) && modifier.comp_2450() == class_1323.field_6328) {
+      stack.forEachModifier(EquipmentSlot.MAINHAND, (attribute, modifier) -> {
+         if (Attributes.ATTACK_DAMAGE.equals(attribute) && modifier.comp_2450() == Operation.ADD_VALUE) {
             total[0] += modifier.comp_2449();
          }
       });
       return total[0];
    }
 
-   public static boolean isFriend(class_1297 entity) {
-      return entity instanceof class_1657 player && FriendStore.getInstance().isFriend(player.method_7334().name());
+   public static boolean isFriend(Entity entity) {
+      return entity instanceof Player player && FriendStore.getInstance().isFriend(player.getGameProfile().name());
    }
 
    public static int spread(int maxTicks) {

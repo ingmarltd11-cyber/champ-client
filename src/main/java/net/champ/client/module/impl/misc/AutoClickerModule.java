@@ -15,11 +15,11 @@ import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.class_304;
-import net.minecraft.class_310;
-import net.minecraft.class_3965;
-import net.minecraft.class_239.class_240;
-import net.minecraft.class_3675.class_306;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult.Type;
+import com.mojang.blaze3d.platform.InputConstants.Key;
 import org.lwjgl.glfw.GLFW;
 
 @Environment(EnvType.CLIENT)
@@ -47,9 +47,9 @@ public final class AutoClickerModule extends ClientModule {
    private final NumberSetting randomization = this.addSetting("randomization", new NumberSetting("Randomization", 15.0F, 0.0F, 40.0F).step(1.0F));
    private final BooleanSetting onlyWhileHeld = this.addSetting("only-while-held", new BooleanSetting("Only While Held", false));
    private final BooleanSetting breakBlocks = this.addSetting("break-blocks", new BooleanSetting("Break Blocks", true));
-   private final AutoClickerModule.Button leftButton = new AutoClickerModule.Button(true, this.left, this.leftMin, this.leftMax, mc -> mc.field_1690.field_1886);
+   private final AutoClickerModule.Button leftButton = new AutoClickerModule.Button(true, this.left, this.leftMin, this.leftMax, mc -> mc.options.keyAttack);
    private final AutoClickerModule.Button rightButton = new AutoClickerModule.Button(
-      false, this.right, this.rightMin, this.rightMax, mc -> mc.field_1690.field_1904
+      false, this.right, this.rightMin, this.rightMax, mc -> mc.options.keyUse
    );
 
    public AutoClickerModule() {
@@ -77,18 +77,18 @@ public final class AutoClickerModule extends ClientModule {
 
    @Override
    protected void onDisable() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       this.leftButton.handBack(mc);
       this.rightButton.handBack(mc);
    }
 
    @EventHandler
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       boolean allowed = MeleeAttacks.canAct(mc)
-         && mc.method_18506() == null
+         && mc.getOverlay() == null
          && !CombatMacroLock.heldByOther(this)
-         && !MeleeAttacks.actedThisTick(mc.field_1724);
+         && !MeleeAttacks.actedThisTick(mc.player);
       this.leftButton.tick(mc, allowed);
       this.rightButton.tick(mc, allowed);
    }
@@ -97,28 +97,28 @@ public final class AutoClickerModule extends ClientModule {
       return this.left.is("Click") || this.right.is("Click");
    }
 
-   private static boolean aimsAtBlock(class_310 mc) {
-      return mc.field_1765 instanceof class_3965 hit
-         && hit.method_17783() == class_240.field_1332
-         && mc.field_1687 != null
-         && !mc.field_1687.method_8320(hit.method_17777()).method_26215();
+   private static boolean aimsAtBlock(Minecraft mc) {
+      return mc.hitResult instanceof BlockHitResult hit
+         && hit.getType() == Type.BLOCK
+         && mc.level != null
+         && !mc.level.getBlockState(hit.getBlockPos()).isAir();
    }
 
-   private static boolean physicallyDown(class_310 mc, class_304 mapping) {
-      if (mapping.method_1415()) {
+   private static boolean physicallyDown(Minecraft mc, KeyMapping mapping) {
+      if (mapping.isUnbound()) {
          return false;
       }
 
-      class_306 key = KeyBindingHelper.getBoundKeyOf(mapping);
-      int value = key.method_1444();
+      Key key = KeyBindingHelper.getBoundKeyOf(mapping);
+      int value = key.getValue();
       if (value < 0) {
          return false;
       }
 
-      return switch (key.method_1442()) {
-         case field_1672 -> GLFW.glfwGetMouseButton(mc.method_22683().method_4490(), value) == 1;
-         case field_1668 -> ChampKeyPolling.isKeyDown(mc.method_22683(), value);
-         default -> mapping.method_1434();
+      return switch (key.getType()) {
+         case field_1672 -> GLFW.glfwGetMouseButton(mc.getWindow().handle(), value) == 1;
+         case field_1668 -> ChampKeyPolling.isKeyDown(mc.getWindow(), value);
+         default -> mapping.isDown();
       };
    }
 
@@ -132,7 +132,7 @@ public final class AutoClickerModule extends ClientModule {
       private final ModeSetting mode;
       private final NumberSetting minCps;
       private final NumberSetting maxCps;
-      private final Function<class_310, class_304> mapping;
+      private final Function<Minecraft, KeyMapping> mapping;
       private boolean driving;
       private boolean running;
       private double clock;
@@ -142,7 +142,7 @@ public final class AutoClickerModule extends ClientModule {
       private double pace;
       private double repaceAt;
 
-      Button(boolean isLeft, ModeSetting mode, NumberSetting minCps, NumberSetting maxCps, Function<class_310, class_304> mapping) {
+      Button(boolean isLeft, ModeSetting mode, NumberSetting minCps, NumberSetting maxCps, Function<Minecraft, KeyMapping> mapping) {
          this.isLeft = isLeft;
          this.mode = mode;
          this.minCps = minCps;
@@ -150,37 +150,37 @@ public final class AutoClickerModule extends ClientModule {
          this.mapping = mapping;
       }
 
-      void tick(class_310 mc, boolean allowed) {
+      void tick(Minecraft mc, boolean allowed) {
          if (allowed && !this.mode.is("Off")) {
-            class_304 key = this.mapping.apply(mc);
+            KeyMapping key = this.mapping.apply(mc);
             if (this.mode.is("Hold")) {
                this.running = false;
                this.driving = true;
-               key.method_23481(true);
-            } else if (!key.method_1415()
+               key.setDown(true);
+            } else if (!key.isUnbound()
                && (!AutoClickerModule.this.onlyWhileHeld.get() || AutoClickerModule.physicallyDown(mc, key))
                && (!this.isLeft || !AutoClickerModule.this.breakBlocks.get() || !AutoClickerModule.aimsAtBlock(mc))
-               && (this.isLeft || !mc.field_1724.method_6115())) {
+               && (this.isLeft || !mc.player.isUsingItem())) {
                if (!this.running) {
                   this.start();
                }
 
                this.clock += 50.0;
                if (this.isLeft) {
-                  mc.field_1771 = 0;
+                  mc.missTime = 0;
                }
 
-               class_306 bound = KeyBindingHelper.getBoundKeyOf(key);
+               Key bound = KeyBindingHelper.getBoundKeyOf(key);
 
                while (this.nextPress <= this.clock) {
-                  class_304.method_1420(bound);
+                  KeyMapping.click(bound);
                   double gap = this.nextGap();
                   this.releaseAt = this.nextPress + this.holdFor(gap);
                   this.nextPress += gap;
                }
 
                this.driving = true;
-               key.method_23481(this.clock < this.releaseAt);
+               key.setDown(this.clock < this.releaseAt);
             } else {
                this.handBack(mc);
             }
@@ -235,12 +235,12 @@ public final class AutoClickerModule extends ClientModule {
          return AutoClickerModule.clamp(hold, 20.0, Math.min(110.0, gap * 0.7));
       }
 
-      void handBack(class_310 mc) {
+      void handBack(Minecraft mc) {
          this.running = false;
          if (this.driving) {
             this.driving = false;
-            class_304 key = this.mapping.apply(mc);
-            key.method_23481(mc.field_1755 == null && AutoClickerModule.physicallyDown(mc, key));
+            KeyMapping key = this.mapping.apply(mc);
+            key.setDown(mc.screen == null && AutoClickerModule.physicallyDown(mc, key));
          }
       }
    }

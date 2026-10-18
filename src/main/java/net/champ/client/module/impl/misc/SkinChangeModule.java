@@ -21,12 +21,12 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.StringSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10538;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_7920;
-import net.minecraft.class_8685;
-import net.minecraft.class_12079.class_12081;
+import net.minecraft.client.renderer.texture.SkinTextureDownloader;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.player.PlayerModelType;
+import net.minecraft.world.entity.player.PlayerSkin;
+import net.minecraft.core.ClientAsset.Texture;
 
 @Environment(EnvType.CLIENT)
 public final class SkinChangeModule extends ClientModule {
@@ -88,7 +88,7 @@ public final class SkinChangeModule extends ClientModule {
    }
 
    private void loadFromUsername(String username, boolean isSelf) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       CompletableFuture.runAsync(
          () -> {
             try {
@@ -104,8 +104,8 @@ public final class SkinChangeModule extends ClientModule {
                   return;
                }
 
-               class_2960 id = isSelf ? class_2960.method_60655("champ", "skin/self") : class_2960.method_60655("champ", "skin/others");
-               Path cacheDir = mc.field_1697.toPath().resolve("cache/champ_skins");
+               Identifier id = isSelf ? Identifier.fromNamespaceAndPath("champ", "skin/self") : Identifier.fromNamespaceAndPath("champ", "skin/others");
+               Path cacheDir = mc.gameDirectory.toPath().resolve("cache/champ_skins");
 
                try {
                   Files.createDirectories(cacheDir);
@@ -145,10 +145,10 @@ public final class SkinChangeModule extends ClientModule {
       }
    }
 
-   private static CompletableFuture<class_12081> registerSkin(class_2960 id, Path cachePath, String url) {
-      class_310 mc = class_310.method_1551();
-      class_10538 downloader = new class_10538(mc.method_1487(), mc.method_1531(), mc);
-      return downloader.method_65861(id, cachePath, url, true);
+   private static CompletableFuture<Texture> registerSkin(Identifier id, Path cachePath, String url) {
+      Minecraft mc = Minecraft.getInstance();
+      SkinTextureDownloader downloader = new SkinTextureDownloader(mc.getProxy(), mc.getTextureManager(), mc);
+      return downloader.downloadAndRegisterSkin(id, cachePath, url, true);
    }
 
    private static String fetchUUID(String username) throws Exception {
@@ -203,7 +203,7 @@ public final class SkinChangeModule extends ClientModule {
             JsonObject skin = textures.getAsJsonObject("SKIN");
             JsonObject metadata = skin.has("metadata") ? skin.getAsJsonObject("metadata") : null;
             String model = metadata != null && metadata.has("model") ? metadata.get("model").getAsString() : null;
-            return new SkinChangeModule.SkinSource(skin.get("url").getAsString(), class_7920.method_74671(model));
+            return new SkinChangeModule.SkinSource(skin.get("url").getAsString(), PlayerModelType.byLegacyServicesName(model));
          }
       }
 
@@ -218,44 +218,44 @@ public final class SkinChangeModule extends ClientModule {
       return conn;
    }
 
-   public class_8685 skinFor(int entityId, class_8685 original) {
-      class_310 mc = class_310.method_1551();
-      return this.skinFor(mc.field_1724 != null && entityId == mc.field_1724.method_5628(), original);
+   public PlayerSkin skinFor(int entityId, PlayerSkin original) {
+      Minecraft mc = Minecraft.getInstance();
+      return this.skinFor(mc.player != null && entityId == mc.player.getId(), original);
    }
 
-   public class_8685 skinFor(UUID profileId, class_8685 original) {
-      class_310 mc = class_310.method_1551();
-      return this.skinFor(mc.field_1724 != null && mc.field_1724.method_5667().equals(profileId), original);
+   public PlayerSkin skinFor(UUID profileId, PlayerSkin original) {
+      Minecraft mc = Minecraft.getInstance();
+      return this.skinFor(mc.player != null && mc.player.getUUID().equals(profileId), original);
    }
 
-   private class_8685 skinFor(boolean isSelf, class_8685 original) {
+   private PlayerSkin skinFor(boolean isSelf, PlayerSkin original) {
       SkinChangeModule.CustomSkin custom = isSelf ? this.selfSkin : this.othersSkin;
       return custom == null ? original : (isSelf ? this.selfSwaps : this.othersSwaps).swap(original, custom);
    }
 
    @Environment(EnvType.CLIENT)
-   private record CustomSkin(class_12081 body, class_7920 model) {
+   private record CustomSkin(Texture body, PlayerModelType model) {
    }
 
    @Environment(EnvType.CLIENT)
-   private record SkinSource(String url, class_7920 model) {
+   private record SkinSource(String url, PlayerModelType model) {
    }
 
    @Environment(EnvType.CLIENT)
    private static final class SwapCache {
       private static final int MAX = 256;
-      private final Map<class_8685, class_8685> swapped = new IdentityHashMap<>();
+      private final Map<PlayerSkin, PlayerSkin> swapped = new IdentityHashMap<>();
       private SkinChangeModule.CustomSkin wearing;
 
-      class_8685 swap(class_8685 original, SkinChangeModule.CustomSkin custom) {
+      PlayerSkin swap(PlayerSkin original, SkinChangeModule.CustomSkin custom) {
          if (custom != this.wearing || this.swapped.size() >= 256) {
             this.swapped.clear();
             this.wearing = custom;
          }
 
-         class_8685 skin = this.swapped.get(original);
+         PlayerSkin skin = this.swapped.get(original);
          if (skin == null) {
-            skin = new class_8685(custom.body(), original.comp_1627(), original.comp_1628(), custom.model(), original.comp_1630());
+            skin = new PlayerSkin(custom.body(), original.comp_1627(), original.comp_1628(), custom.model(), original.comp_1630());
             this.swapped.put(original, skin);
          }
 

@@ -9,13 +9,13 @@ import net.champ.client.util.ShaderOverlay;
 import net.champ.client.util.TracerEngine;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_4184;
-import net.minecraft.class_4604;
-import net.minecraft.class_5636;
-import net.minecraft.class_761;
-import net.minecraft.class_12180.class_12181;
-import net.minecraft.class_758.class_4596;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.world.level.material.FogType;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.gizmos.Gizmos.TemporaryCollection;
+import net.minecraft.client.renderer.fog.FogRenderer.FogMode;
 import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -26,19 +26,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_761.class)
+@Mixin(LevelRenderer.class)
 public abstract class MixinLevelRenderer {
    @ModifyArg(
-      method = "method_22710",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/class_863;method_23099(Lnet/minecraft/class_4604;DDDF)V"),
+      method = "renderLevel",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/debug/DebugRenderer;emitGizmos(Lnet/minecraft/client/renderer/culling/Frustum;DDDF)V"),
       index = 0
    )
-   private class_4604 champ$onRenderLevel(
-      class_4604 frustum, @Local(argsOnly = true, ordinal = 0) Matrix4f viewRotation, @Local(argsOnly = true, ordinal = 1) Matrix4f projection
+   private Frustum champ$onRenderLevel(
+      Frustum frustum, @Local(argsOnly = true, ordinal = 0) Matrix4f viewRotation, @Local(argsOnly = true, ordinal = 1) Matrix4f projection
    ) {
-      float partialTick = class_310.method_1551().method_61966().method_60637(false);
+      float partialTick = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
       TracerEngine.beginFrame(viewRotation, projection);
-      class_12181 capture = ShaderOverlay.capture();
+      TemporaryCollection capture = ShaderOverlay.capture();
 
       try {
          Render3DEvent.dispatch(partialTick, frustum);
@@ -62,29 +62,29 @@ public abstract class MixinLevelRenderer {
    }
 
    @ModifyArg(
-      method = "method_22710",
+      method = "renderLevel",
       at = @At(
          value = "INVOKE",
-         target = "Lnet/minecraft/class_761;method_62199(Lnet/minecraft/class_9909;Lnet/minecraft/class_12075;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Matrix4f;)V"
+         target = "Lnet/minecraft/client/renderer/LevelRenderer;addLateDebugPass(Lcom/mojang/blaze3d/framegraph/FrameGraphBuilder;Lnet/minecraft/client/renderer/state/CameraRenderState;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Matrix4f;)V"
       ),
       index = 2
    )
-   private GpuBufferSlice champ$noFluidFogOnTop(GpuBufferSlice fog, @Local(argsOnly = true) class_4184 camera) {
+   private GpuBufferSlice champ$noFluidFogOnTop(GpuBufferSlice fog, @Local(argsOnly = true) Camera camera) {
       return champ$onTopFog(fog, camera);
    }
 
    @Unique
-   private static GpuBufferSlice champ$onTopFog(GpuBufferSlice fog, class_4184 camera) {
-      return camera.method_19334() == class_5636.field_27888
+   private static GpuBufferSlice champ$onTopFog(GpuBufferSlice fog, Camera camera) {
+      return camera.getFluidInCamera() == FogType.NONE
          ? fog
-         : ((AccessorGameRenderer)class_310.method_1551().field_1773).champ$getFogRenderer().method_71109(class_4596.field_60101);
+         : ((AccessorGameRenderer)Minecraft.getInstance().gameRenderer).champ$getFogRenderer().getBuffer(FogMode.NONE);
    }
 
-   @Inject(method = "method_22710", at = @At("TAIL"))
+   @Inject(method = "renderLevel", at = @At("TAIL"))
    private void champ$overlayAfterShaderPack(
       CallbackInfo ci,
       @Local(argsOnly = true) GpuBufferSlice fog,
-      @Local(argsOnly = true) class_4184 camera,
+      @Local(argsOnly = true) Camera camera,
       @Local(argsOnly = true, ordinal = 0) Matrix4f viewRotation,
       @Local(argsOnly = true, ordinal = 1) Matrix4f projection
    ) {
@@ -93,15 +93,15 @@ public abstract class MixinLevelRenderer {
       }
    }
 
-   @Inject(method = "method_22710", at = @At("TAIL"))
-   private void champ$worldFogForHand(CallbackInfo ci, @Local(argsOnly = true) GpuBufferSlice fog, @Local(argsOnly = true) class_4184 camera) {
-      if (camera.method_19334() != class_5636.field_27888) {
+   @Inject(method = "renderLevel", at = @At("TAIL"))
+   private void champ$worldFogForHand(CallbackInfo ci, @Local(argsOnly = true) GpuBufferSlice fog, @Local(argsOnly = true) Camera camera) {
+      if (camera.getFluidInCamera() != FogType.NONE) {
          RenderSystem.setShaderFog(fog);
       }
    }
 
-   @Inject(method = "method_43788", at = @At("HEAD"), cancellable = true)
-   private void champ$keepSkyDuringBlindnessDarkness(class_4184 camera, CallbackInfoReturnable<Boolean> cir) {
+   @Inject(method = "doesMobEffectBlockSky", at = @At("HEAD"), cancellable = true)
+   private void champ$keepSkyDuringBlindnessDarkness(Camera camera, CallbackInfoReturnable<Boolean> cir) {
       if (NoRenderModule.hideBlindnessDarkness()) {
          cir.setReturnValue(false);
       }

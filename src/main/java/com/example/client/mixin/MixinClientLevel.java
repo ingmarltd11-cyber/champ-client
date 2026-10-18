@@ -4,25 +4,25 @@ import net.champ.client.event.impl.BlockUpdateEvent;
 import net.champ.client.event.impl.WorldEntityAddEvent;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_2338;
-import net.minecraft.class_2680;
-import net.minecraft.class_638;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.multiplayer.ClientLevel;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_638.class)
+@Mixin(ClientLevel.class)
 public abstract class MixinClientLevel {
-   @Inject(method = "method_53875", at = @At("HEAD"))
-   private void champ$onEntityAdd(class_1297 entity, CallbackInfo ci) {
+   @Inject(method = "addEntity", at = @At("HEAD"))
+   private void champ$onEntityAdd(Entity entity, CallbackInfo ci) {
       WorldEntityAddEvent.dispatch(entity);
    }
 
-   @Inject(method = "method_8413", at = @At("HEAD"))
-   private void champ$onBlockUpdated(class_2338 pos, class_2680 oldState, class_2680 newState, int flags, CallbackInfo ci) {
+   @Inject(method = "sendBlockUpdated", at = @At("HEAD"))
+   private void champ$onBlockUpdated(BlockPos pos, BlockState oldState, BlockState newState, int flags, CallbackInfo ci) {
       BlockUpdateEvent.dispatch(pos, oldState, newState);
    }
 }

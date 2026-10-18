@@ -2,14 +2,14 @@ package com.example.client.mixin;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_11419;
-import net.minecraft.class_11473;
+import net.minecraft.server.dialog.Dialog;
+import net.minecraft.client.gui.screens.dialog.DialogScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_11473.class)
+@Mixin(DialogScreen.class)
 public interface AccessorOrderDialogScreen {
-   @Accessor("field_60761")
-   class_11419 champ$dialog();
+   @Accessor("dialog")
+   Dialog champ$dialog();
 }

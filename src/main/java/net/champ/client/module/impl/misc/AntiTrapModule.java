@@ -10,11 +10,11 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.BooleanSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_1299;
-import net.minecraft.class_310;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class AntiTrapModule extends ClientModule {
@@ -23,7 +23,7 @@ public final class AntiTrapModule extends ClientModule {
    private final BooleanSetting preventSpawn = this.addSetting("prevent-spawn", new BooleanSetting("Prevent Spawn", true));
    private final BooleanSetting armorStands = this.addSetting("armor-stands", new BooleanSetting("Armor Stands", true));
    private final BooleanSetting chestMinecarts = this.addSetting("chest-minecarts", new BooleanSetting("Chest Minecarts", true));
-   private final List<class_1297> pendingSpawns = new ArrayList<>();
+   private final List<Entity> pendingSpawns = new ArrayList<>();
 
    public AntiTrapModule() {
       super("anti-trap", "Anti Trap", "Allows you to escape from armor stands and chest minecarts.", ModuleCategory.DONUT);
@@ -47,7 +47,7 @@ public final class AntiTrapModule extends ClientModule {
 
    private void onEntityAdded(WorldEntityAddEvent event) {
       if (this.preventSpawn.get()) {
-         class_1297 entity = event.entity;
+         Entity entity = event.entity;
          if (this.isTrapEntity(entity)) {
             this.pendingSpawns.add(entity);
          }
@@ -55,16 +55,16 @@ public final class AntiTrapModule extends ClientModule {
    }
 
    private void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_638 level = mc.field_1687;
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      ClientLevel level = mc.level;
+      LocalPlayer player = mc.player;
       if (level != null && player != null) {
          if (!this.pendingSpawns.isEmpty()) {
-            for (class_1297 entity : this.pendingSpawns) {
-               if (!entity.method_31481() && entity.method_73183() == level) {
-                  class_1297 idHolder = level.method_8469(entity.method_5628());
+            for (Entity entity : this.pendingSpawns) {
+               if (!entity.isRemoved() && entity.level() == level) {
+                  Entity idHolder = level.getEntity(entity.getId());
                   if ((idHolder == null || idHolder == entity) && this.isTrapEntity(entity) && canRemove(mc, player, entity)) {
-                     entity.method_31472();
+                     entity.discard();
                   }
                }
             }
@@ -72,9 +72,9 @@ public final class AntiTrapModule extends ClientModule {
             this.pendingSpawns.clear();
          }
 
-         if (player.field_6012 % 20 == 0) {
-            for (class_1297 entity : this.collectTrapEntities(mc, level, player)) {
-               entity.method_31472();
+         if (player.tickCount % 20 == 0) {
+            for (Entity entity : this.collectTrapEntities(mc, level, player)) {
+               entity.discard();
             }
          }
       } else {
@@ -83,13 +83,13 @@ public final class AntiTrapModule extends ClientModule {
    }
 
    private void removeTrapEntities() {
-      class_310 mc = class_310.method_1551();
-      class_638 level = mc.field_1687;
+      Minecraft mc = Minecraft.getInstance();
+      ClientLevel level = mc.level;
       if (level != null) {
-         List<class_1297> traps = this.collectTrapEntities(mc, level, mc.field_1724);
+         List<Entity> traps = this.collectTrapEntities(mc, level, mc.player);
 
-         for (class_1297 entity : traps) {
-            entity.method_31472();
+         for (Entity entity : traps) {
+            entity.discard();
          }
 
          if (!traps.isEmpty()) {
@@ -98,10 +98,10 @@ public final class AntiTrapModule extends ClientModule {
       }
    }
 
-   private List<class_1297> collectTrapEntities(class_310 mc, class_638 level, class_746 player) {
-      List<class_1297> traps = new ArrayList<>();
+   private List<Entity> collectTrapEntities(Minecraft mc, ClientLevel level, LocalPlayer player) {
+      List<Entity> traps = new ArrayList<>();
 
-      for (class_1297 entity : level.method_18112()) {
+      for (Entity entity : level.entitiesForRendering()) {
          if (this.isTrapEntity(entity) && canRemove(mc, player, entity)) {
             traps.add(entity);
          }
@@ -110,20 +110,20 @@ public final class AntiTrapModule extends ClientModule {
       return traps;
    }
 
-   private boolean isTrapEntity(class_1297 entity) {
+   private boolean isTrapEntity(Entity entity) {
       if (entity == null) {
          return false;
       }
 
-      class_1299<?> type = entity.method_5864();
-      return this.armorStands.get() && type == class_1299.field_6131 ? true : this.chestMinecarts.get() && type == class_1299.field_6126;
+      EntityType<?> type = entity.getType();
+      return this.armorStands.get() && type == EntityType.ARMOR_STAND ? true : this.chestMinecarts.get() && type == EntityType.CHEST_MINECART;
    }
 
-   private static boolean canRemove(class_310 mc, class_746 player, class_1297 entity) {
-      if (entity == mc.method_1560()) {
+   private static boolean canRemove(Minecraft mc, LocalPlayer player, Entity entity) {
+      if (entity == mc.getCameraEntity()) {
          return false;
       } else {
-         return player == null ? true : entity != player && !entity.method_5821(player);
+         return player == null ? true : entity != player && !entity.hasIndirectPassenger(player);
       }
    }
 }

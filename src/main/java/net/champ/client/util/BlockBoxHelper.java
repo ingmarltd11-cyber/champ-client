@@ -2,8 +2,8 @@ package net.champ.client.util;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2338;
-import net.minecraft.class_238;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
 
 @Environment(EnvType.CLIENT)
 public final class BlockBoxHelper {
@@ -14,12 +14,12 @@ public final class BlockBoxHelper {
    private BlockBoxHelper() {
    }
 
-   public static class_238 scaledBlockBox(class_2338 pos, float size) {
+   public static AABB scaledBlockBox(BlockPos pos, float size) {
       float clamped = Math.max(0.1F, Math.min(2.0F, size));
       double halfSize = clamped * 0.5;
-      double centerX = pos.method_10263() + 0.5;
-      double centerY = pos.method_10264() + 0.5;
-      double centerZ = pos.method_10260() + 0.5;
-      return new class_238(centerX - halfSize, centerY - halfSize, centerZ - halfSize, centerX + halfSize, centerY + halfSize, centerZ + halfSize);
+      double centerX = pos.getX() + 0.5;
+      double centerY = pos.getY() + 0.5;
+      double centerZ = pos.getZ() + 0.5;
+      return new AABB(centerX - halfSize, centerY - halfSize, centerZ - halfSize, centerX + halfSize, centerY + halfSize, centerZ + halfSize);
    }
 }

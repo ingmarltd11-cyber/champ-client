@@ -6,9 +6,9 @@ import net.champ.client.imgui.ImGuiManager;
 import net.champ.client.util.TracerEngine;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_4184;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Camera;
 
 @Environment(EnvType.CLIENT)
 public final class WorldLabel {
@@ -18,13 +18,13 @@ public final class WorldLabel {
    private WorldLabel() {
    }
 
-   public static float[] project(class_310 mc, class_243 world, float screenW, float screenH) {
-      class_4184 camera = mc.field_1773.method_19418();
-      if (camera != null && camera.method_19332() && TracerEngine.isInFront(camera, world)) {
-         class_243 ndc = mc.field_1773.method_70778(world);
-         if (Double.isFinite(ndc.field_1352) && Double.isFinite(ndc.field_1351)) {
-            float x = (float)(ndc.field_1352 + 1.0) * 0.5F * screenW;
-            float y = (float)(1.0 - ndc.field_1351) * 0.5F * screenH;
+   public static float[] project(Minecraft mc, Vec3 world, float screenW, float screenH) {
+      Camera camera = mc.gameRenderer.getMainCamera();
+      if (camera != null && camera.isInitialized() && TracerEngine.isInFront(camera, world)) {
+         Vec3 ndc = mc.gameRenderer.projectPointToScreen(world);
+         if (Double.isFinite(ndc.x) && Double.isFinite(ndc.y)) {
+            float x = (float)(ndc.x + 1.0) * 0.5F * screenW;
+            float y = (float)(1.0 - ndc.y) * 0.5F * screenH;
             return !(x < -200.0F) && !(x > screenW + 200.0F) && !(y < -100.0F) && !(y > screenH + 100.0F) ? new float[]{x, y} : null;
          } else {
             return null;

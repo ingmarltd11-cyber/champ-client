@@ -8,9 +8,9 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class AutoJumpModule extends ClientModule {
@@ -28,24 +28,24 @@ public final class AutoJumpModule extends ClientModule {
    }
 
    private void onPreTick(TickEvent event) {
-      class_746 player = class_310.method_1551().field_1724;
+      LocalPlayer player = Minecraft.getInstance().player;
       if (player != null) {
-         if (player.method_24828() && !player.method_5715() && this.shouldJump(player)) {
+         if (player.onGround() && !player.isShiftKeyDown() && this.shouldJump(player)) {
             if (this.mode.is("Jump")) {
-               player.method_6043();
+               player.jumpFromGround();
             } else {
-               class_243 velocity = player.method_18798();
-               player.method_18800(velocity.field_1352, this.velocityHeight.get(), velocity.field_1350);
+               Vec3 velocity = player.getDeltaMovement();
+               player.setDeltaMovement(velocity.x, this.velocityHeight.get(), velocity.z);
             }
          }
       }
    }
 
-   private boolean shouldJump(class_746 player) {
-      boolean moving = player.field_6250 != 0.0F || player.field_6212 != 0.0F;
+   private boolean shouldJump(LocalPlayer player) {
+      boolean moving = player.zza != 0.0F || player.xxa != 0.0F;
 
       return switch (this.jumpIf.get()) {
-         case "Sprinting" -> player.method_5624() && moving;
+         case "Sprinting" -> player.isSprinting() && moving;
          case "Walking" -> moving;
          default -> true;
       };

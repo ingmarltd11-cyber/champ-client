@@ -13,9 +13,9 @@ import net.champ.client.module.setting.BlockColorListSetting;
 import net.champ.client.module.setting.BooleanSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2248;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class BlockEspModule extends ClientModule implements ChunkScanner.Consumer {
@@ -25,14 +25,14 @@ public final class BlockEspModule extends ClientModule implements ChunkScanner.C
    private final BlockLayer layer = new BlockLayer(new BlockLayer.Palette() {
       @Override
       public int color(Object kind) {
-         return BlockEspModule.this.sBlockColors.colorArgb((class_2248)kind);
+         return BlockEspModule.this.sBlockColors.colorArgb((Block)kind);
       }
 
       @Override
       public int tracerColor(Object kind) {
-         return BlockEspModule.this.sBlockColors.tracerColorArgb((class_2248)kind);
+         return BlockEspModule.this.sBlockColors.tracerColorArgb((Block)kind);
       }
-   }, () -> class_310.method_1551().field_1687 == null ? null : class_310.method_1551().field_1687.method_27983());
+   }, () -> Minecraft.getInstance().level == null ? null : Minecraft.getInstance().level.dimension());
    private Set<String> scannedIds = Set.of();
 
    public BlockEspModule() {
@@ -68,13 +68,13 @@ public final class BlockEspModule extends ClientModule implements ChunkScanner.C
    }
 
    @Override
-   public boolean wants(class_2680 state) {
-      return this.sBlockColors.isEnabled(state.method_26204());
+   public boolean wants(BlockState state) {
+      return this.sBlockColors.isEnabled(state.getBlock());
    }
 
    @Override
-   public void found(long pos, class_2680 state) {
-      this.layer.put(pos, state.method_26204());
+   public void found(long pos, BlockState state) {
+      this.layer.put(pos, state.getBlock());
    }
 
    @Override

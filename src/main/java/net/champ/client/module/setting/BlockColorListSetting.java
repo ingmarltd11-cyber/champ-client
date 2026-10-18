@@ -18,9 +18,9 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2248;
-import net.minecraft.class_2960;
-import net.minecraft.class_7923;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.resources.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 public final class BlockColorListSetting extends Setting {
@@ -40,8 +40,8 @@ public final class BlockColorListSetting extends Setting {
    private long selectionVersion = -1L;
    private Map<String, Integer> enabledLookup;
    private Map<String, Integer> tracerLookup;
-   private Reference2IntOpenHashMap<class_2248> enabledByBlock;
-   private Reference2IntOpenHashMap<class_2248> tracerByBlock;
+   private Reference2IntOpenHashMap<Block> enabledByBlock;
+   private Reference2IntOpenHashMap<Block> tracerByBlock;
    private long lookupVersion = -1L;
    private long currentVersion = 0L;
    private static final String WALL_BANNER = "_wall_banner";
@@ -251,15 +251,15 @@ public final class BlockColorListSetting extends Setting {
    private void rebuildLookup() {
       Map<String, Integer> map = new HashMap<>();
       Map<String, Integer> tracers = new HashMap<>();
-      Reference2IntOpenHashMap<class_2248> byBlock = new Reference2IntOpenHashMap();
-      Reference2IntOpenHashMap<class_2248> tracerByBlockMap = new Reference2IntOpenHashMap();
+      Reference2IntOpenHashMap<Block> byBlock = new Reference2IntOpenHashMap();
+      Reference2IntOpenHashMap<Block> tracerByBlockMap = new Reference2IntOpenHashMap();
 
       for (BlockColorListSetting.BlockEntry entry : this.entriesInternal()) {
          if (entry.enabled().get()) {
             BlockColorListSetting.BlockEntry look = this.colorSource(entry);
             int argb = rgbaToArgb(look.color());
             map.put(entry.id(), argb);
-            class_2248 block = resolveBlock(entry.id());
+            Block block = resolveBlock(entry.id());
             if (block != null) {
                byBlock.put(block, argb);
             }
@@ -291,9 +291,9 @@ public final class BlockColorListSetting extends Setting {
       return banner != null && banner.enabled().get() ? banner : entry;
    }
 
-   private static class_2248 resolveBlock(String id) {
-      class_2960 key = class_2960.method_12829(id);
-      return key == null ? null : (class_2248)class_7923.field_41175.method_17966(key).orElse(null);
+   private static Block resolveBlock(String id) {
+      Identifier key = Identifier.tryParse(id);
+      return key == null ? null : (Block)BuiltInRegistries.BLOCK.getOptional(key).orElse(null);
    }
 
    private Map<String, Integer> tracerLookup() {
@@ -304,7 +304,7 @@ public final class BlockColorListSetting extends Setting {
       return this.tracerLookup;
    }
 
-   private Reference2IntOpenHashMap<class_2248> blockLookup() {
+   private Reference2IntOpenHashMap<Block> blockLookup() {
       if (this.enabledByBlock == null || this.lookupVersion != this.currentVersion) {
          this.rebuildLookup();
       }
@@ -312,7 +312,7 @@ public final class BlockColorListSetting extends Setting {
       return this.enabledByBlock;
    }
 
-   private Reference2IntOpenHashMap<class_2248> tracerBlockLookup() {
+   private Reference2IntOpenHashMap<Block> tracerBlockLookup() {
       if (this.tracerByBlock == null || this.lookupVersion != this.currentVersion) {
          this.rebuildLookup();
       }
@@ -320,16 +320,16 @@ public final class BlockColorListSetting extends Setting {
       return this.tracerByBlock;
    }
 
-   public boolean isEnabled(class_2248 block) {
+   public boolean isEnabled(Block block) {
       return this.blockLookup().containsKey(block);
    }
 
-   public Set<class_2248> enabledBlocks() {
+   public Set<Block> enabledBlocks() {
       return Collections.unmodifiableSet(this.blockLookup().keySet());
    }
 
-   public int colorArgb(class_2248 block) {
-      Reference2IntOpenHashMap<class_2248> map = this.blockLookup();
+   public int colorArgb(Block block) {
+      Reference2IntOpenHashMap<Block> map = this.blockLookup();
       return map.containsKey(block) ? map.getInt(block) : rgbaToArgb(this.defaultColor);
    }
 
@@ -341,8 +341,8 @@ public final class BlockColorListSetting extends Setting {
       return this.lookup().keySet();
    }
 
-   public int tracerColorArgb(class_2248 block) {
-      Reference2IntOpenHashMap<class_2248> map = this.tracerBlockLookup();
+   public int tracerColorArgb(Block block) {
+      Reference2IntOpenHashMap<Block> map = this.tracerBlockLookup();
       return map.containsKey(block) ? map.getInt(block) : 0;
    }
 
@@ -609,12 +609,12 @@ public final class BlockColorListSetting extends Setting {
    private static List<BlockColorListSetting.BlockEntry> buildEntries(Predicate<String> enabledByDefault) {
       List<BlockColorListSetting.BlockEntry> e = new ArrayList<>();
 
-      for (class_2248 block : class_7923.field_41175) {
-         if (!block.method_9564().method_26215()) {
-            class_2960 key = class_7923.field_41175.method_10221(block);
+      for (Block block : BuiltInRegistries.BLOCK) {
+         if (!block.defaultBlockState().isAir()) {
+            Identifier key = BuiltInRegistries.BLOCK.getKey(block);
             if (key != null) {
                String id = key.toString();
-               e.add(entry(id, prettify(key.method_12832()), "Blocks", enabledByDefault.test(id), 1.0F, 1.0F, 1.0F, 1.0F));
+               e.add(entry(id, prettify(key.getPath()), "Blocks", enabledByDefault.test(id), 1.0F, 1.0F, 1.0F, 1.0F));
             }
          }
       }
@@ -629,11 +629,11 @@ public final class BlockColorListSetting extends Setting {
    private static List<BlockColorListSetting.BlockEntry> buildBlockEntityDebugEntries() {
       List<BlockColorListSetting.BlockEntry> e = new ArrayList<>();
 
-      for (class_2248 block : class_7923.field_41175) {
-         if (!block.method_9564().method_26215()) {
-            class_2960 key = class_7923.field_41175.method_10221(block);
+      for (Block block : BuiltInRegistries.BLOCK) {
+         if (!block.defaultBlockState().isAir()) {
+            Identifier key = BuiltInRegistries.BLOCK.getKey(block);
             if (key != null) {
-               String path = key.method_12832();
+               String path = key.getPath();
                int rgb = blockEntityDebugRgb(path);
                boolean enabled = rgb != -1 || blockEntityDebugPicked(path);
                e.add(entry(key.toString(), prettify(path), "Blocks", enabled, rgb == -1 ? 16777215 : rgb, true));

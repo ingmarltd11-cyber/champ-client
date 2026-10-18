@@ -22,15 +22,15 @@ import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.metadata.ModDependency;
 import net.fabricmc.loader.api.metadata.ModMetadata;
 import net.fabricmc.loader.api.metadata.ModDependency.Kind;
-import net.minecraft.class_2477;
-import net.minecraft.class_2561;
-import net.minecraft.class_2960;
-import net.minecraft.class_304;
-import net.minecraft.class_310;
-import net.minecraft.class_315;
-import net.minecraft.class_3298;
-import net.minecraft.class_5348;
-import net.minecraft.class_5481;
+import net.minecraft.locale.Language;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
+import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.util.FormattedCharSequence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,9 +44,9 @@ public final class TranslationGuard {
    private static volatile Set<String> hidden;
    private static volatile Set<String> ourMods;
    private static volatile TranslationGuard.Snapshot snapshot;
-   private static class_2477 wrapped;
+   private static Language wrapped;
    private static Set<String> guardedKeys;
-   private static class_2477 guarded;
+   private static Language guarded;
 
    private TranslationGuard() {
    }
@@ -55,7 +55,7 @@ public final class TranslationGuard {
       return activeCount > 0 && DEPTH.get()[0] > 0;
    }
 
-   public static String plain(class_2561 component) {
+   public static String plain(Component component) {
       enter();
 
       try {
@@ -75,7 +75,7 @@ public final class TranslationGuard {
       }
    }
 
-   public static synchronized class_2477 language(class_2477 real) {
+   public static synchronized Language language(Language real) {
       if (real == null) {
          return null;
       }
@@ -90,16 +90,16 @@ public final class TranslationGuard {
       return guarded;
    }
 
-   public static class_2561 keybind(String name) {
-      class_304 mapping = class_304.method_65807(name);
-      return (class_2561)(mapping != null && !hidden().contains(name) ? mapping.method_16007() : class_2561.method_43471(name));
+   public static Component keybind(String name) {
+      KeyMapping mapping = KeyMapping.get(name);
+      return (Component)(mapping != null && !hidden().contains(name) ? mapping.getTranslatedKeyMessage() : Component.translatable(name));
    }
 
    public static void beginLoad() {
       LOAD.set(new TranslationGuard.Load());
    }
 
-   public static BiConsumer<String, String> tap(class_3298 resource, BiConsumer<String, String> output) {
+   public static BiConsumer<String, String> tap(Resource resource, BiConsumer<String, String> output) {
       TranslationGuard.Load load = LOAD.get();
       if (load == null) {
          return output;
@@ -142,8 +142,8 @@ public final class TranslationGuard {
       }
    }
 
-   private static boolean ours(class_3298 resource) {
-      return resource.method_45304() instanceof ModPackResources pack ? ours(pack.getFabricModMetadata()) : ourMods().contains(resource.method_14480());
+   private static boolean ours(Resource resource) {
+      return resource.source() instanceof ModPackResources pack ? ours(pack.getFabricModMetadata()) : ourMods().contains(resource.sourcePackId());
    }
 
    private static Set<String> ourMods() {
@@ -186,13 +186,13 @@ public final class TranslationGuard {
             }
          }
 
-         class_315 options = class_310.method_1551().field_1690;
+         Options options = Minecraft.getInstance().options;
          if (options != null) {
-            for (class_304 mapping : options.field_1839) {
-               class_2960 category = mapping.method_1423().comp_4879();
-               if (namespaces.contains(category.method_12836())) {
-                  collected.add(mapping.method_1431());
-                  collected.add("key.category." + category.method_12836() + "." + category.method_12832());
+            for (KeyMapping mapping : options.keyMappings) {
+               Identifier category = mapping.getCategory().comp_4879();
+               if (namespaces.contains(category.getNamespace())) {
+                  collected.add(mapping.getName());
+                  collected.add("key.category." + category.getNamespace() + "." + category.getPath());
                }
             }
          }
@@ -258,11 +258,11 @@ public final class TranslationGuard {
    }
 
    @Environment(EnvType.CLIENT)
-   private static final class GuardedLanguage extends class_2477 {
-      private final class_2477 real;
+   private static final class GuardedLanguage extends Language {
+      private final Language real;
       private final Set<String> hidden;
 
-      GuardedLanguage(class_2477 real, Set<String> hidden) {
+      GuardedLanguage(Language real, Set<String> hidden) {
          this.real = real;
          this.hidden = hidden;
       }
@@ -270,27 +270,27 @@ public final class TranslationGuard {
       public String method_4679(String key, String fallback) {
          TranslationGuard.Snapshot current = TranslationGuard.snapshot;
          if (current != null) {
-            return current.provided().contains(key) ? current.clean().getOrDefault(key, fallback) : this.real.method_4679(key, fallback);
+            return current.provided().contains(key) ? current.clean().getOrDefault(key, fallback) : this.real.getOrDefault(key, fallback);
          } else {
-            return this.hidden.contains(key) ? fallback : this.real.method_4679(key, fallback);
+            return this.hidden.contains(key) ? fallback : this.real.getOrDefault(key, fallback);
          }
       }
 
       public boolean method_4678(String key) {
          TranslationGuard.Snapshot current = TranslationGuard.snapshot;
          if (current != null) {
-            return current.provided().contains(key) ? current.clean().containsKey(key) : this.real.method_4678(key);
+            return current.provided().contains(key) ? current.clean().containsKey(key) : this.real.has(key);
          } else {
-            return !this.hidden.contains(key) && this.real.method_4678(key);
+            return !this.hidden.contains(key) && this.real.has(key);
          }
       }
 
       public boolean method_29428() {
-         return this.real.method_29428();
+         return this.real.isDefaultRightToLeft();
       }
 
-      public class_5481 method_30934(class_5348 text) {
-         return this.real.method_30934(text);
+      public FormattedCharSequence method_30934(FormattedText text) {
+         return this.real.getVisualOrder(text);
       }
    }
 

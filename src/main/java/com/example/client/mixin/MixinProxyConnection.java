@@ -10,15 +10,15 @@ import java.net.InetSocketAddress;
 import net.champ.client.proxy.ProxyRouting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2535;
+import net.minecraft.network.Connection;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_2535.class)
+@Mixin(Connection.class)
 public abstract class MixinProxyConnection {
    @WrapOperation(
-      method = "method_52271",
+      method = "connect",
       at = @At(value = "INVOKE", target = "Lio/netty/bootstrap/Bootstrap;handler(Lio/netty/channel/ChannelHandler;)Lio/netty/bootstrap/AbstractBootstrap;")
    )
    private static AbstractBootstrap<?, ?> champ$routeThroughProxy(

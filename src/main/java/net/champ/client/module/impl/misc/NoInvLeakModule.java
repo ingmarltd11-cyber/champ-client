@@ -11,13 +11,13 @@ import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.ModeSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1304;
-import net.minecraft.class_1661;
-import net.minecraft.class_1735;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class NoInvLeakModule extends ClientModule {
@@ -26,7 +26,7 @@ public final class NoInvLeakModule extends ClientModule {
    private static final String STYLE_EMPTY = "Empty";
    private static final int OFFHAND_SEED = 10;
    private static volatile NoInvLeakModule active;
-   private static class_1799 totem;
+   private static ItemStack totem;
    private final ModeSetting style = this.addSetting("style", new ModeSetting("Style", "Totem", "Totem", "Random", "Empty"));
    private final BooleanSetting fillEmpty = this.addSetting("fill-empty", new BooleanSetting("Fill Empty Slots", true));
    private final BooleanSetting streamOnly = this.addSetting("stream-only", new BooleanSetting("Stream Only", false));
@@ -70,13 +70,13 @@ public final class NoInvLeakModule extends ClientModule {
       StreamOverlay.stop();
    }
 
-   public static class_1799 hotbar(class_1799 stack, int x, int y, int seed) {
+   public static ItemStack hotbar(ItemStack stack, int x, int y, int seed) {
       NoInvLeakModule module = active;
       if (module != null && stack != null) {
          int slot = seed == 10 ? 40 : (seed >= 1 && seed <= 9 ? seed - 1 : 41);
          if (module.streamOverlaying()) {
             StreamOverlay.hotbar(slot, x, y, stack);
-            return class_1799.field_8037;
+            return ItemStack.EMPTY;
          } else {
             return module.shown(stack, slot);
          }
@@ -85,38 +85,38 @@ public final class NoInvLeakModule extends ClientModule {
       }
    }
 
-   public static class_1799 container(class_1799 stack, class_1735 slot, int x, int y, boolean hovered) {
+   public static ItemStack container(ItemStack stack, Slot slot, int x, int y, boolean hovered) {
       NoInvLeakModule module = active;
       if (module == null || stack == null) {
          return stack;
       } else if (module.streamOverlaying()) {
-         StreamOverlay.container(slot.method_34266(), x, y, stack, hovered);
-         return class_1799.field_8037;
+         StreamOverlay.container(slot.getContainerSlot(), x, y, stack, hovered);
+         return ItemStack.EMPTY;
       } else {
-         return module.shown(stack, slot.method_34266());
+         return module.shown(stack, slot.getContainerSlot());
       }
    }
 
-   public static class_1799 carried(class_1799 stack, int x, int y) {
+   public static ItemStack carried(ItemStack stack, int x, int y) {
       NoInvLeakModule module = active;
-      if (module == null || stack == null || stack.method_7960()) {
+      if (module == null || stack == null || stack.isEmpty()) {
          return stack;
       } else if (module.streamOverlaying()) {
          StreamOverlay.carried(stack, x, y);
-         return class_1799.field_8037;
+         return ItemStack.EMPTY;
       } else {
          return module.fake(stack, 41);
       }
    }
 
-   public static class_1799 shownInHud(class_1799 stack, class_1304 slot) {
+   public static ItemStack shownInHud(ItemStack stack, EquipmentSlot slot) {
       NoInvLeakModule module = active;
-      return module != null && module.hud.get() && stack != null && !stack.method_7960() ? module.fake(stack, inventorySlot(slot)) : stack;
+      return module != null && module.hud.get() && stack != null && !stack.isEmpty() ? module.fake(stack, inventorySlot(slot)) : stack;
    }
 
-   public static class_1799 fakeFor(int slot) {
+   public static ItemStack fakeFor(int slot) {
       NoInvLeakModule module = active;
-      return module == null ? class_1799.field_8037 : module.fake(class_1799.field_8037, slot);
+      return module == null ? ItemStack.EMPTY : module.fake(ItemStack.EMPTY, slot);
    }
 
    public static boolean fillsEmpty() {
@@ -133,8 +133,8 @@ public final class NoInvLeakModule extends ClientModule {
       return this.streamOnly.get() && StreamOverlay.usable();
    }
 
-   public static boolean ownSlot(class_1735 slot) {
-      return active != null && slot != null && slot.field_7871 instanceof class_1661;
+   public static boolean ownSlot(Slot slot) {
+      return active != null && slot != null && slot.container instanceof Inventory;
    }
 
    public static boolean hidesTooltips() {
@@ -162,28 +162,28 @@ public final class NoInvLeakModule extends ClientModule {
       return module != null && !module.style.is("Empty");
    }
 
-   private class_1799 shown(class_1799 stack, int slot) {
-      return stack.method_7960() && !this.fillEmpty.get() ? stack : this.fake(stack, slot);
+   private ItemStack shown(ItemStack stack, int slot) {
+      return stack.isEmpty() && !this.fillEmpty.get() ? stack : this.fake(stack, slot);
    }
 
-   private class_1799 fake(class_1799 stack, int slot) {
+   private ItemStack fake(ItemStack stack, int slot) {
       if (this.style.is("Empty")) {
-         return class_1799.field_8037;
+         return ItemStack.EMPTY;
       }
 
       if (this.style.is("Random")) {
          return this.loadout.get(slot);
       }
 
-      class_1799 stand = totem;
+      ItemStack stand = totem;
       if (stand == null) {
-         totem = stand = new class_1799(class_1802.field_8288);
+         totem = stand = new ItemStack(Items.TOTEM_OF_UNDYING);
       }
 
       return stand;
    }
 
-   private static int inventorySlot(class_1304 slot) {
+   private static int inventorySlot(EquipmentSlot slot) {
       return switch (slot) {
          case field_6169 -> 39;
          case field_6174 -> 38;
@@ -191,8 +191,8 @@ public final class NoInvLeakModule extends ClientModule {
          case field_6166 -> 36;
          case field_6171 -> 40;
          case field_6173 -> {
-            class_746 player = class_310.method_1551().field_1724;
-            yield player != null ? player.method_31548().method_67532() : 41;
+            LocalPlayer player = Minecraft.getInstance().player;
+            yield player != null ? player.getInventory().getSelectedSlot() : 41;
          }
          default -> 41;
       };

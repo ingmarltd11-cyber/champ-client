@@ -5,7 +5,7 @@ import net.champ.client.event.impl.PlayerMoveEvent;
 import net.champ.client.module.impl.movement.ElytraFlyModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_746;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class Pitch40Mode extends ElytraFlightMode {
@@ -19,8 +19,8 @@ public final class Pitch40Mode extends ElytraFlightMode {
 
    @Override
    public void onActivate() {
-      class_746 player = this.mc.field_1724;
-      if (player.method_23318() < this.elytraFly.pitch40upperBounds.get()) {
+      LocalPlayer player = this.mc.player;
+      if (player.getY() < this.elytraFly.pitch40upperBounds.get()) {
          ModuleChat.send(
             this.elytraFly,
             ModuleChat.body()
@@ -31,7 +31,7 @@ public final class Pitch40Mode extends ElytraFlightMode {
                .text(")")
          );
          this.elytraFly.disableFromMode();
-      } else if (player.method_23318() - 40.0 < this.elytraFly.pitch40lowerBounds.get()) {
+      } else if (player.getY() - 40.0 < this.elytraFly.pitch40lowerBounds.get()) {
          ModuleChat.send(
             this.elytraFly,
             ModuleChat.body()
@@ -56,11 +56,11 @@ public final class Pitch40Mode extends ElytraFlightMode {
    @Override
    public void onTick() {
       super.onTick();
-      class_746 player = this.mc.field_1724;
+      LocalPlayer player = this.mc.player;
       if (player != null) {
-         if (this.pitchingDown && player.method_23318() <= this.elytraFly.pitch40lowerBounds.get()) {
+         if (this.pitchingDown && player.getY() <= this.elytraFly.pitch40lowerBounds.get()) {
             this.pitchingDown = false;
-         } else if (!this.pitchingDown && player.method_23318() >= this.elytraFly.pitch40upperBounds.get()) {
+         } else if (!this.pitchingDown && player.getY() >= this.elytraFly.pitch40upperBounds.get()) {
             this.pitchingDown = true;
          }
 
@@ -74,7 +74,7 @@ public final class Pitch40Mode extends ElytraFlightMode {
             this.pitch = this.pitch + this.randPitch(this.elytraFly.pitch40rotationSpeedDown.get(), 0.5F);
          }
 
-         player.method_36457(this.pitch);
+         player.setXRot(this.pitch);
       }
    }
 

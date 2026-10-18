@@ -2,8 +2,8 @@ package net.champ.client.module.impl.render;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1799;
-import net.minecraft.class_7923;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 final class KnifeMaterial {
@@ -37,8 +37,8 @@ final class KnifeMaterial {
       }
    }
 
-   static KnifeMaterial of(class_1799 stack) {
-      return named(class_7923.field_41178.method_10221(stack.method_7909()).method_12832());
+   static KnifeMaterial of(ItemStack stack) {
+      return named(BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath());
    }
 
    static KnifeMaterial named(String path) {

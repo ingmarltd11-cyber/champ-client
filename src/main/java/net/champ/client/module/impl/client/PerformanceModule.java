@@ -17,7 +17,7 @@ import net.champ.client.util.MobilePerformance;
 import net.champ.client.util.PerformanceBudget;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class PerformanceModule extends ClientModule implements HudOverlayProvider {
@@ -100,7 +100,7 @@ public final class PerformanceModule extends ClientModule implements HudOverlayP
             Locale.ROOT,
             "%s  ·  %d FPS  ·  3D CPU %.2f ms%s  ·  queue %d",
             optimizationsEnabled() ? (MobilePerformance.active() ? "Mobile Optimized" : "Optimized") : "Standard",
-            class_310.method_1551().method_47599(),
+            Minecraft.getInstance().getFps(),
             this.smoothedNanos / 1000000.0,
             scans,
             ChunkScanner.pending()

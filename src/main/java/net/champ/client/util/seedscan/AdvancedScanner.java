@@ -19,16 +19,16 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.LockSupport;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1923;
-import net.minecraft.class_2246;
-import net.minecraft.class_2338;
-import net.minecraft.class_2680;
-import net.minecraft.class_2818;
-import net.minecraft.class_2826;
-import net.minecraft.class_2841;
-import net.minecraft.class_310;
-import net.minecraft.class_4543;
-import net.minecraft.class_638;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.chunk.PalettedContainer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.biome.BiomeManager;
+import net.minecraft.client.multiplayer.ClientLevel;
 
 @Environment(EnvType.CLIENT)
 public final class AdvancedScanner implements AutoCloseable {
@@ -92,14 +92,14 @@ public final class AdvancedScanner implements AutoCloseable {
    }
 
    public static boolean matchesHashedSeed(long seed, long hashedSeed) {
-      return class_4543.method_27984(seed) == hashedSeed;
+      return BiomeManager.obfuscateSeed(seed) == hashedSeed;
    }
 
-   static OptionalLong hashedSeed(class_638 level) {
+   static OptionalLong hashedSeed(ClientLevel level) {
       try {
          Field found = null;
 
-         for (Field field : class_4543.class.getDeclaredFields()) {
+         for (Field field : BiomeManager.class.getDeclaredFields()) {
             if (field.getType() == long.class && !Modifier.isStatic(field.getModifiers())) {
                if (found != null) {
                   return OptionalLong.empty();
@@ -114,7 +114,7 @@ public final class AdvancedScanner implements AutoCloseable {
          }
 
          found.setAccessible(true);
-         return OptionalLong.of(found.getLong(level.method_22385()));
+         return OptionalLong.of(found.getLong(level.getBiomeManager()));
       } catch (ReflectiveOperationException | RuntimeException e) {
          return OptionalLong.empty();
       }
@@ -126,7 +126,7 @@ public final class AdvancedScanner implements AutoCloseable {
       return out;
    }
 
-   public List<AdvancedScanner.ChunkResult> tick(class_638 level, long deadline) {
+   public List<AdvancedScanner.ChunkResult> tick(ClientLevel level, long deadline) {
       this.ticks++;
 
       Object message;
@@ -148,7 +148,7 @@ public final class AdvancedScanner implements AutoCloseable {
          return List.of();
       }
 
-      if (level.method_31607() == -64 && level.method_31605() == 384) {
+      if (level.getMinY() == -64 && level.getHeight() == 384) {
          if (!this.hashChecked) {
             this.hashChecked = true;
             OptionalLong hashed = hashedSeed(level);
@@ -157,9 +157,9 @@ public final class AdvancedScanner implements AutoCloseable {
             }
          }
 
-         class_310 mc = class_310.method_1551();
-         if (mc.field_1724 != null) {
-            this.updateArea(level, mc.field_1724.method_31476(), Math.min((Integer)mc.field_1690.method_42503().method_41753(), 8));
+         Minecraft mc = Minecraft.getInstance();
+         if (mc.player != null) {
+            this.updateArea(level, mc.player.chunkPosition(), Math.min((Integer)mc.options.renderDistance().get(), 8));
          }
 
          this.copyArrived(level, deadline);
@@ -278,15 +278,15 @@ public final class AdvancedScanner implements AutoCloseable {
       return owner * 31L + kind;
    }
 
-   public void blockChanged(class_2338 pos) {
+   public void blockChanged(BlockPos pos) {
       if (!this.stopped) {
-         if (pos.method_10264() >= -17 && pos.method_10264() <= 64) {
-            int cx = pos.method_10263() >> 4;
-            int cz = pos.method_10260() >> 4;
+         if (pos.getY() >= -17 && pos.getY() <= 64) {
+            int cx = pos.getX() >> 4;
+            int cz = pos.getZ() >> 4;
 
             for (int dx = -2; dx <= 2; dx++) {
                for (int dz = -2; dz <= 2; dz++) {
-                  long key = class_1923.method_8331(cx + dx, cz + dz);
+                  long key = ChunkPos.asLong(cx + dx, cz + dz);
                   if (this.clusters.containsKey(key)) {
                      this.settling.put(key, this.ticks + 20L);
                      this.queueJudge(key);
@@ -303,7 +303,7 @@ public final class AdvancedScanner implements AutoCloseable {
 
          for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
-               this.queueJudge(class_1923.method_8331(chunkX + dx, chunkZ + dz));
+               this.queueJudge(ChunkPos.asLong(chunkX + dx, chunkZ + dz));
             }
          }
       }
@@ -320,19 +320,19 @@ public final class AdvancedScanner implements AutoCloseable {
       }
    }
 
-   private void updateArea(class_638 level, class_1923 center, int radius) {
-      boolean moved = center.field_9181 != this.areaX || center.field_9180 != this.areaZ || radius != this.areaRadius;
+   private void updateArea(ClientLevel level, ChunkPos center, int radius) {
+      boolean moved = center.x != this.areaX || center.z != this.areaZ || radius != this.areaRadius;
       if (moved || this.areaStale && this.ticks % 20L == 0L) {
          this.areaStale = false;
-         this.areaX = center.field_9181;
-         this.areaZ = center.field_9180;
+         this.areaX = center.x;
+         this.areaZ = center.z;
          this.areaRadius = radius;
          LongOpenHashSet chunks = new LongOpenHashSet();
 
-         for (int x = center.field_9181 - radius; x <= center.field_9181 + radius; x++) {
-            for (int z = center.field_9180 - radius; z <= center.field_9180 + radius; z++) {
-               if (insideWorldLimit(x, z) && level.method_2935().method_21730(x, z) != null) {
-                  chunks.add(class_1923.method_8331(x, z));
+         for (int x = center.x - radius; x <= center.x + radius; x++) {
+            for (int z = center.z - radius; z <= center.z + radius; z++) {
+               if (insideWorldLimit(x, z) && level.getChunkSource().getChunkNow(x, z) != null) {
+                  chunks.add(ChunkPos.asLong(x, z));
                }
             }
          }
@@ -343,13 +343,13 @@ public final class AdvancedScanner implements AutoCloseable {
          int reach = radius + 1 + 1 + 1;
          this.shownSent
             .removeIf(
-               key -> Math.max(Math.abs(class_1923.method_8325(key) - center.field_9181), Math.abs(class_1923.method_8332(key) - center.field_9180)) > reach
+               key -> Math.max(Math.abs(ChunkPos.getX(key) - center.x), Math.abs(ChunkPos.getZ(key) - center.z)) > reach
             );
-         this.send(new AdvancedScanner.Want(chunks, center.field_9181, center.field_9180));
+         this.send(new AdvancedScanner.Want(chunks, center.x, center.z));
       }
    }
 
-   private void copyArrived(class_638 level, long deadline) {
+   private void copyArrived(ClientLevel level, long deadline) {
       if (this.areaRadius >= 0) {
          int reach = this.areaRadius + 1 + 1 + 1;
 
@@ -361,16 +361,16 @@ public final class AdvancedScanner implements AutoCloseable {
             for (int x = this.areaX - ring; x <= this.areaX + ring; x++) {
                for (int z = this.areaZ - ring; z <= this.areaZ + ring; z++) {
                   if (Math.max(Math.abs(x - this.areaX), Math.abs(z - this.areaZ)) == ring) {
-                     long key = class_1923.method_8331(x, z);
+                     long key = ChunkPos.asLong(x, z);
                      if (!this.shownSent.contains(key)) {
-                        class_2818 chunk = level.method_2935().method_21730(x, z);
+                        LevelChunk chunk = level.getChunkSource().getChunkNow(x, z);
                         if (chunk != null) {
-                           class_2826[] sections = chunk.method_12006();
-                           class_2841<class_2680>[] copies = new class_2841[sections.length];
+                           LevelChunkSection[] sections = chunk.getSections();
+                           PalettedContainer<BlockState>[] copies = new PalettedContainer[sections.length];
 
                            for (int i = 0; i < sections.length; i++) {
-                              if (sections[i] != null && !sections[i].method_38292()) {
-                                 copies[i] = sections[i].method_12265().method_39957();
+                              if (sections[i] != null && !sections[i].hasOnlyAir()) {
+                                 copies[i] = sections[i].getStates().copy();
                               }
                            }
 
@@ -388,30 +388,30 @@ public final class AdvancedScanner implements AutoCloseable {
       }
    }
 
-   private static BlobJudge.Client clientView(class_638 level) {
+   private static BlobJudge.Client clientView(ClientLevel level) {
       return new BlobJudge.Client() {
          private int lastX = Integer.MIN_VALUE;
          private int lastZ = Integer.MIN_VALUE;
-         private class_2818 last;
+         private LevelChunk last;
 
          @Override
-         public class_2680 state(int x, int y, int z) {
+         public BlockState state(int x, int y, int z) {
             int cx = x >> 4;
             int cz = z >> 4;
             if (cx != this.lastX || cz != this.lastZ) {
                this.lastX = cx;
                this.lastZ = cz;
-               this.last = level.method_2935().method_21730(cx, cz);
+               this.last = level.getChunkSource().getChunkNow(cx, cz);
             }
 
             if (this.last == null) {
                return null;
             }
 
-            int index = this.last.method_31602(y);
-            return index >= 0 && index < this.last.method_32890()
-               ? this.last.method_38259(index).method_12254(x & 15, y & 15, z & 15)
-               : class_2246.field_10243.method_9564();
+            int index = this.last.getSectionIndex(y);
+            return index >= 0 && index < this.last.getSectionsCount()
+               ? this.last.getSection(index).getBlockState(x & 15, y & 15, z & 15)
+               : Blocks.VOID_AIR.defaultBlockState();
          }
       };
    }
@@ -536,7 +536,7 @@ public final class AdvancedScanner implements AutoCloseable {
    }
 
    @Environment(EnvType.CLIENT)
-   private record Copied(int x, int z, class_2841<class_2680>[] sections) {
+   private record Copied(int x, int z, PalettedContainer<BlockState>[] sections) {
    }
 
    @Environment(EnvType.CLIENT)

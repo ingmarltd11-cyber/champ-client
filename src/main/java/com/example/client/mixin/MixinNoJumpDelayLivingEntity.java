@@ -5,22 +5,22 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.champ.client.module.impl.movement.NoJumpDelayModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1309;
-import net.minecraft.class_310;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_1309.class)
+@Mixin(LivingEntity.class)
 public abstract class MixinNoJumpDelayLivingEntity {
    @Shadow
    private int field_6228;
 
-   @WrapOperation(method = "method_6007", at = @At(value = "FIELD", target = "Lnet/minecraft/class_1309;field_6228:I", opcode = 181))
-   private void champ$noJumpDelay(class_1309 self, int ticks, Operation<Void> original) {
+   @WrapOperation(method = "aiStep", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/LivingEntity;noJumpDelay:I", opcode = 181))
+   private void champ$noJumpDelay(LivingEntity self, int ticks, Operation<Void> original) {
       NoJumpDelayModule module = NoJumpDelayModule.active;
-      if (module != null && ticks > this.field_6228 && self == class_310.method_1551().field_1724) {
+      if (module != null && ticks > this.noJumpDelay && self == Minecraft.getInstance().player) {
          ticks = module.rearm(ticks);
       }
 

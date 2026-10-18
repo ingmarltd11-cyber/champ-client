@@ -15,28 +15,28 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10255;
-import net.minecraft.class_1293;
-import net.minecraft.class_1294;
-import net.minecraft.class_1297;
-import net.minecraft.class_1941;
-import net.minecraft.class_2246;
-import net.minecraft.class_2338;
-import net.minecraft.class_238;
-import net.minecraft.class_241;
-import net.minecraft.class_243;
-import net.minecraft.class_259;
-import net.minecraft.class_265;
-import net.minecraft.class_2680;
-import net.minecraft.class_2741;
-import net.minecraft.class_2828;
-import net.minecraft.class_310;
-import net.minecraft.class_3610;
-import net.minecraft.class_3611;
-import net.minecraft.class_3612;
-import net.minecraft.class_4985;
-import net.minecraft.class_5134;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.CollisionGetter;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.entity.monster.Strider;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class JesusModule extends ClientModule {
@@ -106,25 +106,25 @@ public final class JesusModule extends ClientModule {
    private void onPostTick(TickEvent event) {
       boolean bubbleColumn = this.inBubbleColumn;
       this.inBubbleColumn = false;
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      if (player != null && mc.field_1687 != null) {
-         if (!player.method_20232()) {
-            if (!player.method_5799() || this.waterShouldBeSolid(player)) {
-               if (!player.method_5771() || this.lavaShouldBeSolid(player)) {
-                  class_1297 moving = (class_1297)(player.method_5765() ? player.method_5854() : player);
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      if (player != null && mc.level != null) {
+         if (!player.isVisuallySwimming()) {
+            if (!player.isInWater() || this.waterShouldBeSolid(player)) {
+               if (!player.isInLava() || this.lavaShouldBeSolid(player)) {
+                  Entity moving = (Entity)(player.isPassenger() ? player.getVehicle() : player);
                   if (moving != null) {
                      if (bubbleColumn) {
-                        if (mc.field_1690.field_1903.method_1434() && moving.method_18798().field_1351 < 0.11) {
+                        if (mc.options.keyJump.isDown() && moving.getDeltaMovement().y < 0.11) {
                            setVelocityY(moving, 0.11);
                         }
-                     } else if (!moving.method_5799() && !moving.method_5771()) {
-                        class_2680 below = mc.field_1687.method_8320(moving.method_24515().method_10074());
-                        boolean waterlogged = (Boolean)below.method_61767(class_2741.field_12508, false);
+                     } else if (!moving.isInWater() && !moving.isInLava()) {
+                        BlockState below = mc.level.getBlockState(moving.blockPosition().below());
+                        boolean waterlogged = (Boolean)below.getValueOrElse(BlockStateProperties.WATERLOGGED, false);
                         if (this.ascending == 0) {
                            setVelocityY(moving, 0.11);
                         } else if (this.ascending == 1
-                           && (below.method_27852(class_2246.field_10382) || below.method_27852(class_2246.field_10164) || waterlogged)) {
+                           && (below.is(Blocks.WATER) || below.is(Blocks.LAVA) || waterlogged)) {
                            setVelocityY(moving, 0.0);
                         }
 
@@ -140,18 +140,18 @@ public final class JesusModule extends ClientModule {
       }
    }
 
-   private static void setVelocityY(class_1297 entity, double y) {
-      class_243 v = entity.method_18798();
-      entity.method_18800(v.field_1352, y, v.field_1350);
+   private static void setVelocityY(Entity entity, double y) {
+      Vec3 v = entity.getDeltaMovement();
+      entity.setDeltaMovement(v.x, y, v.z);
    }
 
    private void captureMoveAliasing(PlayerMoveEvent event) {
       this.moveIsVelocity = false;
       if (this.ncpBypass.get()) {
-         class_746 player = class_310.method_1551().field_1724;
+         LocalPlayer player = Minecraft.getInstance().player;
          if (player != null) {
-            class_243 v = player.method_18798();
-            this.moveIsVelocity = v.field_1352 == event.x && v.field_1351 == event.y && v.field_1350 == event.z;
+            Vec3 v = player.getDeltaMovement();
+            this.moveIsVelocity = v.x == event.x && v.y == event.y && v.z == event.z;
          }
       }
    }
@@ -160,16 +160,16 @@ public final class JesusModule extends ClientModule {
       if (this.ncpBypass.get()) {
          boolean aliased = this.moveIsVelocity;
          this.moveIsVelocity = false;
-         class_310 mc = class_310.method_1551();
-         class_746 player = mc.field_1724;
-         if (player != null && mc.field_1687 != null) {
+         Minecraft mc = Minecraft.getInstance();
+         LocalPlayer player = mc.player;
+         if (player != null && mc.level != null) {
             int over = overLiquid(player);
             boolean water = (over & 1) != 0 && this.waterShouldBeSolid(player);
             boolean lava = (over & 2) != 0 && this.lavaShouldBeSolid(player);
             if (!water && !lava) {
                this.swimmingTicks = 0;
             } else if (++this.swimmingTicks < 15) {
-               if (player.method_24828()) {
+               if (player.onGround()) {
                   applyStrafe(mc, player, event, isMoving(player) ? 0.2873 : 0.0);
                   if (aliased) {
                      setVelocityXZ(player, event.x, event.z);
@@ -194,25 +194,25 @@ public final class JesusModule extends ClientModule {
       }
    }
 
-   private static void setVelocityXZ(class_1297 entity, double x, double z) {
-      entity.method_18800(x, entity.method_18798().field_1351, z);
+   private static void setVelocityXZ(Entity entity, double x, double z) {
+      entity.setDeltaMovement(x, entity.getDeltaMovement().y, z);
    }
 
    private void onPacketSend(PacketSendEvent event) {
-      if (event.packet instanceof class_2828 packet) {
+      if (event.packet instanceof ServerboundMovePlayerPacket packet) {
          if (this.ncpBypass.get()) {
-            class_310 mc = class_310.method_1551();
-            if (mc.method_18854()) {
-               class_746 player = mc.field_1724;
-               if (player != null && mc.field_1687 != null) {
-                  if (!player.method_5799() || this.waterShouldBeSolid(player)) {
-                     if (!player.method_5771() || this.lavaShouldBeSolid(player)) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.isSameThread()) {
+               LocalPlayer player = mc.player;
+               if (player != null && mc.level != null) {
+                  if (!player.isInWater() || this.waterShouldBeSolid(player)) {
+                     if (!player.isInLava() || this.lavaShouldBeSolid(player)) {
                         int over = overLiquid(player);
                         boolean shouldWork = (over & 1) != 0 && this.waterShouldBeSolid(player) || (over & 2) != 0 && this.lavaShouldBeSolid(player);
-                        if (!player.method_5799() && !player.method_5771() && !(player.field_6017 > 3.0) && shouldWork) {
+                        if (!player.isInWater() && !player.isInLava() && !(player.fallDistance > 3.0) && shouldWork) {
                            ((AccessorJesusServerboundMovePlayerPacket)packet).champ$jesusSetOnGround(false);
-                           if (player.method_24828() && packet.method_36171()) {
-                              ((AccessorServerboundMovePlayerPacket)packet).champ$setY(packet.method_12268(0.0) - (0.02 + 1.0E-4 * this.swimmingTicks));
+                           if (player.onGround() && packet.hasPosition()) {
+                              ((AccessorServerboundMovePlayerPacket)packet).champ$setY(packet.getY(0.0) - (0.02 + 1.0E-4 * this.swimmingTicks));
                            }
                         }
                      }
@@ -223,15 +223,15 @@ public final class JesusModule extends ClientModule {
       }
    }
 
-   private static boolean isMoving(class_746 player) {
-      return player.field_6250 != 0.0F || player.field_6212 != 0.0F;
+   private static boolean isMoving(LocalPlayer player) {
+      return player.zza != 0.0F || player.xxa != 0.0F;
    }
 
-   private static void applyStrafe(class_310 mc, class_746 player, PlayerMoveEvent event, double speed) {
-      class_241 input = player.field_3913.method_3128();
-      float forward = Math.signum(input.field_1342);
-      float side = Math.signum(input.field_1343);
-      float yaw = player.method_61415(mc.method_61966().method_60637(true));
+   private static void applyStrafe(Minecraft mc, LocalPlayer player, PlayerMoveEvent event, double speed) {
+      Vec2 input = player.input.getMoveVector();
+      float forward = Math.signum(input.y);
+      float side = Math.signum(input.x);
+      float yaw = player.getYRot(mc.getDeltaTracker().getGameTimeDeltaPartialTick(true));
       if (forward == 0.0F && side == 0.0F) {
          event.x = 0.0;
          event.z = 0.0;
@@ -252,20 +252,20 @@ public final class JesusModule extends ClientModule {
       }
    }
 
-   private static int overLiquid(class_746 player) {
-      class_1297 vehicle = player.method_5854();
-      class_238 box = vehicle != null ? player.method_5829().method_991(vehicle.method_5829()) : player.method_5829();
+   private static int overLiquid(LocalPlayer player) {
+      Entity vehicle = player.getVehicle();
+      AABB box = vehicle != null ? player.getBoundingBox().minmax(vehicle.getBoundingBox()) : player.getBoundingBox();
       boolean water = false;
       boolean lava = false;
-      Iterator<class_2680> states = player.method_73183().method_29546(box.method_989(0.0, -0.01, 0.0)).iterator();
+      Iterator<BlockState> states = player.level().getBlockStates(box.move(0.0, -0.01, 0.0)).iterator();
 
       while (states.hasNext()) {
-         class_2680 state = states.next();
-         if (state.method_27852(class_2246.field_10382) || state.method_26227().method_15772() == class_3612.field_15910) {
+         BlockState state = states.next();
+         if (state.is(Blocks.WATER) || state.getFluidState().getType() == Fluids.WATER) {
             water = true;
-         } else if (state.method_27852(class_2246.field_10164)) {
+         } else if (state.is(Blocks.LAVA)) {
             lava = true;
-         } else if (!state.method_26215()) {
+         } else if (!state.isAir()) {
             return 0;
          }
       }
@@ -273,80 +273,80 @@ public final class JesusModule extends ClientModule {
       return (water ? 1 : 0) | (lava ? 2 : 0);
    }
 
-   private boolean waterShouldBeSolid(class_746 player) {
-      if (player.method_7325() || player.method_31549().field_7479) {
+   private boolean waterShouldBeSolid(LocalPlayer player) {
+      if (player.isSpectator() || player.getAbilities().flying) {
          return false;
-      } else if (player.method_5854() instanceof class_10255) {
+      } else if (player.getVehicle() instanceof AbstractBoat) {
          return false;
       } else if (FlyModule.active != null) {
          return false;
-      } else if (this.dipIfBurning.get() && player.method_5809()) {
+      } else if (this.dipIfBurning.get() && player.isOnFire()) {
          return false;
-      } else if (this.dipOnSneakWater.get() && class_310.method_1551().field_1690.field_1832.method_1434()) {
+      } else if (this.dipOnSneakWater.get() && Minecraft.getInstance().options.keyShift.isDown()) {
          return false;
       } else {
-         return this.dipOnFallWater.get() && player.field_6017 > this.dipFallHeightWater.getInt() ? false : this.waterMode.is("Solid");
+         return this.dipOnFallWater.get() && player.fallDistance > this.dipFallHeightWater.getInt() ? false : this.waterMode.is("Solid");
       }
    }
 
-   private boolean lavaShouldBeSolid(class_746 player) {
-      if (player.method_7325() || player.method_31549().field_7479) {
+   private boolean lavaShouldBeSolid(LocalPlayer player) {
+      if (player.isSpectator() || player.getAbilities().flying) {
          return false;
-      } else if (player.method_5854() instanceof class_4985) {
+      } else if (player.getVehicle() instanceof Strider) {
          return false;
       } else if (this.isLavaDangerous(player) && this.lavaMode.is("Solid")) {
          return true;
-      } else if (this.dipOnSneakLava.get() && class_310.method_1551().field_1690.field_1832.method_1434()) {
+      } else if (this.dipOnSneakLava.get() && Minecraft.getInstance().options.keyShift.isDown()) {
          return false;
       } else {
-         return this.dipOnFallLava.get() && player.field_6017 > this.dipFallHeightLava.getInt() ? false : this.lavaMode.is("Solid");
+         return this.dipOnFallLava.get() && player.fallDistance > this.dipFallHeightLava.getInt() ? false : this.lavaMode.is("Solid");
       }
    }
 
-   private boolean isLavaDangerous(class_746 player) {
+   private boolean isLavaDangerous(LocalPlayer player) {
       if (!this.dipIfFireResistant.get()) {
          return true;
       }
 
-      class_1293 fireResistance = player.method_6112(class_1294.field_5918);
-      return fireResistance == null ? true : !(fireResistance.method_5584() > 300.0 * player.method_45325(class_5134.field_51579));
+      MobEffectInstance fireResistance = player.getEffect(MobEffects.FIRE_RESISTANCE);
+      return fireResistance == null ? true : !(fireResistance.getDuration() > 300.0 * player.getAttributeValue(Attributes.BURNING_TIME));
    }
 
-   public boolean canWalkOnFluid(class_3610 fluid) {
-      class_746 player = class_310.method_1551().field_1724;
-      if (player != null && !player.method_5681()) {
-         class_3611 type = fluid.method_15772();
-         return (type == class_3612.field_15910 || type == class_3612.field_15909) && this.waterShouldBeSolid(player)
+   public boolean canWalkOnFluid(FluidState fluid) {
+      LocalPlayer player = Minecraft.getInstance().player;
+      if (player != null && !player.isSwimming()) {
+         Fluid type = fluid.getType();
+         return (type == Fluids.WATER || type == Fluids.FLOWING_WATER) && this.waterShouldBeSolid(player)
             ? true
-            : (type == class_3612.field_15908 || type == class_3612.field_15907) && this.lavaShouldBeSolid(player);
+            : (type == Fluids.LAVA || type == Fluids.FLOWING_LAVA) && this.lavaShouldBeSolid(player);
       } else {
          return false;
       }
    }
 
-   public class_265 collisionShape(class_1941 level, class_2680 state, class_2338 pos, class_265 shape) {
-      class_3610 fluid = state.method_26227();
-      if (fluid.method_15769()) {
+   public VoxelShape collisionShape(CollisionGetter level, BlockState state, BlockPos pos, VoxelShape shape) {
+      FluidState fluid = state.getFluidState();
+      if (fluid.isEmpty()) {
          return shape;
       }
 
-      class_310 mc = class_310.method_1551();
-      if (level == mc.field_1687 && mc.method_18854()) {
-         class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      if (level == mc.level && mc.isSameThread()) {
+         LocalPlayer player = mc.player;
          if (player == null) {
             return shape;
-         } else if ((state.method_27852(class_2246.field_10382) || fluid.method_15772() == class_3612.field_15910)
-            && !player.method_5799()
+         } else if ((state.is(Blocks.WATER) || fluid.getType() == Fluids.WATER)
+            && !player.isInWater()
             && this.waterShouldBeSolid(player)
-            && pos.method_10264() <= player.method_23318() - 1.0) {
-            return class_259.method_1077();
+            && pos.getY() <= player.getY() - 1.0) {
+            return Shapes.block();
          } else {
-            return !state.method_27852(class_2246.field_10164)
-                  || player.method_5771()
+            return !state.is(Blocks.LAVA)
+                  || player.isInLava()
                   || !this.lavaShouldBeSolid(player)
-                  || !this.isLavaDangerous(player) && !(pos.method_10264() <= player.method_23318() - 1.0)
+                  || !this.isLavaDangerous(player) && !(pos.getY() <= player.getY() - 1.0)
                ? shape
-               : class_259.method_1077();
+               : Shapes.block();
          }
       } else {
          return shape;

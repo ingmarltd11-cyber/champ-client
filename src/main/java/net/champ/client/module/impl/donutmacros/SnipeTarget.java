@@ -8,15 +8,15 @@ import java.util.regex.Pattern;
 import net.champ.client.module.setting.StringSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_7923;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 final class SnipeTarget {
    private static final Pattern DURATION = Pattern.compile("(\\d+)\\s*([dhms])");
-   final class_1792 item;
+   final Item item;
    final boolean shard;
    final SnipeTarget.Preset preset;
    final String displayName;
@@ -27,7 +27,7 @@ final class SnipeTarget {
    final int minMinutes;
 
    private SnipeTarget(
-      class_1792 item,
+      Item item,
       boolean shard,
       SnipeTarget.Preset preset,
       String displayName,
@@ -61,12 +61,12 @@ final class SnipeTarget {
       }
 
       boolean shard = text.startsWith("shard_");
-      class_1792 item = Product.resolveItem(shard ? "netherite_" + text.substring("shard_".length()) : text);
+      Item item = Product.resolveItem(shard ? "netherite_" + text.substring("shard_".length()) : text);
       if (item == null) {
          return null;
       }
 
-      String name = shard ? "Shard " + capitalize(text.substring("shard_".length())) : new class_1799(item).method_7964().getString();
+      String name = shard ? "Shard " + capitalize(text.substring("shard_".length())) : new ItemStack(item).getHoverName().getString();
       return new SnipeTarget(item, shard, null, name, Product.searchText(item), enchants, exact, maxPrice, shard ? minMinutes : 0);
    }
 
@@ -86,9 +86,9 @@ final class SnipeTarget {
       return out.toString();
    }
 
-   boolean sameKind(class_1799 stack) {
-      if (!stack.method_7960() && stack.method_31574(this.item)) {
-         String name = ServerText.key(stack.method_7964().getString());
+   boolean sameKind(ItemStack stack) {
+      if (!stack.isEmpty() && stack.is(this.item)) {
+         String name = ServerText.key(stack.getHoverName().getString());
          if (this.preset != null) {
             if (!name.contains(this.preset.keyword)) {
                return false;
@@ -107,7 +107,7 @@ final class SnipeTarget {
       }
    }
 
-   boolean matches(class_1799 stack) {
+   boolean matches(ItemStack stack) {
       if (!this.sameKind(stack)) {
          return false;
       } else {
@@ -115,7 +115,7 @@ final class SnipeTarget {
       }
    }
 
-   static int minutesLeft(class_1799 stack) {
+   static int minutesLeft(ItemStack stack) {
       for (String line : ServerText.lore(stack)) {
          String clean = ServerText.normalize(line);
          if (clean.contains("self destruct") || clean.contains("expire")) {
@@ -150,7 +150,7 @@ final class SnipeTarget {
    Product product(long sellPrice) {
       return new Product(
          this.item,
-         class_7923.field_41178.method_10221(this.item).method_12832(),
+         BuiltInRegistries.ITEM.getKey(this.item).getPath(),
          this.search,
          this.displayName,
          sellPrice,
@@ -186,18 +186,18 @@ final class SnipeTarget {
 
    @Environment(EnvType.CLIENT)
    enum Preset {
-      SELL_AXE("sell_axe", "Sell Axe", class_1802.field_22025, "sell axe", "sell", ""),
-      DRILL("drill", "Drill", class_1802.field_22024, "drill", "drill", ""),
-      SHARD_AXE("shard_axe", "Shard Axe", class_1802.field_22025, "shard axe", "shard", "sell");
+      SELL_AXE("sell_axe", "Sell Axe", Items.NETHERITE_AXE, "sell axe", "sell", ""),
+      DRILL("drill", "Drill", Items.NETHERITE_PICKAXE, "drill", "drill", ""),
+      SHARD_AXE("shard_axe", "Shard Axe", Items.NETHERITE_AXE, "shard axe", "shard", "sell");
 
       final String value;
       final String label;
-      final class_1792 item;
+      final Item item;
       final String search;
       final String keyword;
       final String exclude;
 
-      Preset(String value, String label, class_1792 item, String search, String keyword, String exclude) {
+      Preset(String value, String label, Item item, String search, String keyword, String exclude) {
          this.value = value;
          this.label = label;
          this.item = item;
@@ -222,7 +222,7 @@ final class SnipeTarget {
          List<StringSetting.Preset> out = new ArrayList<>();
 
          for (SnipeTarget.Preset preset : values()) {
-            out.add(new StringSetting.Preset(preset.value, preset.label, class_7923.field_41178.method_10221(preset.item).method_12832(), true));
+            out.add(new StringSetting.Preset(preset.value, preset.label, BuiltInRegistries.ITEM.getKey(preset.item).getPath(), true));
          }
 
          return out;

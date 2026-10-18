@@ -4,9 +4,9 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2246;
-import net.minecraft.class_2248;
-import net.minecraft.class_2680;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 
 @Environment(EnvType.CLIENT)
 public final class VBlock {
@@ -28,7 +28,7 @@ public final class VBlock {
    public static final int FAMILY_DIORITE = 2;
    public static final int FAMILY_ANDESITE = 4;
    public static final int FAMILY_GRAVEL = 8;
-   private static volatile Map<class_2248, Byte> kinds;
+   private static volatile Map<Block, Byte> kinds;
 
    private VBlock() {
    }
@@ -51,65 +51,65 @@ public final class VBlock {
       };
    }
 
-   public static class_2248 familyBlock(byte kind) {
+   public static Block familyBlock(byte kind) {
       return switch (kind) {
-         case 4 -> class_2246.field_10474;
-         case 5 -> class_2246.field_10508;
-         case 6 -> class_2246.field_10115;
+         case 4 -> Blocks.GRANITE;
+         case 5 -> Blocks.DIORITE;
+         case 6 -> Blocks.ANDESITE;
          default -> throw new IllegalArgumentException("not a blob kind: " + kind);
-         case 8 -> class_2246.field_10255;
+         case 8 -> Blocks.GRAVEL;
       };
    }
 
-   public static byte of(class_2680 state) {
-      if (state.method_26215()) {
+   public static byte of(BlockState state) {
+      if (state.isAir()) {
          return 0;
       }
 
-      Byte kind = kinds().get(state.method_26204());
+      Byte kind = kinds().get(state.getBlock());
       return kind != null ? kind : 12;
    }
 
-   private static Map<class_2248, Byte> kinds() {
-      Map<class_2248, Byte> map = kinds;
+   private static Map<Block, Byte> kinds() {
+      Map<Block, Byte> map = kinds;
       if (map != null) {
          return map;
       }
 
       map = new IdentityHashMap<>();
-      map.put(class_2246.field_10340, (byte)3);
-      map.put(class_2246.field_28888, (byte)3);
-      map.put(class_2246.field_10474, (byte)4);
-      map.put(class_2246.field_10508, (byte)5);
-      map.put(class_2246.field_10115, (byte)6);
-      map.put(class_2246.field_27165, (byte)7);
-      map.put(class_2246.field_10255, (byte)8);
-      map.put(class_2246.field_10566, (byte)9);
-      map.put(class_2246.field_10460, (byte)10);
-      map.put(class_2246.field_10382, (byte)1);
-      map.put(class_2246.field_10164, (byte)2);
+      map.put(Blocks.STONE, (byte)3);
+      map.put(Blocks.DEEPSLATE, (byte)3);
+      map.put(Blocks.GRANITE, (byte)4);
+      map.put(Blocks.DIORITE, (byte)5);
+      map.put(Blocks.ANDESITE, (byte)6);
+      map.put(Blocks.TUFF, (byte)7);
+      map.put(Blocks.GRAVEL, (byte)8);
+      map.put(Blocks.DIRT, (byte)9);
+      map.put(Blocks.CLAY, (byte)10);
+      map.put(Blocks.WATER, (byte)1);
+      map.put(Blocks.LAVA, (byte)2);
 
-      for (class_2248 ore : new class_2248[]{
-         class_2246.field_10418,
-         class_2246.field_29219,
-         class_2246.field_10212,
-         class_2246.field_29027,
-         class_2246.field_27120,
-         class_2246.field_29221,
-         class_2246.field_10571,
-         class_2246.field_29026,
-         class_2246.field_10080,
-         class_2246.field_29030,
-         class_2246.field_10090,
-         class_2246.field_29028,
-         class_2246.field_10442,
-         class_2246.field_29029,
-         class_2246.field_10013,
-         class_2246.field_29220,
-         class_2246.field_33508,
-         class_2246.field_33509,
-         class_2246.field_10277,
-         class_2246.field_29224
+      for (Block ore : new Block[]{
+         Blocks.COAL_ORE,
+         Blocks.DEEPSLATE_COAL_ORE,
+         Blocks.IRON_ORE,
+         Blocks.DEEPSLATE_IRON_ORE,
+         Blocks.COPPER_ORE,
+         Blocks.DEEPSLATE_COPPER_ORE,
+         Blocks.GOLD_ORE,
+         Blocks.DEEPSLATE_GOLD_ORE,
+         Blocks.REDSTONE_ORE,
+         Blocks.DEEPSLATE_REDSTONE_ORE,
+         Blocks.LAPIS_ORE,
+         Blocks.DEEPSLATE_LAPIS_ORE,
+         Blocks.DIAMOND_ORE,
+         Blocks.DEEPSLATE_DIAMOND_ORE,
+         Blocks.EMERALD_ORE,
+         Blocks.DEEPSLATE_EMERALD_ORE,
+         Blocks.RAW_IRON_BLOCK,
+         Blocks.RAW_COPPER_BLOCK,
+         Blocks.INFESTED_STONE,
+         Blocks.INFESTED_DEEPSLATE
       }) {
          map.put(ore, (byte)11);
       }

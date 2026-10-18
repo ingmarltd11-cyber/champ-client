@@ -4,22 +4,22 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import net.champ.client.module.impl.movement.JesusModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1309;
-import net.minecraft.class_310;
-import net.minecraft.class_3610;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.material.FluidState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_1309.class)
+@Mixin(LivingEntity.class)
 public abstract class MixinJesusLivingEntity {
-   @ModifyReturnValue(method = "method_26319", at = @At("RETURN"))
-   private boolean champ$jesusCanStandOnFluid(boolean original, class_3610 fluidState) {
+   @ModifyReturnValue(method = "canStandOnFluid", at = @At("RETURN"))
+   private boolean champ$jesusCanStandOnFluid(boolean original, FluidState fluidState) {
       if (original) {
          return true;
       }
 
       JesusModule jesus = JesusModule.active;
-      return jesus != null && this == class_310.method_1551().field_1724 ? jesus.canWalkOnFluid(fluidState) : false;
+      return jesus != null && this == Minecraft.getInstance().player ? jesus.canWalkOnFluid(fluidState) : false;
    }
 }

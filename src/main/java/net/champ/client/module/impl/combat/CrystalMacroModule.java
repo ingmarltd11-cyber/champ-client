@@ -15,22 +15,22 @@ import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.util.pvp.ServerRotation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1511;
-import net.minecraft.class_1661;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_2246;
-import net.minecraft.class_2338;
-import net.minecraft.class_239;
-import net.minecraft.class_2680;
-import net.minecraft.class_304;
-import net.minecraft.class_310;
-import net.minecraft.class_3489;
-import net.minecraft.class_3965;
-import net.minecraft.class_3966;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
-import net.minecraft.class_239.class_240;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.phys.HitResult.Type;
 
 @Environment(EnvType.CLIENT)
 public final class CrystalMacroModule extends ClientModule {
@@ -45,13 +45,13 @@ public final class CrystalMacroModule extends ClientModule {
    private int savedSlot = -1;
    private int ownSlot = -1;
    private int ticksSinceAction = 1000;
-   private class_1799 lastMain;
+   private ItemStack lastMain;
    private int mainAge = 1000;
    private int pendingBreakId = -1;
    private int pendingBreakAge = 1000;
-   private class_2338 pendingCrystalBase;
+   private BlockPos pendingCrystalBase;
    private int pendingCrystalAge = 1000;
-   private class_2338 pendingObsidian;
+   private BlockPos pendingObsidian;
    private int pendingObsidianAge = 1000;
 
    public CrystalMacroModule() {
@@ -80,9 +80,9 @@ public final class CrystalMacroModule extends ClientModule {
 
    @Override
    protected void onDisable() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       this.endHold(mc);
-      class_746 player = mc.field_1724;
+      LocalPlayer player = mc.player;
       if (player != null && !hotbarTakenByOther()) {
          this.restoreSlot(player);
       }
@@ -92,11 +92,11 @@ public final class CrystalMacroModule extends ClientModule {
 
    @EventHandler
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       this.ageCounters();
-      class_746 player = mc.field_1724;
-      if (player != null && mc.field_1687 != null && mc.field_1761 != null && !player.method_29504()) {
-         class_1799 main = player.method_6047();
+      LocalPlayer player = mc.player;
+      if (player != null && mc.level != null && mc.gameMode != null && !player.isDeadOrDying()) {
+         ItemStack main = player.getMainHandItem();
          if (main != this.lastMain) {
             this.lastMain = main;
             this.mainAge = 0;
@@ -104,7 +104,7 @@ public final class CrystalMacroModule extends ClientModule {
 
          if (!this.holdActive(mc, player)) {
             this.endHold(mc);
-            if (mc.field_1755 == null && !hotbarTakenByOther() && !MeleeAttacks.actedThisTick(player)) {
+            if (mc.screen == null && !hotbarTakenByOther() && !MeleeAttacks.actedThisTick(player)) {
                this.restoreSlot(player);
             }
          } else if (!AutoInvTotemModule.wantsHotbar() && !CombatMacroLock.heldByOther(this)) {
@@ -113,7 +113,7 @@ public final class CrystalMacroModule extends ClientModule {
                   this.endHold(mc);
                   return;
                }
-            } else if (player.method_6115() || !this.ownsSelection(player) && !activationAllows(player)) {
+            } else if (player.isUsingItem() || !this.ownsSelection(player) && !activationAllows(player)) {
                return;
             }
 
@@ -155,20 +155,20 @@ public final class CrystalMacroModule extends ClientModule {
 
    @EventHandler
    public void onAttack(PlayerAttackEntityEvent event) {
-      if (event.target instanceof class_1511 crystal && crystal.method_73183().method_8608()) {
+      if (event.target instanceof EndCrystal crystal && crystal.level().isClientSide()) {
          this.markBreak(crystal);
       }
    }
 
-   private boolean holdActive(class_310 mc, class_746 player) {
-      return MeleeAttacks.canAct(mc) && mc.method_1569() && !player.method_7325() && Crystals.isPhysicallyDown(mc, mc.field_1690.field_1904);
+   private boolean holdActive(Minecraft mc, LocalPlayer player) {
+      return MeleeAttacks.canAct(mc) && mc.isWindowActive() && !player.isSpectator() && Crystals.isPhysicallyDown(mc, mc.options.keyUse);
    }
 
    private static boolean hotbarTakenByOther() {
       return AutoEatModule.isEating() || AutoInvTotemModule.wantsHotbar();
    }
 
-   private boolean keepEngaged(class_746 player) {
+   private boolean keepEngaged(LocalPlayer player) {
       if (this.ownsSelection(player)) {
          return true;
       }
@@ -177,33 +177,33 @@ public final class CrystalMacroModule extends ClientModule {
       return activationAllows(player);
    }
 
-   private boolean ownsSelection(class_746 player) {
-      return this.ownSlot != -1 && player.method_31548().method_67532() == this.ownSlot;
+   private boolean ownsSelection(LocalPlayer player) {
+      return this.ownSlot != -1 && player.getInventory().getSelectedSlot() == this.ownSlot;
    }
 
-   private static boolean activationAllows(class_746 player) {
-      class_1799 main = player.method_6047();
-      class_1799 offhand = player.method_6079();
-      return !main.method_31574(class_1802.field_8301) && (!offhand.method_31574(class_1802.field_8301) || !Crystals.isCombatItem(main))
-         ? (main.method_31573(class_3489.field_42611) || main.method_31573(class_3489.field_42612) || main.method_31574(class_1802.field_49814))
-            && (offhand.method_7960() || offhand.method_31574(class_1802.field_8288))
-            && Crystals.hotbarSlotOf(player.method_31548(), class_1802.field_8301) != -1
+   private static boolean activationAllows(LocalPlayer player) {
+      ItemStack main = player.getMainHandItem();
+      ItemStack offhand = player.getOffhandItem();
+      return !main.is(Items.END_CRYSTAL) && (!offhand.is(Items.END_CRYSTAL) || !Crystals.isCombatItem(main))
+         ? (main.is(ItemTags.SWORDS) || main.is(ItemTags.AXES) || main.is(Items.MACE))
+            && (offhand.isEmpty() || offhand.is(Items.TOTEM_OF_UNDYING))
+            && Crystals.hotbarSlotOf(player.getInventory(), Items.END_CRYSTAL) != -1
          : true;
    }
 
-   private void endHold(class_310 mc) {
+   private void endHold(Minecraft mc) {
       CombatMacroLock.release(this);
       if (this.engaged) {
          this.engaged = false;
-         mc.field_1690.field_1904.method_23481(mc.field_1755 == null && Crystals.isPhysicallyDown(mc, mc.field_1690.field_1904));
+         mc.options.keyUse.setDown(mc.screen == null && Crystals.isPhysicallyDown(mc, mc.options.keyUse));
       }
    }
 
-   private void restoreSlot(class_746 player) {
+   private void restoreSlot(LocalPlayer player) {
       if (this.ownSlot != -1) {
-         class_1661 inventory = player.method_31548();
-         if (this.switchBack.get() && class_1661.method_7380(this.savedSlot) && this.savedSlot != this.ownSlot && inventory.method_67532() == this.ownSlot) {
-            inventory.method_61496(this.savedSlot);
+         Inventory inventory = player.getInventory();
+         if (this.switchBack.get() && Inventory.isHotbarSlot(this.savedSlot) && this.savedSlot != this.ownSlot && inventory.getSelectedSlot() == this.ownSlot) {
+            inventory.setSelectedSlot(this.savedSlot);
          }
 
          this.forgetSlots();
@@ -230,44 +230,44 @@ public final class CrystalMacroModule extends ClientModule {
       CombatMacroLock.release(this);
    }
 
-   private static void suppressVanillaUse(class_310 mc) {
-      class_304 use = mc.field_1690.field_1904;
-      use.method_23481(false);
+   private static void suppressVanillaUse(Minecraft mc) {
+      KeyMapping use = mc.options.keyUse;
+      use.setDown(false);
 
-      while (use.method_1436()) {
+      while (use.consumeClick()) {
       }
    }
 
-   private CrystalMacroModule.Plan plan(class_310 mc, class_746 player) {
-      class_239 hit = player.method_76762(1.0F, player);
+   private CrystalMacroModule.Plan plan(Minecraft mc, LocalPlayer player) {
+      HitResult hit = player.raycastHitResult(1.0F, player);
       int window = Crystals.confirmWindow(mc, player);
-      if (this.pendingCrystalBase != null && Crystals.hasCrystal(mc.field_1687, this.pendingCrystalBase, null)) {
+      if (this.pendingCrystalBase != null && Crystals.hasCrystal(mc.level, this.pendingCrystalBase, null)) {
          this.pendingCrystalBase = null;
       }
 
-      if (hit instanceof class_3966 entityHit) {
-         if (!(entityHit.method_17782() instanceof class_1511 crystal && crystal.method_5805())) {
+      if (hit instanceof EntityHitResult entityHit) {
+         if (!(entityHit.getEntity() instanceof EndCrystal crystal && crystal.isAlive())) {
             return null;
          } else {
-            if (crystal.method_5628() == this.pendingBreakId && this.pendingBreakAge < window) {
+            if (crystal.getId() == this.pendingBreakId && this.pendingBreakAge < window) {
                return null;
             }
 
-            if (CrystalDamage.endangers(player, CrystalDamage.estimate(crystal.method_73189(), player))) {
+            if (CrystalDamage.endangers(player, CrystalDamage.estimate(crystal.position(), player))) {
                return null;
             }
 
             int weapon = Crystals.weaponRoute(player);
             return weapon == -1 ? null : CrystalMacroModule.Plan.forBreak(crystal, weapon);
          }
-      } else if (hit instanceof class_3965 blockHit && blockHit.method_17783() == class_240.field_1332) {
-         class_638 level = mc.field_1687;
-         class_2338 pos = blockHit.method_17777();
-         if (!level.method_8621().method_11952(pos)) {
+      } else if (hit instanceof BlockHitResult blockHit && blockHit.getType() == Type.BLOCK) {
+         ClientLevel level = mc.level;
+         BlockPos pos = blockHit.getBlockPos();
+         if (!level.getWorldBorder().isWithinBounds(pos)) {
             return null;
          }
 
-         class_2680 state = level.method_8320(pos);
+         BlockState state = level.getBlockState(pos);
          if (Crystals.isBase(state)) {
             if (pos.equals(this.pendingCrystalBase) && this.pendingCrystalAge < window) {
                return null;
@@ -277,23 +277,23 @@ public final class CrystalMacroModule extends ClientModule {
                return null;
             }
 
-            int route = Crystals.route(player, class_1802.field_8301, state, this.savedSlot);
+            int route = Crystals.route(player, Items.END_CRYSTAL, state, this.savedSlot);
             return route == -1 ? null : CrystalMacroModule.Plan.forPlace(CrystalMacroModule.Step.CRYSTAL, blockHit, pos, route);
          } else {
             if (!this.autoObsidian.get()) {
                return null;
             }
 
-            if (Crystals.route(player, class_1802.field_8301, class_2246.field_10540.method_9564(), this.savedSlot) == -1) {
+            if (Crystals.route(player, Items.END_CRYSTAL, Blocks.OBSIDIAN.defaultBlockState(), this.savedSlot) == -1) {
                return null;
             }
 
-            int route = Crystals.route(player, class_1802.field_8281, state, this.savedSlot);
+            int route = Crystals.route(player, Items.OBSIDIAN, state, this.savedSlot);
             if (route == -1) {
                return null;
             }
 
-            class_2338 target = Crystals.obsidianTarget(level, player, blockHit, state);
+            BlockPos target = Crystals.obsidianTarget(level, player, blockHit, state);
             return target != null && (!target.equals(this.pendingObsidian) || this.pendingObsidianAge >= window)
                ? CrystalMacroModule.Plan.forPlace(CrystalMacroModule.Step.OBSIDIAN, blockHit, target, route)
                : null;
@@ -303,13 +303,13 @@ public final class CrystalMacroModule extends ClientModule {
       }
    }
 
-   private void breakCrystal(class_310 mc, class_746 player, CrystalMacroModule.Plan plan) {
+   private void breakCrystal(Minecraft mc, LocalPlayer player, CrystalMacroModule.Plan plan) {
       if (this.ticksSinceAction > this.breakDelay.getInt()) {
          if (plan.route() != -2) {
             this.select(player, plan.route());
          }
 
-         if (this.mainAge >= 2 || Crystals.enchantsAddDamage(player.method_6047()) || Crystals.dealsDamage(player, class_1799.field_8037)) {
+         if (this.mainAge >= 2 || Crystals.enchantsAddDamage(player.getMainHandItem()) || Crystals.dealsDamage(player, ItemStack.EMPTY)) {
             if (Crystals.strike(mc, player, plan.crystal())) {
                MeleeAttacks.claimTick(mc);
                this.markBreak(plan.crystal());
@@ -319,7 +319,7 @@ public final class CrystalMacroModule extends ClientModule {
       }
    }
 
-   private boolean useOnCrosshair(class_310 mc, class_746 player, NumberSetting delay, CrystalMacroModule.Plan plan) {
+   private boolean useOnCrosshair(Minecraft mc, LocalPlayer player, NumberSetting delay, CrystalMacroModule.Plan plan) {
       if (this.ticksSinceAction <= delay.getInt()) {
          return false;
       }
@@ -337,20 +337,20 @@ public final class CrystalMacroModule extends ClientModule {
       return true;
    }
 
-   private void select(class_746 player, int slot) {
-      class_1661 inventory = player.method_31548();
+   private void select(LocalPlayer player, int slot) {
+      Inventory inventory = player.getInventory();
       if (this.savedSlot == -1) {
-         this.savedSlot = inventory.method_67532();
+         this.savedSlot = inventory.getSelectedSlot();
       }
 
-      inventory.method_61496(slot);
+      inventory.setSelectedSlot(slot);
       this.ownSlot = slot;
-      this.lastMain = player.method_6047();
+      this.lastMain = player.getMainHandItem();
       this.mainAge = 0;
    }
 
-   private void markBreak(class_1511 crystal) {
-      this.pendingBreakId = crystal.method_5628();
+   private void markBreak(EndCrystal crystal) {
+      this.pendingBreakId = crystal.getId();
       this.pendingBreakAge = 0;
    }
 
@@ -363,12 +363,12 @@ public final class CrystalMacroModule extends ClientModule {
    }
 
    @Environment(EnvType.CLIENT)
-   private record Plan(CrystalMacroModule.Step step, class_1511 crystal, class_3965 blockHit, class_2338 target, int route) {
-      static CrystalMacroModule.Plan forBreak(class_1511 crystal, int weapon) {
+   private record Plan(CrystalMacroModule.Step step, EndCrystal crystal, BlockHitResult blockHit, BlockPos target, int route) {
+      static CrystalMacroModule.Plan forBreak(EndCrystal crystal, int weapon) {
          return new CrystalMacroModule.Plan(CrystalMacroModule.Step.BREAK, crystal, null, null, weapon);
       }
 
-      static CrystalMacroModule.Plan forPlace(CrystalMacroModule.Step step, class_3965 blockHit, class_2338 target, int route) {
+      static CrystalMacroModule.Plan forPlace(CrystalMacroModule.Step step, BlockHitResult blockHit, BlockPos target, int route) {
          return new CrystalMacroModule.Plan(step, null, blockHit, target, route);
       }
    }

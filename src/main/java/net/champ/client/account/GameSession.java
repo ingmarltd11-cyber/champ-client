@@ -10,12 +10,12 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_320;
-import net.minecraft.class_5520;
-import net.minecraft.class_7569;
-import net.minecraft.class_7574;
-import net.minecraft.class_7853;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.User;
+import net.minecraft.client.gui.screens.social.PlayerSocialManager;
+import net.minecraft.client.multiplayer.chat.report.ReportEnvironment;
+import net.minecraft.client.multiplayer.chat.report.ReportingContext;
+import net.minecraft.client.multiplayer.ProfileKeyPairManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,9 +28,9 @@ public final class GameSession {
    }
 
    GameSession.Prepared prepare(AccountType type, Credentials credentials) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       boolean offline = type == AccountType.CRACKED;
-      class_320 user = new class_320(credentials.name(), credentials.uuid(), credentials.accessToken(), Optional.empty(), Optional.empty());
+      User user = new User(credentials.name(), credentials.uuid(), credentials.accessToken(), Optional.empty(), Optional.empty());
       UserApiService api = offline ? UserApiService.OFFLINE : this.mojangAuth(mc).createUserApiService(credentials.accessToken());
 
       UserProperties properties;
@@ -41,33 +41,33 @@ public final class GameSession {
          properties = UserApiService.OFFLINE_PROPERTIES;
       }
 
-      ProfileResult profile = offline ? null : mc.method_73361().comp_837().fetchProfile(credentials.uuid(), true);
+      ProfileResult profile = offline ? null : mc.services().comp_837().fetchProfile(credentials.uuid(), true);
       return new GameSession.Prepared(user, api, properties, profile, offline);
    }
 
    void apply(GameSession.Prepared prepared) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       AccessorAccountsMinecraft game = (AccessorAccountsMinecraft)mc;
       game.champ$setUser(prepared.user());
       game.champ$setUserApiService(prepared.api());
       game.champ$setUserPropertiesFuture(CompletableFuture.completedFuture(prepared.properties()));
       game.champ$setProfileFuture(CompletableFuture.completedFuture(prepared.profile()));
-      game.champ$setPlayerSocialManager(new class_5520(mc, prepared.api()));
+      game.champ$setPlayerSocialManager(new PlayerSocialManager(mc, prepared.api()));
       game.champ$setProfileKeyPairManager(
-         prepared.offline() ? class_7853.field_40800 : class_7853.method_46532(prepared.api(), prepared.user(), mc.field_1697.toPath())
+         prepared.offline() ? ProfileKeyPairManager.EMPTY_KEY_MANAGER : ProfileKeyPairManager.create(prepared.api(), prepared.user(), mc.gameDirectory.toPath())
       );
-      game.champ$setReportingContext(class_7574.method_44599(class_7569.method_44586(), prepared.api()));
+      game.champ$setReportingContext(ReportingContext.create(ReportEnvironment.local(), prepared.api()));
    }
 
-   private YggdrasilAuthenticationService mojangAuth(class_310 mc) {
+   private YggdrasilAuthenticationService mojangAuth(Minecraft mc) {
       if (this.mojangAuth == null) {
-         this.mojangAuth = new YggdrasilAuthenticationService(mc.method_1487());
+         this.mojangAuth = new YggdrasilAuthenticationService(mc.getProxy());
       }
 
       return this.mojangAuth;
    }
 
    @Environment(EnvType.CLIENT)
-   record Prepared(class_320 user, UserApiService api, UserProperties properties, ProfileResult profile, boolean offline) {
+   record Prepared(User user, UserApiService api, UserProperties properties, ProfileResult profile, boolean offline) {
    }
 }

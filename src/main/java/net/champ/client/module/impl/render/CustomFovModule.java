@@ -5,7 +5,7 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class CustomFovModule extends ClientModule {
@@ -56,13 +56,13 @@ public final class CustomFovModule extends ClientModule {
    }
 
    private static void scheduleTerrainUpdate() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       if (mc != null) {
-         if (!mc.method_18854()) {
+         if (!mc.isSameThread()) {
             mc.execute(CustomFovModule::scheduleTerrainUpdate);
          } else {
-            if (mc.field_1687 != null && mc.field_1769 != null) {
-               mc.field_1769.method_3292();
+            if (mc.level != null && mc.levelRenderer != null) {
+               mc.levelRenderer.needsUpdate();
             }
          }
       }

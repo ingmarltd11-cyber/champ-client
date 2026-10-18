@@ -33,21 +33,21 @@ import net.champ.client.util.staff.StaffAlarm;
 import net.champ.client.util.staff.StaffMatcher;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1109;
-import net.minecraft.class_1934;
-import net.minecraft.class_2561;
-import net.minecraft.class_2596;
-import net.minecraft.class_268;
-import net.minecraft.class_2703;
-import net.minecraft.class_310;
-import net.minecraft.class_3417;
-import net.minecraft.class_634;
-import net.minecraft.class_640;
-import net.minecraft.class_742;
-import net.minecraft.class_746;
-import net.minecraft.class_8042;
-import net.minecraft.class_2703.class_2705;
-import net.minecraft.class_2703.class_5893;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.world.level.GameType;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ClientboundBundlePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Entry;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Action;
 
 @Environment(EnvType.CLIENT)
 public final class StaffListModule extends ClientModule {
@@ -109,7 +109,7 @@ public final class StaffListModule extends ClientModule {
    private final Queue<StaffListModule.GameModeSwitch> switches = new ConcurrentLinkedQueue<>();
    private final Map<UUID, String> pendingAlerts = new LinkedHashMap<>();
    private final StaffAlarm alarm = new StaffAlarm();
-   private class_634 connection;
+   private ClientPacketListener connection;
    private final ShardTracker shard = new ShardTracker();
    private int ticksToScan;
    private int settleTicks;
@@ -130,8 +130,8 @@ public final class StaffListModule extends ClientModule {
    @Override
    protected void onEnable() {
       this.forget();
-      class_310 mc = class_310.method_1551();
-      this.connection = mc.method_1562();
+      Minecraft mc = Minecraft.getInstance();
+      this.connection = mc.getConnection();
       this.shard.clear();
       this.settleTicks = 0;
       this.ticksToScan = 0;
@@ -256,11 +256,11 @@ public final class StaffListModule extends ClientModule {
 
    private void onPacketNetty(PacketReceiveNettyEvent event) {
       if (this.regionAlert.get()) {
-         if (event.packet instanceof class_2703 info) {
+         if (event.packet instanceof ClientboundPlayerInfoUpdatePacket info) {
             this.queueSwitches(info);
-         } else if (event.packet instanceof class_8042 bundle) {
-            for (class_2596<?> packet : bundle.method_48324()) {
-               if (packet instanceof class_2703 info) {
+         } else if (event.packet instanceof ClientboundBundlePacket bundle) {
+            for (Packet<?> packet : bundle.subPackets()) {
+               if (packet instanceof ClientboundPlayerInfoUpdatePacket info) {
                   this.queueSwitches(info);
                }
             }
@@ -268,10 +268,10 @@ public final class StaffListModule extends ClientModule {
       }
    }
 
-   private void queueSwitches(class_2703 info) {
-      EnumSet<class_5893> actions = info.method_46327();
-      if (actions.contains(class_5893.field_29137) && !actions.contains(class_5893.field_29136)) {
-         for (class_2705 entry : info.method_46329()) {
+   private void queueSwitches(ClientboundPlayerInfoUpdatePacket info) {
+      EnumSet<Action> actions = info.actions();
+      if (actions.contains(Action.UPDATE_GAME_MODE) && !actions.contains(Action.ADD_PLAYER)) {
+         for (Entry entry : info.entries()) {
             if (entry != null && entry.comp_1106() != null) {
                this.switches.offer(new StaffListModule.GameModeSwitch(entry.comp_1106(), entry.comp_1110()));
             }
@@ -281,9 +281,9 @@ public final class StaffListModule extends ClientModule {
 
    private void onTick(TickEvent event) {
       this.alarm.tick();
-      class_310 mc = class_310.method_1551();
-      class_634 conn = mc.method_1562();
-      if (conn != null && mc.field_1724 != null && mc.field_1687 != null) {
+      Minecraft mc = Minecraft.getInstance();
+      ClientPacketListener conn = mc.getConnection();
+      if (conn != null && mc.player != null && mc.level != null) {
          boolean moved = this.shard.moved(mc);
          if (conn != this.connection) {
             this.connection = conn;
@@ -301,7 +301,7 @@ public final class StaffListModule extends ClientModule {
          this.tickCount++;
          long now = System.currentTimeMillis();
          if (this.regionAlert.get()) {
-            this.drainSwitches(conn, mc.field_1724.method_5667(), now);
+            this.drainSwitches(conn, mc.player.getUUID(), now);
             this.trackBodies(mc, now);
          }
 
@@ -334,25 +334,25 @@ public final class StaffListModule extends ClientModule {
       }
    }
 
-   private StaffListModule.Changes scan(class_310 mc, class_634 conn, long now) {
-      UUID self = mc.field_1724.method_5667();
+   private StaffListModule.Changes scan(Minecraft mc, ClientPacketListener conn, long now) {
+      UUID self = mc.player.getUUID();
       Set<UUID> listed = new HashSet<>();
 
-      for (class_640 info : conn.method_45732()) {
-         listed.add(info.method_2966().id());
+      for (PlayerInfo info : conn.getListedOnlinePlayers()) {
+         listed.add(info.getProfile().id());
       }
 
       StaffListModule.Changes changes = new StaffListModule.Changes();
       Set<UUID> inTab = new HashSet<>();
 
-      for (class_640 info : conn.method_2880()) {
-         GameProfile profile = info.method_2966();
+      for (PlayerInfo info : conn.getOnlinePlayers()) {
+         GameProfile profile = info.getProfile();
          UUID id = profile.id();
          String name = profile.name();
          if (id != null && !id.equals(self) && isStaffName(name) && isAccount(id, name)) {
             inTab.add(id);
             StaffMatcher.Match rank = this.rank(info, id, name);
-            StaffListModule.Presence presence = info.method_2958() == class_1934.field_9219
+            StaffListModule.Presence presence = info.getGameMode() == GameType.SPECTATOR
                ? StaffListModule.Presence.SPECTATOR
                : (listed.contains(id) ? StaffListModule.Presence.ONLINE : StaffListModule.Presence.VANISHED);
             StaffListModule.Staff tracked = this.staff.get(id);
@@ -378,7 +378,7 @@ public final class StaffListModule extends ClientModule {
       while (it.hasNext()) {
          StaffListModule.Staff tracked = it.next();
          if (!inTab.contains(tracked.id)) {
-            if (mc.field_1687.method_18470(tracked.id) != null) {
+            if (mc.level.getPlayerByUUID(tracked.id) != null) {
                if (++tracked.offTabScans >= 2 && tracked.presence != StaffListModule.Presence.VANISHED) {
                   tracked.presence = StaffListModule.Presence.VANISHED;
                   changes.changed.add(tracked);
@@ -421,26 +421,26 @@ public final class StaffListModule extends ClientModule {
       return name != null && id.version() != 2 && ACCOUNT_NAME.matcher(name).matches();
    }
 
-   private StaffMatcher.Match rank(class_640 info, UUID id, String name) {
-      class_268 team = info.method_2955();
-      class_2561 display = info.method_2971();
-      class_2561 prefix = team == null ? null : team.method_1144();
-      class_2561 suffix = team == null ? null : team.method_1136();
+   private StaffMatcher.Match rank(PlayerInfo info, UUID id, String name) {
+      PlayerTeam team = info.getTeam();
+      Component display = info.getTabListDisplayName();
+      Component prefix = team == null ? null : team.getPlayerPrefix();
+      Component suffix = team == null ? null : team.getPlayerSuffix();
       StaffListModule.Classified last = this.classified.get(id);
       if (last != null && last.isFor(name, display, team, prefix, suffix)) {
          return last.match();
       }
 
-      StaffMatcher.Match match = RANKS.match(name, team == null ? null : team.method_1197(), plain(display), plain(prefix), plain(suffix));
+      StaffMatcher.Match match = RANKS.match(name, team == null ? null : team.getName(), plain(display), plain(prefix), plain(suffix));
       this.classified.put(id, new StaffListModule.Classified(name, display, team, prefix, suffix, match));
       return match;
    }
 
-   private static String plain(class_2561 component) {
+   private static String plain(Component component) {
       return component == null ? null : component.getString();
    }
 
-   private void drainSwitches(class_634 conn, UUID self, long now) {
+   private void drainSwitches(ClientPacketListener conn, UUID self, long now) {
       StaffListModule.GameModeSwitch change;
       while ((change = this.switches.poll()) != null) {
          UUID id = change.id();
@@ -450,8 +450,8 @@ public final class StaffListModule extends ClientModule {
             if (tracked != null) {
                name = tracked.name;
             } else {
-               class_640 info = conn.method_2871(id);
-               name = info == null ? null : info.method_2966().name();
+               PlayerInfo info = conn.getPlayerInfo(id);
+               name = info == null ? null : info.getProfile().name();
                if (!isStaffName(name) || !isAccount(id, name)) {
                   continue;
                }
@@ -464,26 +464,26 @@ public final class StaffListModule extends ClientModule {
 
             seen.prove(now);
             if (!seen.coolingDown(now)) {
-               class_1934 mode = change.mode();
+               GameType mode = change.mode();
                seen.switchAlertTick = this.tickCount;
-               seen.switchedToSpectator = mode == class_1934.field_9219;
+               seen.switchedToSpectator = mode == GameType.SPECTATOR;
                this.alert(id, seen, now, name);
             }
          }
       }
    }
 
-   private void trackBodies(class_310 mc, long now) {
-      class_746 self = mc.field_1724;
+   private void trackBodies(Minecraft mc, long now) {
+      LocalPlayer self = mc.player;
 
-      for (class_742 body : mc.field_1687.method_18456()) {
+      for (AbstractClientPlayer body : mc.level.players()) {
          if (body != self) {
-            StaffListModule.Staff tracked = this.staff.get(body.method_5667());
+            StaffListModule.Staff tracked = this.staff.get(body.getUUID());
             if (tracked != null) {
                StaffListModule.Sighting seen = this.sightings.computeIfAbsent(tracked.id, key -> new StaffListModule.Sighting());
                seen.prove(now);
                seen.bodyTick = this.tickCount;
-               seen.distance = self.method_5739(body);
+               seen.distance = self.distanceTo(body);
                if (!seen.nearby) {
                   seen.nearby = true;
                   this.resort = true;
@@ -542,7 +542,7 @@ public final class StaffListModule extends ClientModule {
       StaffGhost.watching(id, name, others);
    }
 
-   private void announce(class_310 mc, StaffListModule.Changes changes) {
+   private void announce(Minecraft mc, StaffListModule.Changes changes) {
       changes.changed.removeIf(this::echoesSwitchAlert);
       if (!changes.isEmpty()) {
          List<ModuleChat.Body> lines = new ArrayList<>();
@@ -559,7 +559,7 @@ public final class StaffListModule extends ClientModule {
                   linex.text("is ").good("visible again");
                   break;
                case SPECTATOR:
-                  switchedTo(linex, class_1934.field_9219.method_8381());
+                  switchedTo(linex, GameType.SPECTATOR.getName());
                   break;
                case VANISHED:
                   linex.danger("vanished").text(s.offTabScans > 0 ? " (off TAB, still nearby)" : " (hidden from TAB)");
@@ -578,8 +578,8 @@ public final class StaffListModule extends ClientModule {
          }
 
          boolean urgent = !changes.joined.isEmpty() || changes.changed.stream().anyMatch(s -> s.presence != StaffListModule.Presence.ONLINE);
-         if (urgent && mc.method_1483() != null) {
-            mc.method_1483().method_4873(class_1109.method_47978(class_3417.field_14725, 1.25F));
+         if (urgent && mc.getSoundManager() != null) {
+            mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_CHIME, 1.25F));
          }
       }
    }
@@ -596,11 +596,11 @@ public final class StaffListModule extends ClientModule {
    }
 
    private static void describe(
-      List<ModuleChat.Body> lines, List<StaffListModule.Staff> group, class_2561 groupVerb, BiConsumer<ModuleChat.Body, StaffListModule.Staff> verb
+      List<ModuleChat.Body> lines, List<StaffListModule.Staff> group, Component groupVerb, BiConsumer<ModuleChat.Body, StaffListModule.Staff> verb
    ) {
       if (!group.isEmpty()) {
          if (group.size() > 3) {
-            List<class_2561> labels = new ArrayList<>(group.size());
+            List<Component> labels = new ArrayList<>(group.size());
 
             for (StaffListModule.Staff s : group) {
                labels.add(label(s));
@@ -617,11 +617,11 @@ public final class StaffListModule extends ClientModule {
       }
    }
 
-   private static class_2561 label(StaffListModule.Staff s) {
+   private static Component label(StaffListModule.Staff s) {
       return label(s.name, s.rank);
    }
 
-   private static class_2561 label(String name, String rank) {
+   private static Component label(String name, String rank) {
       return ModuleChat.body().name(NameFilter.apply(name)).text(" (" + rank + ")").build();
    }
 
@@ -633,7 +633,7 @@ public final class StaffListModule extends ClientModule {
       };
    }
 
-   private static ModuleChat.Body list(ModuleChat.Body body, List<class_2561> parts) {
+   private static ModuleChat.Body list(ModuleChat.Body body, List<Component> parts) {
       for (int i = 0; i < parts.size(); i++) {
          if (i > 0) {
             body.text(", ");
@@ -650,10 +650,10 @@ public final class StaffListModule extends ClientModule {
          return body.text("switched game mode");
       } else {
          body.text("switched to ");
-         if (class_1934.field_9219.method_8381().equals(mode)) {
+         if (GameType.SPECTATOR.getName().equals(mode)) {
             return body.danger(mode);
          } else {
-            return class_1934.field_9220.method_8381().equals(mode) ? body.warn(mode) : body.name(mode);
+            return GameType.CREATIVE.getName().equals(mode) ? body.warn(mode) : body.name(mode);
          }
       }
    }
@@ -670,14 +670,14 @@ public final class StaffListModule extends ClientModule {
    }
 
    @Environment(EnvType.CLIENT)
-   private record Classified(String name, class_2561 display, class_268 team, class_2561 prefix, class_2561 suffix, StaffMatcher.Match match) {
-      boolean isFor(String name, class_2561 display, class_268 team, class_2561 prefix, class_2561 suffix) {
+   private record Classified(String name, Component display, PlayerTeam team, Component prefix, Component suffix, StaffMatcher.Match match) {
+      boolean isFor(String name, Component display, PlayerTeam team, Component prefix, Component suffix) {
          return this.display == display && this.team == team && this.prefix == prefix && this.suffix == suffix && this.name.equals(name);
       }
    }
 
    @Environment(EnvType.CLIENT)
-   private record GameModeSwitch(UUID id, class_1934 mode) {
+   private record GameModeSwitch(UUID id, GameType mode) {
    }
 
    @Environment(EnvType.CLIENT)

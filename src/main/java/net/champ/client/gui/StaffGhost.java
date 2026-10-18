@@ -7,12 +7,12 @@ import net.champ.client.event.impl.Render2DEvent;
 import net.champ.client.util.NameFilter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_124;
-import net.minecraft.class_2561;
-import net.minecraft.class_310;
-import net.minecraft.class_327;
-import net.minecraft.class_332;
-import net.minecraft.class_9848;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.util.ARGB;
 
 @Environment(EnvType.CLIENT)
 public final class StaffGhost {
@@ -25,7 +25,7 @@ public final class StaffGhost {
    private static final float NOTE_IN = 0.5F;
    private static final float NOTE_STAY = 2.5F;
    private static final float NOTE_OUT = 1.0F;
-   private static final class_2561 NOTE = class_2561.method_43470("Goodluck Champ User, Be Careful");
+   private static final Component NOTE = Component.literal("Goodluck Champ User, Be Careful");
    private static final int NOTE_COLOR = 16777045;
    private static final float DISTANCE = 1.49F;
    private static final float LIFT = 0.24F;
@@ -53,8 +53,8 @@ public final class StaffGhost {
    }
 
    public static void watching(UUID id, String name, int others) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 != null && name != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level != null && name != null) {
          String shown = NameFilter.apply(name);
          watcher = id;
          hidden = !shown.equals(name);
@@ -67,7 +67,7 @@ public final class StaffGhost {
    }
 
    public static boolean hasWork() {
-      if (active && class_310.method_1551().field_1687 == null) {
+      if (active && Minecraft.getInstance().level == null) {
          active = false;
       }
 
@@ -83,13 +83,13 @@ public final class StaffGhost {
             float fade = t < 0.5F ? t / 0.5F : Math.min(1.0F, (4.0F - t) / 1.0F);
             int alpha = Math.round(fade * 255.0F);
             if (alpha > 8) {
-               class_332 g = event.graphics;
-               class_327 font = class_310.method_1551().field_1772;
-               g.method_51448().pushMatrix();
-               g.method_51448().translate(g.method_51421() / 2.0F, g.method_51443() / 2.0F);
-               g.method_51448().scale(2.0F, 2.0F);
-               g.method_51439(font, NOTE, -font.method_27525(NOTE) / 2, -9 / 2, class_9848.method_61330(alpha, 16777045), true);
-               g.method_51448().popMatrix();
+               GuiGraphics g = event.graphics;
+               Font font = Minecraft.getInstance().font;
+               g.pose().pushMatrix();
+               g.pose().translate(g.guiWidth() / 2.0F, g.guiHeight() / 2.0F);
+               g.pose().scale(2.0F, 2.0F);
+               g.drawString(font, NOTE, -font.width(NOTE) / 2, -9 / 2, ARGB.color(alpha, 16777045), true);
+               g.pose().popMatrix();
             }
          }
       }
@@ -97,16 +97,16 @@ public final class StaffGhost {
 
    public static void render() {
       if (hasWork()) {
-         class_310 mc = class_310.method_1551();
+         Minecraft mc = Minecraft.getInstance();
          float seconds = elapsed();
          if (stage == 0 && seconds >= 1.25F) {
             stage = 1;
-            mc.field_1705.method_34001(10, 40, 15);
-            mc.field_1705.method_34002(class_2561.method_43470("WATCHING YOU").method_27695(new class_124[]{class_124.field_1061, class_124.field_1067}));
-            mc.field_1705.method_34004(class_2561.method_43470(title).method_27695(new class_124[]{class_124.field_1061, class_124.field_1067}));
+            mc.gui.setTimes(10, 40, 15);
+            mc.gui.setSubtitle(Component.literal("WATCHING YOU").withStyle(new ChatFormatting[]{ChatFormatting.RED, ChatFormatting.BOLD}));
+            mc.gui.setTitle(Component.literal(title).withStyle(new ChatFormatting[]{ChatFormatting.RED, ChatFormatting.BOLD}));
          } else if (stage == 1 && seconds >= 4.5F) {
             stage = 2;
-            mc.field_1705.method_1742();
+            mc.gui.resetTitleTimes();
             noteNanos = System.nanoTime();
             active = false;
             return;

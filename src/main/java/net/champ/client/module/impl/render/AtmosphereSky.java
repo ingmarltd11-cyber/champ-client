@@ -2,11 +2,11 @@ package net.champ.client.module.impl.render;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_287;
-import net.minecraft.class_3532;
-import net.minecraft.class_4587;
-import net.minecraft.class_5819;
-import net.minecraft.class_9848;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import net.minecraft.util.Mth;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.util.RandomSource;
+import net.minecraft.util.ARGB;
 
 @Environment(EnvType.CLIENT)
 final class AtmosphereSky {
@@ -28,7 +28,7 @@ final class AtmosphereSky {
    private final SkyMesh endDome = new SkyMesh("Champ Client end sky", SkyMesh.PAINT, (RINGS.length - 1) * 48);
    private final SkyMesh halo = new SkyMesh("Champ Client sun and moon glow", SkyMesh.GLOW, 256);
    private final SkyMesh meteorMesh = new SkyMesh("Champ Client shooting stars", SkyMesh.GLOW, 12);
-   private final class_5819 random = class_5819.method_43047();
+   private final RandomSource random = RandomSource.create();
    private int zenith;
    private int horizon;
    private int glow;
@@ -51,9 +51,9 @@ final class AtmosphereSky {
    void update(float sunAngle, float moonAngle, float rain, float thunder, float flash, int nightZenith, int nightHorizon, int twilight) {
       this.sunAngle = sunAngle;
       this.moonAngle = moonAngle;
-      this.sunX = -class_3532.method_15374(sunAngle);
-      this.sunY = class_3532.method_15362(sunAngle);
-      int blueHourZenith = class_9848.method_61319(0.3F, 1319497, nightZenith);
+      this.sunX = -Mth.sin(sunAngle);
+      this.sunY = Mth.cos(sunAngle);
+      int blueHourZenith = ARGB.srgbLerp(0.3F, 1319497, nightZenith);
       int[] zeniths = new int[]{nightZenith, blueHourZenith, 5210048, 3108822};
       int[] horizons = new int[]{nightHorizon, scale(twilight, 0.75F), 16032864, 11850996};
       int[] glows = new int[]{nightHorizon, twilight, 16747069, 16774362};
@@ -65,10 +65,10 @@ final class AtmosphereSky {
       }
 
       float t = AtmosphereAurora.smoothstep((this.sunY - KEYS[key]) / (KEYS[key + 1] - KEYS[key]));
-      this.zenith = class_9848.method_61319(t, zeniths[key], zeniths[key + 1]);
-      this.horizon = class_9848.method_61319(t, horizons[key], horizons[key + 1]);
-      this.glow = class_9848.method_61319(t, glows[key], glows[key + 1]);
-      this.glowStrength = class_3532.method_16439(t, strengths[key], strengths[key + 1]) * (1.0F - rain);
+      this.zenith = ARGB.srgbLerp(t, zeniths[key], zeniths[key + 1]);
+      this.horizon = ARGB.srgbLerp(t, horizons[key], horizons[key + 1]);
+      this.glow = ARGB.srgbLerp(t, glows[key], glows[key + 1]);
+      this.glowStrength = Mth.lerp(t, strengths[key], strengths[key + 1]) * (1.0F - rain);
       this.zenith = weather(this.zenith, rain, thunder, flash);
       this.horizon = weather(this.horizon, rain, thunder, flash);
       this.ready = true;
@@ -76,9 +76,9 @@ final class AtmosphereSky {
 
    private static int weather(int rgb, float rain, float thunder, float flash) {
       int grey = scale(luma(rgb), 0.85F);
-      rgb = class_9848.method_61319(rain * 0.65F, rgb, grey);
+      rgb = ARGB.srgbLerp(rain * 0.65F, rgb, grey);
       rgb = scale(rgb, 1.0F - 0.35F * rain - 0.25F * thunder);
-      return flash > 0.0F ? class_9848.method_61319(flash * 0.45F, rgb, 15265023) : rgb;
+      return flash > 0.0F ? ARGB.srgbLerp(flash * 0.45F, rgb, 15265023) : rgb;
    }
 
    boolean ready() {
@@ -86,7 +86,7 @@ final class AtmosphereSky {
    }
 
    int horizonToward(float x, float z) {
-      float length = class_3532.method_15355(x * x + z * z);
+      float length = Mth.sqrt(x * x + z * z);
       return length < 1.0E-4F ? this.horizon : this.colourAt(x / length, 0.02F, z / length);
    }
 
@@ -102,16 +102,16 @@ final class AtmosphereSky {
       return this.glow;
    }
 
-   void renderDome(class_4587 pose) {
-      class_287 builder = this.dome.begin();
+   void renderDome(PoseStack pose) {
+      BufferBuilder builder = this.dome.begin();
       this.domeQuads(builder, false);
       this.dome.upload(builder);
       this.dome.draw(pose, 1.0F);
    }
 
-   void renderEndDome(class_4587 pose) {
+   void renderEndDome(PoseStack pose) {
       if (!this.endDome.isBuilt()) {
-         class_287 builder = this.endDome.begin();
+         BufferBuilder builder = this.endDome.begin();
          this.domeQuads(builder, true);
          this.endDome.upload(builder);
       }
@@ -119,7 +119,7 @@ final class AtmosphereSky {
       this.endDome.draw(pose, 1.0F);
    }
 
-   private void domeQuads(class_287 builder, boolean end) {
+   private void domeQuads(BufferBuilder builder, boolean end) {
       for (int ring = 0; ring < RINGS.length - 1; ring++) {
          for (int s = 0; s < 48; s++) {
             this.corner(builder, RINGS[ring], s, end);
@@ -130,18 +130,18 @@ final class AtmosphereSky {
       }
    }
 
-   private void corner(class_287 builder, float elevationDeg, int segment, boolean end) {
+   private void corner(BufferBuilder builder, float elevationDeg, int segment, boolean end) {
       float el = elevationDeg * (float) (Math.PI / 180.0);
       float az = segment / 48.0F * (float) (Math.PI * 2);
-      float x = class_3532.method_15362(el) * class_3532.method_15362(az);
-      float y = class_3532.method_15374(el);
-      float z = class_3532.method_15362(el) * class_3532.method_15374(az);
+      float x = Mth.cos(el) * Mth.cos(az);
+      float y = Mth.sin(el);
+      float z = Mth.cos(el) * Mth.sin(az);
       int rgb = end ? endColourAt(y) : this.colourAt(x, y, z);
       SkyMesh.vertex(builder, x * 100.0F, y * 100.0F, z * 100.0F, 0xFF000000 | rgb);
    }
 
    private int colourAt(float x, float y, float z) {
-      int rgb = class_9848.method_61319((float)Math.sqrt(Math.max(y, 0.0F)), this.horizon, this.zenith);
+      int rgb = ARGB.srgbLerp((float)Math.sqrt(Math.max(y, 0.0F)), this.horizon, this.zenith);
       if (y < 0.0F) {
          rgb = scale(rgb, 1.0F - 0.35F * AtmosphereAurora.smoothstep(-y / 0.4F));
       }
@@ -151,34 +151,34 @@ final class AtmosphereSky {
          float horizontal = Math.max(0.0F, this.sunX < 0.0F ? -x : x);
          float near = (float)(Math.pow(toSun, 8.0) * 0.9 + Math.pow(toSun, 2.0) * 0.25);
          float band = (float)(Math.exp(-Math.abs(y) * 9.0F) * Math.pow(horizontal, 1.5));
-         float amount = class_3532.method_15363(this.glowStrength * (near + band * 0.6F), 0.0F, 1.0F);
-         rgb = class_9848.method_61319(amount, rgb, this.glow);
+         float amount = Mth.clamp(this.glowStrength * (near + band * 0.6F), 0.0F, 1.0F);
+         rgb = ARGB.srgbLerp(amount, rgb, this.glow);
       }
 
       return rgb & 16777215;
    }
 
    private static int endColourAt(float y) {
-      return class_9848.method_61319((float)Math.sqrt(Math.max(y, 0.0F)), 1839152, 459789) & 16777215;
+      return ARGB.srgbLerp((float)Math.sqrt(Math.max(y, 0.0F)), 1839152, 459789) & 16777215;
    }
 
-   void renderHalos(class_4587 pose, float rainBrightness, float night) {
-      class_287 builder = this.halo.begin();
+   void renderHalos(PoseStack pose, float rainBrightness, float night) {
+      BufferBuilder builder = this.halo.begin();
       float low = 1.0F - AtmosphereAurora.smoothstep(this.sunY / 0.35F);
       float sunAlpha = AtmosphereAurora.smoothstep((this.sunY + 0.12F) / 0.12F) * rainBrightness * (0.45F + 0.35F * low);
-      int sunColour = class_9848.method_61319(low, 16773584, 16742963);
+      int sunColour = ARGB.srgbLerp(low, 16773584, 16742963);
       haloQuads(builder, this.sunAngle, 28.0F * (1.0F + 0.6F * low), sunColour, sunAlpha);
       haloQuads(builder, this.moonAngle, 34.0F, 11520255, 0.32F * night * rainBrightness);
       this.halo.upload(builder);
       this.halo.draw(pose, 1.0F);
    }
 
-   private static void haloQuads(class_287 builder, float angle, float radius, int rgb, float alpha) {
+   private static void haloQuads(BufferBuilder builder, float angle, float radius, int rgb, float alpha) {
       if (!(alpha <= 0.002F)) {
          float[] radii = new float[]{0.0F, radius * 0.16F, radius * 0.38F, radius * 0.66F, radius};
          float[] alphas = new float[]{1.0F, 0.55F, 0.22F, 0.07F, 0.0F};
-         float cosA = class_3532.method_15362(angle);
-         float sinA = class_3532.method_15374(angle);
+         float cosA = Mth.cos(angle);
+         float sinA = Mth.sin(angle);
 
          for (int ring = 0; ring < 4; ring++) {
             for (int s = 0; s < 32; s++) {
@@ -191,21 +191,21 @@ final class AtmosphereSky {
       }
    }
 
-   private static void haloVertex(class_287 builder, float r, int segment, float cosA, float sinA, int rgb, float alpha) {
+   private static void haloVertex(BufferBuilder builder, float r, int segment, float cosA, float sinA, int rgb, float alpha) {
       float around = segment / 32.0F * (float) (Math.PI * 2);
-      float lx = class_3532.method_15362(around) * r;
+      float lx = Mth.cos(around) * r;
       float ly = 100.0F;
-      float lz = class_3532.method_15374(around) * r;
+      float lz = Mth.sin(around) * r;
       float y = ly * cosA - lz * sinA;
       float z = ly * sinA + lz * cosA;
-      SkyMesh.vertex(builder, -z, y, lx, Math.round(class_3532.method_15363(alpha, 0.0F, 1.0F) * 255.0F) << 24 | rgb & 16777215);
+      SkyMesh.vertex(builder, -z, y, lx, Math.round(Mth.clamp(alpha, 0.0F, 1.0F) * 255.0F) << 24 | rgb & 16777215);
    }
 
-   void renderMeteors(class_4587 pose, float night, float rainBrightness) {
+   void renderMeteors(PoseStack pose, float night, float rainBrightness) {
       long now = System.nanoTime();
       if (now >= this.meteorEnd) {
          if (this.nextMeteor == 0L) {
-            this.nextMeteor = now + seconds(4.0F + 10.0F * this.random.method_43057());
+            this.nextMeteor = now + seconds(4.0F + 10.0F * this.random.nextFloat());
          }
 
          if (now < this.nextMeteor || night < 0.6F || rainBrightness < 0.8F) {
@@ -216,8 +216,8 @@ final class AtmosphereSky {
       }
 
       float life = (float)(now - this.meteorStart) / (float)(this.meteorEnd - this.meteorStart);
-      float fade = class_3532.method_15374((float) Math.PI * class_3532.method_15363(life, 0.0F, 1.0F)) * night * rainBrightness;
-      class_287 builder = this.meteorMesh.begin();
+      float fade = Mth.sin((float) Math.PI * Mth.clamp(life, 0.0F, 1.0F)) * night * rainBrightness;
+      BufferBuilder builder = this.meteorMesh.begin();
       float travel = life * 0.55F;
       float tail = 0.16F;
       float[] prev = null;
@@ -237,42 +237,42 @@ final class AtmosphereSky {
    }
 
    private void launch(long now) {
-      float el = (30.0F + 40.0F * this.random.method_43057()) * (float) (Math.PI / 180.0);
-      float az = this.random.method_43057() * (float) (Math.PI * 2);
-      this.mx = class_3532.method_15362(el) * class_3532.method_15362(az);
-      this.my = class_3532.method_15374(el);
-      this.mz = class_3532.method_15362(el) * class_3532.method_15374(az);
-      float dx = -class_3532.method_15374(az);
-      float dz = class_3532.method_15362(az);
-      float dy = -0.6F - 0.4F * this.random.method_43057();
+      float el = (30.0F + 40.0F * this.random.nextFloat()) * (float) (Math.PI / 180.0);
+      float az = this.random.nextFloat() * (float) (Math.PI * 2);
+      this.mx = Mth.cos(el) * Mth.cos(az);
+      this.my = Mth.sin(el);
+      this.mz = Mth.cos(el) * Mth.sin(az);
+      float dx = -Mth.sin(az);
+      float dz = Mth.cos(az);
+      float dy = -0.6F - 0.4F * this.random.nextFloat();
       float dot = dx * this.mx + dy * this.my + dz * this.mz;
       this.tx = dx - dot * this.mx;
       this.ty = dy - dot * this.my;
       this.tz = dz - dot * this.mz;
-      float length = class_3532.method_15355(this.tx * this.tx + this.ty * this.ty + this.tz * this.tz);
+      float length = Mth.sqrt(this.tx * this.tx + this.ty * this.ty + this.tz * this.tz);
       this.tx /= length;
       this.ty /= length;
       this.tz /= length;
       this.meteorStart = now;
-      this.meteorEnd = now + seconds(0.7F + 0.5F * this.random.method_43057());
-      this.nextMeteor = this.meteorEnd + seconds(6.0F + 18.0F * this.random.method_43057());
+      this.meteorEnd = now + seconds(0.7F + 0.5F * this.random.nextFloat());
+      this.nextMeteor = this.meteorEnd + seconds(6.0F + 18.0F * this.random.nextFloat());
    }
 
-   private static void streak(class_287 builder, float[] a, float[] b, float alphaA, float alphaB) {
+   private static void streak(BufferBuilder builder, float[] a, float[] b, float alphaA, float alphaB) {
       float lx = b[0] - a[0];
       float ly = b[1] - a[1];
       float lz = b[2] - a[2];
       float wx = a[1] * lz - a[2] * ly;
       float wy = a[2] * lx - a[0] * lz;
       float wz = a[0] * ly - a[1] * lx;
-      float wl = class_3532.method_15355(wx * wx + wy * wy + wz * wz);
+      float wl = Mth.sqrt(wx * wx + wy * wy + wz * wz);
       if (!(wl < 1.0E-5F)) {
          float half = 0.22F / wl;
          wx *= half;
          wy *= half;
          wz *= half;
-         int ca = Math.round(class_3532.method_15363(alphaA, 0.0F, 1.0F) * 255.0F) << 24 | 15397631;
-         int cb = Math.round(class_3532.method_15363(alphaB, 0.0F, 1.0F) * 255.0F) << 24 | 15397631;
+         int ca = Math.round(Mth.clamp(alphaA, 0.0F, 1.0F) * 255.0F) << 24 | 15397631;
+         int cb = Math.round(Mth.clamp(alphaB, 0.0F, 1.0F) * 255.0F) << 24 | 15397631;
          SkyMesh.vertex(builder, a[0] - wx, a[1] - wy, a[2] - wz, ca);
          SkyMesh.vertex(builder, a[0] + wx, a[1] + wy, a[2] + wz, ca);
          SkyMesh.vertex(builder, b[0] + wx, b[1] + wy, b[2] + wz, cb);
@@ -285,9 +285,9 @@ final class AtmosphereSky {
    }
 
    static int scale(int rgb, float k) {
-      int r = class_3532.method_15340(Math.round((rgb >> 16 & 0xFF) * k), 0, 255);
-      int g = class_3532.method_15340(Math.round((rgb >> 8 & 0xFF) * k), 0, 255);
-      int b = class_3532.method_15340(Math.round((rgb & 0xFF) * k), 0, 255);
+      int r = Mth.clamp(Math.round((rgb >> 16 & 0xFF) * k), 0, 255);
+      int g = Mth.clamp(Math.round((rgb >> 8 & 0xFF) * k), 0, 255);
+      int b = Mth.clamp(Math.round((rgb & 0xFF) * k), 0, 255);
       return rgb & 0xFF000000 | r << 16 | g << 8 | b;
    }
 

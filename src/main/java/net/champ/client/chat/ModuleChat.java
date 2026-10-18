@@ -5,9 +5,9 @@ import net.champ.client.gui.ToggleToasts;
 import net.champ.client.module.ClientModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2561;
-import net.minecraft.class_310;
-import net.minecraft.class_5250;
+import net.minecraft.network.chat.Component;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.MutableComponent;
 
 @Environment(EnvType.CLIENT)
 public final class ModuleChat {
@@ -27,7 +27,7 @@ public final class ModuleChat {
       return new ModuleChat.Body();
    }
 
-   public static void send(ClientModule module, class_2561 body) {
+   public static void send(ClientModule module, Component body) {
       onClientThread(() -> {
          if (module.notificationsOn()) {
             addLine(module, body);
@@ -40,15 +40,15 @@ public final class ModuleChat {
    }
 
    public static void send(ClientModule module, String text) {
-      send(module, class_2561.method_43470(text));
+      send(module, Component.literal(text));
    }
 
    public static void actionBar(ClientModule module, ModuleChat.Body body) {
-      class_2561 built = body.build();
+      Component built = body.build();
       onClientThread(() -> {
-         class_310 mc = class_310.method_1551();
-         if (module.notificationsOn() && mc.field_1705 != null) {
-            mc.field_1705.method_1758(line(module, built), false);
+         Minecraft mc = Minecraft.getInstance();
+         if (module.notificationsOn() && mc.gui != null) {
+            mc.gui.setOverlayMessage(line(module, built), false);
          }
       });
    }
@@ -57,26 +57,26 @@ public final class ModuleChat {
       ToggleToasts.show(module, module.isEnabled());
    }
 
-   private static void addLine(ClientModule module, class_2561 body) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1705 != null) {
-         mc.field_1705.method_1743().method_1812(line(module, body));
+   private static void addLine(ClientModule module, Component body) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.gui != null) {
+         mc.gui.getChat().addMessage(line(module, body));
       }
    }
 
-   private static class_5250 line(ClientModule module, class_2561 body) {
-      return class_2561.method_43473()
-         .method_10852(class_2561.method_43470("[").method_54663(5592405))
-         .method_10852(class_2561.method_43470("Champ Client Client").method_54663(ThemeStore.get().accent.rgb()))
-         .method_10852(class_2561.method_43470("] ").method_54663(5592405))
-         .method_10852(class_2561.method_43470(module.name()).method_54663(16777215))
-         .method_10852(class_2561.method_43470(" : ").method_54663(5592405))
-         .method_10852(class_2561.method_43473().method_54663(11184810).method_10852(body));
+   private static MutableComponent line(ClientModule module, Component body) {
+      return Component.empty()
+         .append(Component.literal("[").withColor(5592405))
+         .append(Component.literal("Champ Client Client").withColor(ThemeStore.get().accent.rgb()))
+         .append(Component.literal("] ").withColor(5592405))
+         .append(Component.literal(module.name()).withColor(16777215))
+         .append(Component.literal(" : ").withColor(5592405))
+         .append(Component.empty().withColor(11184810).append(body));
    }
 
    private static void onClientThread(Runnable task) {
-      class_310 mc = class_310.method_1551();
-      if (mc.method_18854()) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.isSameThread()) {
          task.run();
       } else {
          mc.execute(task);
@@ -85,13 +85,13 @@ public final class ModuleChat {
 
    @Environment(EnvType.CLIENT)
    public static final class Body {
-      private final class_5250 root = class_2561.method_43473().method_54663(11184810);
+      private final MutableComponent root = Component.empty().withColor(11184810);
 
       private Body() {
       }
 
       public ModuleChat.Body text(String text) {
-         this.root.method_10852(class_2561.method_43470(text));
+         this.root.append(Component.literal(text));
          return this;
       }
 
@@ -119,17 +119,17 @@ public final class ModuleChat {
          return this.part(x + ", " + y + ", " + z, 5636095);
       }
 
-      public ModuleChat.Body append(class_2561 component) {
-         this.root.method_10852(component);
+      public ModuleChat.Body append(Component component) {
+         this.root.append(component);
          return this;
       }
 
-      public class_2561 build() {
-         return this.root.method_27661();
+      public Component build() {
+         return this.root.copy();
       }
 
       private ModuleChat.Body part(String text, int rgb) {
-         this.root.method_10852(class_2561.method_43470(text).method_54663(rgb));
+         this.root.append(Component.literal(text).withColor(rgb));
          return this;
       }
    }

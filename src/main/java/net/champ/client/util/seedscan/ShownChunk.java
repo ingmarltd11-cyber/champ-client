@@ -3,10 +3,10 @@ package net.champ.client.util.seedscan;
 import java.util.Arrays;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2246;
-import net.minecraft.class_2680;
-import net.minecraft.class_2841;
-import net.minecraft.class_7923;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.PalettedContainer;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 public final class ShownChunk {
@@ -26,27 +26,27 @@ public final class ShownChunk {
       Arrays.fill(this.motionTop, (short)-64);
    }
 
-   public static ShownChunk of(int chunkX, int chunkZ, class_2841<class_2680>[] sections) {
+   public static ShownChunk of(int chunkX, int chunkZ, PalettedContainer<BlockState>[] sections) {
       ShownChunk shown = new ShownChunk(chunkX, chunkZ);
 
       for (int i = 0; i < 24; i++) {
-         class_2841<class_2680> states = i < sections.length ? sections[i] : null;
+         PalettedContainer<BlockState> states = i < sections.length ? sections[i] : null;
          if (states == null) {
             shown.uniform[i] = 0;
          } else {
             boolean keep = -64 + (i << 4) <= 207;
-            byte first = VBlock.of((class_2680)states.method_12321(0, 0, 0));
+            byte first = VBlock.of((BlockState)states.get(0, 0, 0));
             byte[] packed = null;
 
             for (int index = 0; index < 4096; index++) {
                int x = index & 15;
                int y = index >> 8;
                int z = index >> 4 & 15;
-               class_2680 state = (class_2680)states.method_12321(x, y, z);
+               BlockState state = (BlockState)states.get(x, y, z);
                byte kind = VBlock.of(state);
                int top = -64 + (i << 4) + y + 1;
                int column = x + 16 * z;
-               if (kind != 0 && state.method_51366() && top > shown.motionTop[column]) {
+               if (kind != 0 && state.blocksMotion() && top > shown.motionTop[column]) {
                   shown.motionTop[column] = (short)top;
                }
 
@@ -80,7 +80,7 @@ public final class ShownChunk {
       return shown;
    }
 
-   static boolean isTerrain(class_2680 state, byte kind) {
+   static boolean isTerrain(BlockState state, byte kind) {
       if (kind == 0 || kind == 1 || kind == 2) {
          return false;
       }
@@ -89,11 +89,11 @@ public final class ShownChunk {
          return true;
       }
 
-      if (!state.method_51366()) {
+      if (!state.blocksMotion()) {
          return false;
       }
 
-      String path = class_7923.field_41175.method_10221(state.method_26204()).method_12832();
+      String path = BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
       return path.endsWith("dirt")
          || path.equals("grass_block")
          || path.equals("podzol")
@@ -114,8 +114,8 @@ public final class ShownChunk {
          || path.equals("smooth_basalt");
    }
 
-   static boolean isIce(class_2680 state) {
-      return state.method_27852(class_2246.field_10225) || state.method_27852(class_2246.field_10384) || state.method_27852(class_2246.field_10491);
+   static boolean isIce(BlockState state) {
+      return state.is(Blocks.PACKED_ICE) || state.is(Blocks.BLUE_ICE) || state.is(Blocks.SNOW_BLOCK);
    }
 
    private static void put(byte[] packed, int index, byte kind) {

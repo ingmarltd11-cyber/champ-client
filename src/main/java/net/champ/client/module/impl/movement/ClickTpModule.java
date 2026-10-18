@@ -9,32 +9,32 @@ import net.champ.client.module.impl.misc.FreecamModule;
 import net.champ.client.module.impl.render.FreelookModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1268;
-import net.minecraft.class_1269;
-import net.minecraft.class_1301;
-import net.minecraft.class_1675;
-import net.minecraft.class_1747;
-import net.minecraft.class_1839;
-import net.minecraft.class_2338;
-import net.minecraft.class_2350;
-import net.minecraft.class_238;
-import net.minecraft.class_239;
-import net.minecraft.class_243;
-import net.minecraft.class_265;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
-import net.minecraft.class_3959;
-import net.minecraft.class_3965;
-import net.minecraft.class_3966;
-import net.minecraft.class_4184;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
-import net.minecraft.class_2350.class_2351;
-import net.minecraft.class_239.class_240;
-import net.minecraft.class_2828.class_2829;
-import net.minecraft.class_2828.class_5911;
-import net.minecraft.class_3959.class_242;
-import net.minecraft.class_3959.class_3960;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.EntitySelector;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemUseAnimation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.client.Camera;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.Direction.Axis;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.StatusOnly;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.level.ClipContext.Block;
 
 @Environment(EnvType.CLIENT)
 public final class ClickTpModule extends ClientModule {
@@ -52,64 +52,64 @@ public final class ClickTpModule extends ClientModule {
    }
 
    private void onPostTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      class_638 level = mc.field_1687;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      ClientLevel level = mc.level;
       if (player != null && level != null) {
-         if (player.method_31548().method_7391().method_7976() == class_1839.field_8952) {
-            if (mc.field_1690.field_1904.method_1434()) {
-               class_4184 camera = mc.field_1773.method_19418();
-               class_243 cameraPos = camera.method_71156();
-               class_243 direction = class_243.method_1030(camera.method_19329(), camera.method_19330());
+         if (player.getInventory().getSelectedItem().getUseAnimation() == ItemUseAnimation.NONE) {
+            if (mc.options.keyUse.isDown()) {
+               Camera camera = mc.gameRenderer.getMainCamera();
+               Vec3 cameraPos = camera.position();
+               Vec3 direction = Vec3.directionFromRotation(camera.xRot(), camera.yRot());
                FreecamModule freecam = ModuleRegistry.get(FreecamModule.class);
                boolean freecamOn = freecam != null && freecam.isEnabled();
-               class_239 crosshair = freecamOn ? pickFromCamera(player, level, cameraPos, direction) : mc.field_1765;
+               HitResult crosshair = freecamOn ? pickFromCamera(player, level, cameraPos, direction) : mc.hitResult;
                if (crosshair != null) {
-                  if (crosshair.method_17783() == class_240.field_1331
-                     && player.method_7287(((class_3966)crosshair).method_17782(), class_1268.field_5808) != class_1269.field_5811) {
+                  if (crosshair.getType() == Type.ENTITY
+                     && player.interactOn(((EntityHitResult)crosshair).getEntity(), InteractionHand.MAIN_HAND) != InteractionResult.PASS) {
                      return;
                   }
 
-                  if (crosshair.method_17783() == class_240.field_1332 && player.method_6047().method_7909() instanceof class_1747) {
+                  if (crosshair.getType() == Type.BLOCK && player.getMainHandItem().getItem() instanceof BlockItem) {
                      return;
                   }
                }
 
-               class_3965 hit = level.method_17742(
-                  new class_3959(cameraPos, cameraPos.method_1019(direction.method_1021(210.0)), class_3960.field_17559, class_242.field_1348, player)
+               BlockHitResult hit = level.clip(
+                  new ClipContext(cameraPos, cameraPos.add(direction.scale(210.0)), Block.OUTLINE, Fluid.NONE, player)
                );
-               if (hit.method_17783() == class_240.field_1332) {
-                  if (hit.method_17781() && !freecamOn) {
+               if (hit.getType() == Type.BLOCK) {
+                  if (hit.isInside() && !freecamOn) {
                      FreelookModule freelook = ModuleRegistry.get(FreelookModule.class);
                      if (freelook != null && freelook.isEnabled()) {
                         return;
                      }
                   }
 
-                  class_2338 pos = hit.method_17777();
-                  class_2350 side = hit.method_17780();
-                  if (level.method_8320(pos).method_55781(level, player, hit) == class_1269.field_5811) {
-                     class_2680 state = level.method_8320(pos);
-                     class_265 shape = state.method_26220(level, pos);
-                     if (shape.method_1110()) {
-                        shape = state.method_26218(level, pos);
+                  BlockPos pos = hit.getBlockPos();
+                  Direction side = hit.getDirection();
+                  if (level.getBlockState(pos).useWithoutItem(level, player, hit) == InteractionResult.PASS) {
+                     BlockState state = level.getBlockState(pos);
+                     VoxelShape shape = state.getCollisionShape(level, pos);
+                     if (shape.isEmpty()) {
+                        shape = state.getShape(level, pos);
                      }
 
-                     double height = shape.method_1110() ? 1.0 : shape.method_1105(class_2351.field_11052);
-                     class_243 newPos = new class_243(
-                        pos.method_10263() + 0.5 + side.method_10148(), pos.method_10264() + height, pos.method_10260() + 0.5 + side.method_10165()
+                     double height = shape.isEmpty() ? 1.0 : shape.max(Axis.Y);
+                     Vec3 newPos = new Vec3(
+                        pos.getX() + 0.5 + side.getStepX(), pos.getY() + height, pos.getZ() + 0.5 + side.getStepZ()
                      );
-                     int packetsRequired = (int)Math.ceil(player.method_73189().method_1022(newPos) / 10.0) - 1;
+                     int packetsRequired = (int)Math.ceil(player.position().distanceTo(newPos) / 10.0) - 1;
                      if (packetsRequired > 19) {
                         packetsRequired = 0;
                      }
 
                      for (int i = 0; i < packetsRequired; i++) {
-                        player.field_3944.method_52787(new class_5911(true, true));
+                        player.connection.send(new StatusOnly(true, true));
                      }
 
-                     player.field_3944.method_52787(new class_2829(newPos.field_1352, newPos.field_1351, newPos.field_1350, true, true));
-                     player.method_33574(newPos);
+                     player.connection.send(new Pos(newPos.x, newPos.y, newPos.z, true, true));
+                     player.setPos(newPos);
                   }
                }
             }
@@ -117,27 +117,27 @@ public final class ClickTpModule extends ClientModule {
       }
    }
 
-   private static class_239 pickFromCamera(class_746 player, class_638 level, class_243 eye, class_243 dir) {
-      double blockRange = player.method_55754();
-      double entityRange = player.method_55755();
+   private static HitResult pickFromCamera(LocalPlayer player, ClientLevel level, Vec3 eye, Vec3 dir) {
+      double blockRange = player.blockInteractionRange();
+      double entityRange = player.entityInteractionRange();
       double reach = Math.max(blockRange, entityRange);
       double reachSq = reach * reach;
-      class_3965 blockHit = level.method_17742(
-         new class_3959(eye, eye.method_1019(dir.method_1021(reach)), class_3960.field_17559, class_242.field_1348, player)
+      BlockHitResult blockHit = level.clip(
+         new ClipContext(eye, eye.add(dir.scale(reach)), Block.OUTLINE, Fluid.NONE, player)
       );
-      double blockDistSq = blockHit.method_17784().method_1025(eye);
-      if (blockHit.method_17783() != class_240.field_1333) {
+      double blockDistSq = blockHit.getLocation().distanceToSqr(eye);
+      if (blockHit.getType() != Type.MISS) {
          reachSq = blockDistSq;
          reach = Math.sqrt(blockDistSq);
       }
 
-      class_243 end = eye.method_1019(dir.method_1021(reach));
-      class_238 searchBox = new class_238(eye, end).method_1014(1.0);
-      class_3966 entityHit = class_1675.method_18075(player, eye, end, searchBox, class_1301.field_52443, reachSq);
-      if (entityHit != null && entityHit.method_17784().method_1025(eye) < blockDistSq) {
-         return entityHit.method_17784().method_24802(eye, entityRange) ? entityHit : null;
+      Vec3 end = eye.add(dir.scale(reach));
+      AABB searchBox = new AABB(eye, end).inflate(1.0);
+      EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(player, eye, end, searchBox, EntitySelector.CAN_BE_PICKED, reachSq);
+      if (entityHit != null && entityHit.getLocation().distanceToSqr(eye) < blockDistSq) {
+         return entityHit.getLocation().closerThan(eye, entityRange) ? entityHit : null;
       } else {
-         return blockHit.method_17784().method_24802(eye, blockRange) ? blockHit : null;
+         return blockHit.getLocation().closerThan(eye, blockRange) ? blockHit : null;
       }
    }
 }

@@ -4,9 +4,9 @@ import java.util.Arrays;
 import net.champ.client.util.MobilePerformance;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_4588;
-import net.minecraft.class_4608;
-import net.minecraft.class_4587.class_4665;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
 
 @Environment(EnvType.CLIENT)
 final class PharaohMesh {
@@ -47,7 +47,7 @@ final class PharaohMesh {
       return this.quads == 0;
    }
 
-   void emit(class_4665 pose, class_4588 out, int light, PharaohMesh.Look look) {
+   void emit(Pose pose, VertexConsumer out, int light, PharaohMesh.Look look) {
       int[] colors = null;
       if (MobilePerformance.active()) {
          if (this.cachedColors == null) {
@@ -96,12 +96,12 @@ final class PharaohMesh {
                }
             }
 
-            out.method_56824(pose, this.pos[p], this.pos[p + 1], this.pos[p + 2])
-               .method_39415(colors == null ? tint(argb, bright) : colors[q * 4 + v])
-               .method_22913(CORNER_U[v], CORNER_V[v])
-               .method_22922(class_4608.field_21444)
-               .method_60803(lit)
-               .method_60831(pose, nx, ny, nz);
+            out.addVertex(pose, this.pos[p], this.pos[p + 1], this.pos[p + 2])
+               .setColor(colors == null ? tint(argb, bright) : colors[q * 4 + v])
+               .setUv(CORNER_U[v], CORNER_V[v])
+               .setOverlay(OverlayTexture.NO_OVERLAY)
+               .setLight(lit)
+               .setNormal(pose, nx, ny, nz);
          }
       }
    }

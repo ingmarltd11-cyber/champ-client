@@ -12,12 +12,12 @@ import net.champ.client.module.impl.render.character.CharacterModule;
 import net.champ.client.util.MobilePerformance;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10055;
-import net.minecraft.class_1657;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 abstract class HeadCosmeticModule extends ClientModule {
@@ -35,7 +35,7 @@ abstract class HeadCosmeticModule extends ClientModule {
    private long lookRevision;
    private int lookAccent;
    private final Int2BooleanOpenHashMap friendCache = new Int2BooleanOpenHashMap();
-   private WeakReference<class_638> friendLevel = new WeakReference<>(null);
+   private WeakReference<ClientLevel> friendLevel = new WeakReference<>(null);
    private long friendsCheckedAt;
 
    HeadCosmeticModule(String id, String name, String description) {
@@ -82,22 +82,22 @@ abstract class HeadCosmeticModule extends ClientModule {
       this.friendLevel = new WeakReference<>(null);
    }
 
-   final boolean wears(class_10055 state) {
-      class_310 mc = class_310.method_1551();
-      class_746 self = mc.field_1724;
-      if (self != null && mc.field_1687 != null) {
-         return state.field_53528 == self.method_5628()
-            ? !mc.field_1690.method_31044().method_31034() || mc.field_1755 != null || FreecamModule.active != null
-            : this.onFriends() && this.isFriend(mc, state.field_53528);
+   final boolean wears(AvatarRenderState state) {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer self = mc.player;
+      if (self != null && mc.level != null) {
+         return state.id == self.getId()
+            ? !mc.options.getCameraType().isFirstPerson() || mc.screen != null || FreecamModule.active != null
+            : this.onFriends() && this.isFriend(mc, state.id);
       } else {
          return false;
       }
    }
 
-   private boolean isFriend(class_310 mc, int id) {
+   private boolean isFriend(Minecraft mc, int id) {
       long now = System.nanoTime();
-      if (this.friendLevel.get() != mc.field_1687) {
-         this.friendLevel = new WeakReference<>(mc.field_1687);
+      if (this.friendLevel.get() != mc.level) {
+         this.friendLevel = new WeakReference<>(mc.level);
          this.friendCache.clear();
       }
 
@@ -110,7 +110,7 @@ abstract class HeadCosmeticModule extends ClientModule {
          return this.friendCache.get(id);
       }
 
-      boolean friend = mc.field_1687.method_8469(id) instanceof class_1657 player && FriendStore.getInstance().isFriend(player.method_7334().name());
+      boolean friend = mc.level.getEntity(id) instanceof Player player && FriendStore.getInstance().isFriend(player.getGameProfile().name());
       this.friendCache.put(id, friend);
       return friend;
    }
@@ -129,10 +129,10 @@ abstract class HeadCosmeticModule extends ClientModule {
          float seconds = (float)(now - EPOCH) / 1.0E9F;
          float phase = seconds % 3.6F / 3.6F;
          float sweep = (phase * 2.0F - 1.0F) * (float) Math.PI * 1.25F;
-         float envelope = class_3532.method_15374(phase * (float) Math.PI);
+         float envelope = Mth.sin(phase * (float) Math.PI);
          float gain = this.glints() ? 0.6F * envelope * envelope : 0.0F;
-         float pulse = 0.9F + 0.1F * class_3532.method_15374(seconds * 2.2F);
-         current = new PharaohMesh.Look(this.palette(), this.glows(), class_3532.method_15362(sweep), class_3532.method_15374(sweep), gain, pulse);
+         float pulse = 0.9F + 0.1F * Mth.sin(seconds * 2.2F);
+         current = new PharaohMesh.Look(this.palette(), this.glows(), Mth.cos(sweep), Mth.sin(sweep), gain, pulse);
          this.look = current;
          this.lookAt = now;
          this.mobileLook = mobile;
@@ -175,6 +175,6 @@ abstract class HeadCosmeticModule extends ClientModule {
       }
 
       float s = max == 0 ? 0.0F : (float)chroma / max;
-      return class_3532.method_60599(hue, Math.min(1.0F, s * saturation), Math.min(1.0F, value), 255);
+      return Mth.hsvToArgb(hue, Math.min(1.0F, s * saturation), Math.min(1.0F, value), 255);
    }
 }

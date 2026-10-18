@@ -7,35 +7,35 @@ import java.util.concurrent.atomic.AtomicInteger;
 import net.champ.client.module.impl.client.PerformanceModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2246;
-import net.minecraft.class_2248;
-import net.minecraft.class_2338;
-import net.minecraft.class_2591;
-import net.minecraft.class_2596;
-import net.minecraft.class_2622;
-import net.minecraft.class_2672;
-import net.minecraft.class_2678;
-import net.minecraft.class_2724;
-import net.minecraft.class_2960;
-import net.minecraft.class_6603;
-import net.minecraft.class_6880;
-import net.minecraft.class_7923;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
+import net.minecraft.network.protocol.game.ClientboundLoginPacket;
+import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 public final class BlockEntityLeakTracker {
-   private static final Map<class_2338, BlockEntityLeakTracker.Entry> FOUND = new ConcurrentHashMap<>();
-   private static final ConcurrentLinkedQueue<class_2338> ADDED = new ConcurrentLinkedQueue<>();
+   private static final Map<BlockPos, BlockEntityLeakTracker.Entry> FOUND = new ConcurrentHashMap<>();
+   private static final ConcurrentLinkedQueue<BlockPos> ADDED = new ConcurrentLinkedQueue<>();
    private static final AtomicInteger GENERATION = new AtomicInteger();
    private static volatile boolean recordAdditions;
 
    private BlockEntityLeakTracker() {
    }
 
-   public static Map<class_2338, BlockEntityLeakTracker.Entry> view() {
+   public static Map<BlockPos, BlockEntityLeakTracker.Entry> view() {
       return FOUND;
    }
 
-   public static boolean contains(class_2338 pos) {
+   public static boolean contains(BlockPos pos) {
       return FOUND.containsKey(pos);
    }
 
@@ -56,61 +56,61 @@ public final class BlockEntityLeakTracker {
       }
    }
 
-   public static class_2338 pollAdded() {
+   public static BlockPos pollAdded() {
       return ADDED.poll();
    }
 
-   public static void ingest(class_2596<?> packet) {
-      if (packet instanceof class_2672 chunkPacket) {
-         class_6603 data = chunkPacket.method_38598();
+   public static void ingest(Packet<?> packet) {
+      if (packet instanceof ClientboundLevelChunkWithLightPacket chunkPacket) {
+         ClientboundLevelChunkPacketData data = chunkPacket.getChunkData();
 
          try {
-            data.method_38587(chunkPacket.method_11523(), chunkPacket.method_11524()).accept((pos, type, tag) -> {
+            data.getBlockEntitiesTagsConsumer(chunkPacket.getX(), chunkPacket.getZ()).accept((pos, type, tag) -> {
                if (type != null) {
                   put(pos, type);
                }
             });
          } catch (Throwable var5) {
          }
-      } else if (packet instanceof class_2622 bePacket) {
-         put(bePacket.method_11293(), bePacket.method_11291());
-      } else if (packet instanceof class_2678 || packet instanceof class_2724) {
+      } else if (packet instanceof ClientboundBlockEntityDataPacket bePacket) {
+         put(bePacket.getPos(), bePacket.getType());
+      } else if (packet instanceof ClientboundLoginPacket || packet instanceof ClientboundRespawnPacket) {
          clear();
       }
    }
 
-   private static void put(class_2338 pos, class_2591<?> type) {
+   private static void put(BlockPos pos, BlockEntityType<?> type) {
       if (!PerformanceModule.optimizationsEnabled() || !FOUND.containsKey(pos)) {
-         class_2338 key = pos.method_10062();
+         BlockPos key = pos.immutable();
          if (FOUND.putIfAbsent(key, new BlockEntityLeakTracker.Entry(blockFromType(type))) == null && recordAdditions) {
             ADDED.add(key);
          }
       }
    }
 
-   public static class_2248 blockFromType(class_2591<?> type) {
-      class_2960 id = class_7923.field_41181.method_10221(type);
+   public static Block blockFromType(BlockEntityType<?> type) {
+      Identifier id = BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(type);
       if (id == null) {
-         return class_2246.field_10124;
+         return Blocks.AIR;
       }
 
-      String path = id.method_12832();
+      String path = id.getPath();
 
-      class_2248 mapped = switch (path) {
-         case "mob_spawner" -> class_2246.field_10260;
-         case "piston" -> class_2246.field_10008;
-         case "sign" -> class_2246.field_10121;
-         case "hanging_sign" -> class_2246.field_40262;
-         case "skull" -> class_2246.field_10481;
-         case "banner" -> class_2246.field_10154;
-         case "bed" -> class_2246.field_10069;
-         case "brushable_block" -> class_2246.field_42728;
+      Block mapped = switch (path) {
+         case "mob_spawner" -> Blocks.SPAWNER;
+         case "piston" -> Blocks.MOVING_PISTON;
+         case "sign" -> Blocks.OAK_SIGN;
+         case "hanging_sign" -> Blocks.OAK_HANGING_SIGN;
+         case "skull" -> Blocks.SKELETON_SKULL;
+         case "banner" -> Blocks.WHITE_BANNER;
+         case "bed" -> Blocks.RED_BED;
+         case "brushable_block" -> Blocks.SUSPICIOUS_SAND;
          default -> null;
       };
-      return mapped != null ? mapped : class_7923.field_41175.method_10223(id).<class_2248>map(class_6880::comp_349).orElse(class_2246.field_10124);
+      return mapped != null ? mapped : BuiltInRegistries.BLOCK.get(id).<Block>map(Holder::comp_349).orElse(Blocks.AIR);
    }
 
    @Environment(EnvType.CLIENT)
-   public record Entry(class_2248 block) {
+   public record Entry(Block block) {
    }
 }

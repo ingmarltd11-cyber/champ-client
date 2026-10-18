@@ -18,10 +18,10 @@ import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.util.netherite.NetheriteChunkTracker;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2338;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class NetheriteFinderModule extends ClientModule implements HudOverlayProvider {
@@ -40,7 +40,7 @@ public final class NetheriteFinderModule extends ClientModule implements HudOver
    private final AdvancedFinder advancedFinder = new AdvancedFinder(this);
    private final NetheriteVisuals visuals = new NetheriteVisuals();
    private int pendingCount;
-   private class_2338 nearestPending;
+   private BlockPos nearestPending;
    private double nearestPendingDistanceSq;
    private long lastNotifyAt;
 
@@ -65,11 +65,11 @@ public final class NetheriteFinderModule extends ClientModule implements HudOver
    protected void onDisable() {
       NetheriteChunkTracker.setListener(null);
       NetheriteChunkTracker.setRevealListener(null);
-      this.advancedFinder.reset(class_310.method_1551());
+      this.advancedFinder.reset(Minecraft.getInstance());
       this.visuals.clear();
    }
 
-   private void onRevealed(class_2338 pos) {
+   private void onRevealed(BlockPos pos) {
       if (this.advancedFinder.onRevealed(pos)) {
          this.visuals.burst(pos, this.color.argb());
       }
@@ -77,10 +77,10 @@ public final class NetheriteFinderModule extends ClientModule implements HudOver
 
    private void onCandidate(NetheriteChunkTracker.Candidate candidate) {
       if (this.notificationsOn()) {
-         class_2338 pos = new class_2338((candidate.chunkX() << 4) + 8, (candidate.sectionY() << 4) + 8, (candidate.chunkZ() << 4) + 8);
+         BlockPos pos = new BlockPos((candidate.chunkX() << 4) + 8, (candidate.sectionY() << 4) + 8, (candidate.chunkZ() << 4) + 8);
          this.pendingCount++;
-         class_310 mc = class_310.method_1551();
-         double distanceSq = mc.field_1724 != null ? mc.field_1724.method_5649(pos.method_10263(), pos.method_10264(), pos.method_10260()) : 0.0;
+         Minecraft mc = Minecraft.getInstance();
+         double distanceSq = mc.player != null ? mc.player.distanceToSqr(pos.getX(), pos.getY(), pos.getZ()) : 0.0;
          if (this.nearestPending == null || distanceSq < this.nearestPendingDistanceSq) {
             this.nearestPending = pos;
             this.nearestPendingDistanceSq = distanceSq;
@@ -91,7 +91,7 @@ public final class NetheriteFinderModule extends ClientModule implements HudOver
    @EventHandler
    public void onTick(TickEvent event) {
       this.flushNotifications();
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       this.advancedFinder.maintain(mc);
       if (this.advanced.get()) {
          if (!this.advancedFinder.armed()) {
@@ -118,7 +118,7 @@ public final class NetheriteFinderModule extends ClientModule implements HudOver
                      .text(" new hidden-debris chunk" + (this.pendingCount == 1 ? " " : "s "))
                      .good("found")
                      .text(", nearest at ")
-                     .coords(this.nearestPending.method_10263(), this.nearestPending.method_10264(), this.nearestPending.method_10260())
+                     .coords(this.nearestPending.getX(), this.nearestPending.getY(), this.nearestPending.getZ())
                );
                this.clearPending();
                this.lastNotifyAt = now;
@@ -135,9 +135,9 @@ public final class NetheriteFinderModule extends ClientModule implements HudOver
 
    @EventHandler
    public void onRender3D(Render3DEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 != null && mc.field_1724 != null && NetheriteChunkTracker.isNether(mc.field_1687)) {
-         class_243 eye = mc.field_1724.method_5836(event.partialTick);
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level != null && mc.player != null && NetheriteChunkTracker.isNether(mc.level)) {
+         Vec3 eye = mc.player.getEyePosition(event.partialTick);
          double maxDistance = this.range.get();
          List<NetheriteVisuals.Section> sections = new ArrayList<>();
 
@@ -146,7 +146,7 @@ public final class NetheriteFinderModule extends ClientModule implements HudOver
                double x = candidate.chunkX() * 16.0;
                double y = candidate.sectionY() * 16.0;
                double z = candidate.chunkZ() * 16.0;
-               class_238 box = new class_238(x, y, z, x + 16.0, y + 16.0, z + 16.0);
+               AABB box = new AABB(x, y, z, x + 16.0, y + 16.0, z + 16.0);
                double distance = Math.sqrt(distanceSq(box, eye));
                if (distance <= maxDistance) {
                   sections.add(new NetheriteVisuals.Section(box, distance, this.advancedFinder.progress(candidate)));
@@ -185,10 +185,10 @@ public final class NetheriteFinderModule extends ClientModule implements HudOver
       this.visuals.overlay(dl, screenW, screenH);
    }
 
-   private static double distanceSq(class_238 box, class_243 point) {
-      double dx = Math.max(0.0, Math.max(box.field_1323 - point.field_1352, point.field_1352 - box.field_1320));
-      double dy = Math.max(0.0, Math.max(box.field_1322 - point.field_1351, point.field_1351 - box.field_1325));
-      double dz = Math.max(0.0, Math.max(box.field_1321 - point.field_1350, point.field_1350 - box.field_1324));
+   private static double distanceSq(AABB box, Vec3 point) {
+      double dx = Math.max(0.0, Math.max(box.minX - point.x, point.x - box.maxX));
+      double dy = Math.max(0.0, Math.max(box.minY - point.y, point.y - box.maxY));
+      double dz = Math.max(0.0, Math.max(box.minZ - point.z, point.z - box.maxZ));
       return dx * dx + dy * dy + dz * dz;
    }
 }

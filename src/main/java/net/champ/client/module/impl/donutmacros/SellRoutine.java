@@ -12,17 +12,17 @@ import net.champ.client.module.ClientModule;
 import net.champ.client.module.setting.StringListSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1661;
-import net.minecraft.class_1703;
-import net.minecraft.class_1713;
-import net.minecraft.class_1735;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_310;
-import net.minecraft.class_465;
-import net.minecraft.class_634;
-import net.minecraft.class_746;
-import net.minecraft.class_7923;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 final class SellRoutine {
@@ -41,7 +41,7 @@ final class SellRoutine {
    private static final long SKIP_MS = 600000L;
    private final ClientModule owner;
    private final StringListSetting neverSell;
-   private final BiPredicate<Integer, class_1799> keep;
+   private final BiPredicate<Integer, ItemStack> keep;
    private final Runnable onCommand;
    private SellRoutine.State state = SellRoutine.State.IDLE;
    private long nextCheckAt;
@@ -52,11 +52,11 @@ final class SellRoutine {
    private int resends;
    private int menuId = -1;
    private int confirms;
-   private final Map<class_1792, Integer> offered = new LinkedHashMap<>();
-   private final Map<class_1792, Integer> strikes = new HashMap<>();
-   private final Map<class_1792, Long> skipUntil = new HashMap<>();
+   private final Map<Item, Integer> offered = new LinkedHashMap<>();
+   private final Map<Item, Integer> strikes = new HashMap<>();
+   private final Map<Item, Long> skipUntil = new HashMap<>();
 
-   SellRoutine(ClientModule owner, StringListSetting neverSell, BiPredicate<Integer, class_1799> keep, Runnable onCommand) {
+   SellRoutine(ClientModule owner, StringListSetting neverSell, BiPredicate<Integer, ItemStack> keep, Runnable onCommand) {
       this.owner = owner;
       this.neverSell = neverSell;
       this.keep = keep;
@@ -85,11 +85,11 @@ final class SellRoutine {
       }
    }
 
-   void abort(class_310 mc) {
+   void abort(Minecraft mc) {
       if (this.state != SellRoutine.State.IDLE) {
-         class_746 player = mc.field_1724;
-         if (player != null && player.field_7512 != player.field_7498 && player.field_7512.field_7763 == this.menuId) {
-            player.method_7346();
+         LocalPlayer player = mc.player;
+         if (player != null && player.containerMenu != player.inventoryMenu && player.containerMenu.containerId == this.menuId) {
+            player.closeContainer();
          }
 
          this.state = SellRoutine.State.IDLE;
@@ -99,7 +99,7 @@ final class SellRoutine {
       }
    }
 
-   boolean step(class_310 mc, class_746 player, class_634 connection, long now, boolean canCommand) {
+   boolean step(Minecraft mc, LocalPlayer player, ClientPacketListener connection, long now, boolean canCommand) {
       return switch (this.state) {
          case IDLE -> this.stepIdle(mc, player, connection, now, canCommand);
          case OPENING -> this.stepOpening(mc, player, connection, now);
@@ -108,9 +108,9 @@ final class SellRoutine {
       };
    }
 
-   private boolean stepIdle(class_310 mc, class_746 player, class_634 connection, long now, boolean canCommand) {
+   private boolean stepIdle(Minecraft mc, LocalPlayer player, ClientPacketListener connection, long now, boolean canCommand) {
       if (now - this.lastCommandAt < 5000L && sellMenuOpen(mc, player)) {
-         player.method_7346();
+         player.closeContainer();
          return true;
       }
 
@@ -119,11 +119,11 @@ final class SellRoutine {
       }
 
       this.nextCheckAt = now + 500L;
-      if (mc.field_1755 != null || !canCommand || now - this.lastCommandAt < 4000L) {
+      if (mc.screen != null || !canCommand || now - this.lastCommandAt < 4000L) {
          return false;
       }
 
-      if (!this.hasSellable(player.method_31548(), now)) {
+      if (!this.hasSellable(player.getInventory(), now)) {
          return false;
       }
 
@@ -132,8 +132,8 @@ final class SellRoutine {
       return true;
    }
 
-   private void send(class_634 connection, long now) {
-      connection.method_45730("sell");
+   private void send(ClientPacketListener connection, long now) {
+      connection.sendCommand("sell");
       this.lastCommandAt = now;
       this.onCommand.run();
       this.deadline = now + 10000L;
@@ -141,9 +141,9 @@ final class SellRoutine {
       this.state = SellRoutine.State.OPENING;
    }
 
-   private boolean stepOpening(class_310 mc, class_746 player, class_634 connection, long now) {
+   private boolean stepOpening(Minecraft mc, LocalPlayer player, ClientPacketListener connection, long now) {
       if (sellMenuOpen(mc, player)) {
-         this.menuId = player.field_7512.field_7763;
+         this.menuId = player.containerMenu.containerId;
          this.state = SellRoutine.State.MOVING;
          return true;
       }
@@ -164,19 +164,19 @@ final class SellRoutine {
       return false;
    }
 
-   private boolean stepMoving(class_310 mc, class_746 player, long now) {
-      class_1703 menu = player.field_7512;
+   private boolean stepMoving(Minecraft mc, LocalPlayer player, long now) {
+      AbstractContainerMenu menu = player.containerMenu;
       if (!this.ours(player)) {
          return this.finish(null, now);
       }
 
       int moved = 0;
 
-      for (class_1735 slot : menu.field_7761) {
-         if (slot.field_7871 instanceof class_1661 && slot.method_7681()) {
-            int index = slot.method_34266();
-            if (index < 36 && this.sellable(index, slot.method_7677(), now)) {
-               mc.field_1761.method_2906(menu.field_7763, slot.field_7874, 0, class_1713.field_7794, player);
+      for (Slot slot : menu.slots) {
+         if (slot.container instanceof Inventory && slot.hasItem()) {
+            int index = slot.getContainerSlot();
+            if (index < 36 && this.sellable(index, slot.getItem(), now)) {
+               mc.gameMode.handleInventoryMouseClick(menu.containerId, slot.index, 0, ClickType.QUICK_MOVE, player);
                moved++;
             }
          }
@@ -194,15 +194,15 @@ final class SellRoutine {
       return true;
    }
 
-   private boolean stepConfirming(class_310 mc, class_746 player, long now) {
+   private boolean stepConfirming(Minecraft mc, LocalPlayer player, long now) {
       if (!this.ours(player)) {
          return this.finish(null, now);
       } else if (now < this.deadline) {
          return true;
       } else {
-         class_1703 menu = player.field_7512;
+         AbstractContainerMenu menu = player.containerMenu;
          if (this.confirms < 3 && itemsWaiting(menu)) {
-            mc.field_1761.method_2906(menu.field_7763, 53, 0, class_1713.field_7790, player);
+            mc.gameMode.handleInventoryMouseClick(menu.containerId, 53, 0, ClickType.PICKUP, player);
             this.confirms++;
             this.deadline = now + (this.confirms == 1 ? 250L : 900L);
             return true;
@@ -212,15 +212,15 @@ final class SellRoutine {
       }
    }
 
-   private boolean close(class_746 player, Map<class_1792, Integer> left, long now) {
+   private boolean close(LocalPlayer player, Map<Item, Integer> left, long now) {
       if (this.ours(player)) {
-         player.method_7346();
+         player.closeContainer();
       }
 
       return this.finish(left, now);
    }
 
-   private boolean finish(Map<class_1792, Integer> left, long now) {
+   private boolean finish(Map<Item, Integer> left, long now) {
       if (left != null) {
          this.settle(left, now);
       }
@@ -232,11 +232,11 @@ final class SellRoutine {
       return false;
    }
 
-   private void settle(Map<class_1792, Integer> left, long now) {
+   private void settle(Map<Item, Integer> left, long now) {
       int sold = 0;
 
-      for (Entry<class_1792, Integer> entry : this.offered.entrySet()) {
-         class_1792 item = entry.getKey();
+      for (Entry<Item, Integer> entry : this.offered.entrySet()) {
+         Item item = entry.getKey();
          int remaining = left.getOrDefault(item, 0);
          sold += Math.max(0, entry.getValue() - remaining);
          if (remaining <= 0) {
@@ -244,7 +244,7 @@ final class SellRoutine {
          } else if (this.strikes.merge(item, 1, Integer::sum) >= 2) {
             this.strikes.remove(item);
             this.skipUntil.put(item, now + 600000L);
-            ModuleChat.send(this.owner, ModuleChat.body().warn("Could not sell ").name(item.method_63680().getString()).text(", skipping it for 10 minutes."));
+            ModuleChat.send(this.owner, ModuleChat.body().warn("Could not sell ").name(item.getName().getString()).text(", skipping it for 10 minutes."));
          }
       }
 
@@ -253,14 +253,14 @@ final class SellRoutine {
       }
    }
 
-   private boolean ours(class_746 player) {
-      return player.field_7512 != player.field_7498 && player.field_7512.field_7763 == this.menuId;
+   private boolean ours(LocalPlayer player) {
+      return player.containerMenu != player.inventoryMenu && player.containerMenu.containerId == this.menuId;
    }
 
-   private boolean hasSellable(class_1661 inventory, long now) {
+   private boolean hasSellable(Inventory inventory, long now) {
       for (int index = 0; index < 36; index++) {
-         class_1799 stack = inventory.method_5438(index);
-         if (!stack.method_7960() && this.sellable(index, stack, now)) {
+         ItemStack stack = inventory.getItem(index);
+         if (!stack.isEmpty() && this.sellable(index, stack, now)) {
             return true;
          }
       }
@@ -268,11 +268,11 @@ final class SellRoutine {
       return false;
    }
 
-   private boolean sellable(int index, class_1799 stack, long now) {
-      return !this.skipped(stack.method_7909(), now) && !this.keep.test(index, stack) && !this.blacklisted(stack);
+   private boolean sellable(int index, ItemStack stack, long now) {
+      return !this.skipped(stack.getItem(), now) && !this.keep.test(index, stack) && !this.blacklisted(stack);
    }
 
-   private boolean skipped(class_1792 item, long now) {
+   private boolean skipped(Item item, long now) {
       Long until = this.skipUntil.get(item);
       if (until == null) {
          return false;
@@ -286,12 +286,12 @@ final class SellRoutine {
       return false;
    }
 
-   private boolean blacklisted(class_1799 stack) {
+   private boolean blacklisted(ItemStack stack) {
       return neverSell(stack, this.neverSell.get());
    }
 
-   static boolean neverSell(class_1799 stack, List<String> entries) {
-      String id = class_7923.field_41178.method_10221(stack.method_7909()).toString().toLowerCase(Locale.ROOT);
+   static boolean neverSell(ItemStack stack, List<String> entries) {
+      String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString().toLowerCase(Locale.ROOT);
       String shortName = id.substring(id.indexOf(58) + 1);
 
       for (String raw : entries) {
@@ -310,9 +310,9 @@ final class SellRoutine {
       return false;
    }
 
-   private static boolean itemsWaiting(class_1703 menu) {
-      for (class_1735 slot : menu.field_7761) {
-         if (!(slot.field_7871 instanceof class_1661) && slot.field_7874 != 53 && slot.method_7681()) {
+   private static boolean itemsWaiting(AbstractContainerMenu menu) {
+      for (Slot slot : menu.slots) {
+         if (!(slot.container instanceof Inventory) && slot.index != 53 && slot.hasItem()) {
             return true;
          }
       }
@@ -320,28 +320,28 @@ final class SellRoutine {
       return false;
    }
 
-   private static Map<class_1792, Integer> waitingItems(class_1703 menu) {
-      Map<class_1792, Integer> items = new LinkedHashMap<>();
+   private static Map<Item, Integer> waitingItems(AbstractContainerMenu menu) {
+      Map<Item, Integer> items = new LinkedHashMap<>();
 
-      for (class_1735 slot : menu.field_7761) {
-         if (!(slot.field_7871 instanceof class_1661) && slot.field_7874 != 53 && slot.method_7681()) {
-            items.merge(slot.method_7677().method_7909(), slot.method_7677().method_7947(), Integer::sum);
+      for (Slot slot : menu.slots) {
+         if (!(slot.container instanceof Inventory) && slot.index != 53 && slot.hasItem()) {
+            items.merge(slot.getItem().getItem(), slot.getItem().getCount(), Integer::sum);
          }
       }
 
       return items;
    }
 
-   private static boolean sellMenuOpen(class_310 mc, class_746 player) {
-      class_1703 menu = player.field_7512;
-      return menu != player.field_7498 && mc.field_1755 instanceof class_465 && containerSlots(menu) > 53;
+   private static boolean sellMenuOpen(Minecraft mc, LocalPlayer player) {
+      AbstractContainerMenu menu = player.containerMenu;
+      return menu != player.inventoryMenu && mc.screen instanceof AbstractContainerScreen && containerSlots(menu) > 53;
    }
 
-   private static int containerSlots(class_1703 menu) {
+   private static int containerSlots(AbstractContainerMenu menu) {
       int count = 0;
 
-      for (class_1735 slot : menu.field_7761) {
-         if (!(slot.field_7871 instanceof class_1661)) {
+      for (Slot slot : menu.slots) {
+         if (!(slot.container instanceof Inventory)) {
             count++;
          }
       }

@@ -4,10 +4,10 @@ import java.util.function.Consumer;
 import net.champ.client.chat.ModuleChat;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1713;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_7923;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 final class OrdersNav {
@@ -28,7 +28,7 @@ final class OrdersNav {
          return false;
       } else {
          String before = gui.fingerprint();
-         gui.click(51, 0, class_1713.field_7790);
+         gui.click(51, 0, ClickType.PICKUP);
          if (worker.waitFor(OrdersNav::isYourOrdersNow, 2500L)) {
             return true;
          } else if (gui.waitChange(before, 1000L)) {
@@ -46,7 +46,7 @@ final class OrdersNav {
       if (!Gui.containerOpenNow()) {
          return false;
       } else {
-         String title = ServerText.normalize(Gui.mc().field_1755.method_25440());
+         String title = ServerText.normalize(Gui.mc().screen.getTitle());
          if (title.startsWith("orders (page") || title.equals("orders")) {
             return true;
          } else if (title.contains("your orders") || title.contains("auction")) {
@@ -62,15 +62,15 @@ final class OrdersNav {
          return false;
       }
 
-      String title = ServerText.normalize(Gui.mc().field_1755.method_25440());
+      String title = ServerText.normalize(Gui.mc().screen.getTitle());
       return title.contains("your orders") || Gui.findNow(OrdersNav::isNewOrderPane, 45) >= 0;
    }
 
-   static boolean isNewOrderPane(class_1799 stack) {
-      return stack.method_31574(class_1802.field_8871) && Gui.nameOf(stack).contains("new order");
+   static boolean isNewOrderPane(ItemStack stack) {
+      return stack.is(Items.GRAY_STAINED_GLASS_PANE) && Gui.nameOf(stack).contains("new order");
    }
 
-   static boolean isPane(class_1799 stack) {
-      return stack.method_7960() || class_7923.field_41178.method_10221(stack.method_7909()).method_12832().contains("stained_glass_pane");
+   static boolean isPane(ItemStack stack) {
+      return stack.isEmpty() || BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath().contains("stained_glass_pane");
    }
 }

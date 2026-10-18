@@ -6,7 +6,7 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class ColorGradingModule extends ClientModule {
@@ -32,7 +32,7 @@ public final class ColorGradingModule extends ClientModule {
       if (RenderSystem.isOnRenderThread()) {
          ColorGradingPass.release();
       } else {
-         class_310.method_1551().execute(ColorGradingModule::releaseIfOff);
+         Minecraft.getInstance().execute(ColorGradingModule::releaseIfOff);
       }
    }
 

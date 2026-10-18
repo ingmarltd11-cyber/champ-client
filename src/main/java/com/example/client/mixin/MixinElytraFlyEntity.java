@@ -4,26 +4,26 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import net.champ.client.module.impl.movement.ElytraFlyModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_310;
-import net.minecraft.class_4050;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_1297.class)
+@Mixin(Entity.class)
 public abstract class MixinElytraFlyEntity {
-   @ModifyReturnValue(method = "method_18376", at = @At("RETURN"))
-   private class_4050 champ$elytraFlyGetPose(class_4050 original) {
+   @ModifyReturnValue(method = "getPose", at = @At("RETURN"))
+   private Pose champ$elytraFlyGetPose(Pose original) {
       ElytraFlyModule module = ElytraFlyModule.active;
       if (module == null) {
          return original;
       } else {
-         class_310 mc = class_310.method_1551();
-         class_746 player = mc.field_1724;
-         if (this == player && mc.method_18854()) {
-            return module.canPacketEfly(player) ? class_4050.field_18077 : original;
+         Minecraft mc = Minecraft.getInstance();
+         LocalPlayer player = mc.player;
+         if (this == player && mc.isSameThread()) {
+            return module.canPacketEfly(player) ? Pose.FALL_FLYING : original;
          } else {
             return original;
          }

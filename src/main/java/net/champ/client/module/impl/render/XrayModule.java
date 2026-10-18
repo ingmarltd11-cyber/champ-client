@@ -13,13 +13,13 @@ import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.class_1920;
-import net.minecraft.class_2248;
-import net.minecraft.class_2338;
-import net.minecraft.class_2350;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
-import net.minecraft.class_2338.class_2339;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos.MutableBlockPos;
 
 @Environment(EnvType.CLIENT)
 public final class XrayModule extends ClientModule {
@@ -95,9 +95,9 @@ public final class XrayModule extends ClientModule {
    }
 
    private void reloadWorld() {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1769 != null) {
-         mc.field_1769.method_3279();
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.levelRenderer != null) {
+         mc.levelRenderer.allChanged();
       }
    }
 
@@ -107,32 +107,32 @@ public final class XrayModule extends ClientModule {
 
    @Environment(EnvType.CLIENT)
    public static final class Snapshot {
-      private static final class_2350[] DIRECTIONS = class_2350.values();
-      private static final ThreadLocal<class_2339> SCRATCH_POS = ThreadLocal.withInitial(class_2339::new);
-      private final ReferenceOpenHashSet<class_2248> whitelist;
+      private static final Direction[] DIRECTIONS = Direction.values();
+      private static final ThreadLocal<MutableBlockPos> SCRATCH_POS = ThreadLocal.withInitial(MutableBlockPos::new);
+      private final ReferenceOpenHashSet<Block> whitelist;
       private final boolean exposedOnly;
       private final float opacity;
 
-      private Snapshot(ReferenceOpenHashSet<class_2248> whitelist, boolean exposedOnly, float opacity) {
+      private Snapshot(ReferenceOpenHashSet<Block> whitelist, boolean exposedOnly, float opacity) {
          this.whitelist = whitelist;
          this.exposedOnly = exposedOnly;
          this.opacity = opacity;
       }
 
-      public boolean isWhitelisted(class_2248 block) {
+      public boolean isWhitelisted(Block block) {
          return this.whitelist.contains(block);
       }
 
-      public float alphaFor(class_1920 region, class_2680 state, class_2338 pos) {
-         return !this.whitelist.contains(state.method_26204()) || this.exposedOnly && !this.isExposed(region, pos) ? this.opacity : 1.0F;
+      public float alphaFor(BlockAndTintGetter region, BlockState state, BlockPos pos) {
+         return !this.whitelist.contains(state.getBlock()) || this.exposedOnly && !this.isExposed(region, pos) ? this.opacity : 1.0F;
       }
 
-      private boolean isExposed(class_1920 region, class_2338 pos) {
-         class_2339 scratch = SCRATCH_POS.get();
+      private boolean isExposed(BlockAndTintGetter region, BlockPos pos) {
+         MutableBlockPos scratch = SCRATCH_POS.get();
 
-         for (class_2350 direction : DIRECTIONS) {
-            scratch.method_25505(pos, direction);
-            if (!region.method_8320(scratch).method_26216()) {
+         for (Direction direction : DIRECTIONS) {
+            scratch.setWithOffset(pos, direction);
+            if (!region.getBlockState(scratch).isSolidRender()) {
                return true;
             }
          }

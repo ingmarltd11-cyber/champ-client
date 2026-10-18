@@ -10,19 +10,19 @@ import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10185;
-import net.minecraft.class_1297;
-import net.minecraft.class_1657;
-import net.minecraft.class_1923;
-import net.minecraft.class_241;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_315;
-import net.minecraft.class_3532;
-import net.minecraft.class_4050;
-import net.minecraft.class_5498;
-import net.minecraft.class_631;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.multiplayer.ClientChunkCache;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class FreecamModule extends ClientModule {
@@ -48,15 +48,15 @@ public final class FreecamModule extends ClientModule {
    private final BooleanSetting scrollSpeed = this.addSetting("scroll-speed", new BooleanSetting("Scroll Speed", true));
    private final BooleanSetting scrollResets = this.addSetting("scroll-resets", new BooleanSetting("Reset Scroll Speed", true));
    private final NumberSetting chunkDistance = this.addSetting("chunk-distance", new NumberSetting("Chunks", 12.0F, 2.0F, 32.0F).step(1.0F));
-   private class_243 pos = class_243.field_1353;
-   private class_243 prev = class_243.field_1353;
+   private Vec3 pos = Vec3.ZERO;
+   private Vec3 prev = Vec3.ZERO;
    private float yaw;
    private float pitch;
    private boolean flyingBefore;
    private boolean cullBefore;
-   private class_5498 viewBefore;
+   private CameraType viewBefore;
    private boolean viewPushed;
-   private class_1923 focus;
+   private ChunkPos focus;
    private int radius = -1;
    private boolean waiting;
    private boolean live;
@@ -84,7 +84,7 @@ public final class FreecamModule extends ClientModule {
 
    @Override
    protected void onDisable() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       boolean wasLive = this.live;
       this.waiting = false;
       this.live = false;
@@ -96,27 +96,27 @@ public final class FreecamModule extends ClientModule {
       this.learn = 0;
       this.scrolled = 1.0F;
       if (this.viewPushed) {
-         mc.field_1690.method_31043(this.viewBefore);
+         mc.options.setCameraType(this.viewBefore);
          this.viewPushed = false;
       }
 
       if (wasLive) {
-         mc.field_1730 = this.cullBefore;
-         if (mc.field_1761 != null) {
-            mc.field_1761.method_2925();
+         mc.smartCull = this.cullBefore;
+         if (mc.gameMode != null) {
+            mc.gameMode.stopDestroyBlock();
          }
 
          this.releaseChunks(mc);
-         if (mc.field_1724 != null) {
-            mc.field_1724.method_31549().field_7479 = this.flyingBefore;
+         if (mc.player != null) {
+            mc.player.getAbilities().flying = this.flyingBefore;
          }
       }
    }
 
    private void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       this.open(mc);
-      class_746 player = mc.field_1724;
+      LocalPlayer player = mc.player;
       if (this.live && player != null) {
          if (this.learn > 0) {
             this.learn--;
@@ -124,27 +124,27 @@ public final class FreecamModule extends ClientModule {
          }
 
          this.prev = this.pos;
-         if (player.method_31549().field_7477) {
-            player.method_31549().field_7479 = false;
+         if (player.getAbilities().instabuild) {
+            player.getAbilities().flying = false;
          }
 
-         this.stepCamera(mc.field_1690);
+         this.stepCamera(mc.options);
          this.followChunks(mc);
       }
    }
 
-   private void open(class_310 mc) {
-      class_746 player = mc.field_1724;
-      if (this.waiting && player != null && mc.field_1687 != null) {
-         this.flyingBefore = player.method_31549().field_7479;
-         this.pos = this.prev = new class_243(player.method_23317(), player.method_23318() + player.method_18381(class_4050.field_18076), player.method_23321());
-         this.yaw = player.method_36454();
-         this.pitch = player.method_36455();
+   private void open(Minecraft mc) {
+      LocalPlayer player = mc.player;
+      if (this.waiting && player != null && mc.level != null) {
+         this.flyingBefore = player.getAbilities().flying;
+         this.pos = this.prev = new Vec3(player.getX(), player.getY() + player.getEyeHeight(Pose.STANDING), player.getZ());
+         this.yaw = player.getYRot();
+         this.pitch = player.getXRot();
          this.viewPushed = false;
          if (this.showOwnBody.get()) {
-            this.viewBefore = mc.field_1690.method_31044();
-            if (this.viewBefore.method_31034()) {
-               mc.field_1690.method_31043(class_5498.field_26665);
+            this.viewBefore = mc.options.getCameraType();
+            if (this.viewBefore.isFirstPerson()) {
+               mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
                this.viewPushed = true;
             }
          }
@@ -157,46 +157,46 @@ public final class FreecamModule extends ClientModule {
          this.learn = 40;
          this.focus = null;
          this.radius = -1;
-         this.cullBefore = mc.field_1730;
-         mc.field_1730 = false;
+         this.cullBefore = mc.smartCull;
+         mc.smartCull = false;
          this.followChunks(mc);
          drive(mc);
       }
    }
 
-   private void stepCamera(class_315 options) {
-      double ahead = (options.field_1894.method_1434() ? 1 : 0) - (options.field_1881.method_1434() ? 1 : 0);
-      double side = (options.field_1913.method_1434() ? 1 : 0) - (options.field_1849.method_1434() ? 1 : 0);
-      double rise = (options.field_1903.method_1434() ? 1 : 0) - (options.field_1832.method_1434() ? 1 : 0);
+   private void stepCamera(Options options) {
+      double ahead = (options.keyUp.isDown() ? 1 : 0) - (options.keyDown.isDown() ? 1 : 0);
+      double side = (options.keyLeft.isDown() ? 1 : 0) - (options.keyRight.isDown() ? 1 : 0);
+      double rise = (options.keyJump.isDown() ? 1 : 0) - (options.keyShift.isDown() ? 1 : 0);
       double step = this.flySpeed() * (this.smoothing.get() ? 0.5 : 1.0);
-      class_243 look = class_243.method_1030(0.0F, this.yaw);
-      class_243 left = new class_243(look.field_1350, 0.0, -look.field_1352);
+      Vec3 look = Vec3.directionFromRotation(0.0F, this.yaw);
+      Vec3 left = new Vec3(look.z, 0.0, -look.x);
       this.pos = this.pos
-         .method_1031(
-            (look.field_1352 * ahead + left.field_1352 * side) * step,
+         .add(
+            (look.x * ahead + left.x * side) * step,
             rise * step * this.verticalSpeed.get(),
-            (look.field_1350 * ahead + left.field_1350 * side) * step
+            (look.z * ahead + left.z * side) * step
          );
    }
 
    private float flySpeed() {
-      return !this.scrollResets.get() ? this.speed.get() : class_3532.method_15363(this.speed.get() * this.scrolled, this.speed.min(), this.speed.max());
+      return !this.scrollResets.get() ? this.speed.get() : Mth.clamp(this.speed.get() * this.scrolled, this.speed.min(), this.speed.max());
    }
 
-   private void absorb(class_746 player, boolean opening) {
-      class_315 options = class_310.method_1551().field_1690;
-      class_10185 keys = player.field_3913.field_54155;
+   private void absorb(LocalPlayer player, boolean opening) {
+      Options options = Minecraft.getInstance().options;
+      Input keys = player.input.keyPresses;
       boolean carry = this.keepWalking.get();
       boolean typed = carry && (opening || this.bodyFollowsKeys.get());
       if (typed) {
-         this.setWalk(1, options.field_1894.method_1434() || keys.comp_3159());
-         this.setWalk(2, options.field_1881.method_1434() || keys.comp_3160());
-         this.setWalk(4, options.field_1913.method_1434() || keys.comp_3161());
-         this.setWalk(8, options.field_1849.method_1434() || keys.comp_3162());
-         this.setWalk(16, options.field_1903.method_1434() || keys.comp_3163());
-         this.setWalk(32, options.field_1832.method_1434() || keys.comp_3164() || opening && player.method_5715());
-         this.setWalk(64, options.field_1867.method_1434() || keys.comp_3165());
-      } else if (player.method_5715()) {
+         this.setWalk(1, options.keyUp.isDown() || keys.comp_3159());
+         this.setWalk(2, options.keyDown.isDown() || keys.comp_3160());
+         this.setWalk(4, options.keyLeft.isDown() || keys.comp_3161());
+         this.setWalk(8, options.keyRight.isDown() || keys.comp_3162());
+         this.setWalk(16, options.keyJump.isDown() || keys.comp_3163());
+         this.setWalk(32, options.keyShift.isDown() || keys.comp_3164() || opening && player.isShiftKeyDown());
+         this.setWalk(64, options.keySprint.isDown() || keys.comp_3165());
+      } else if (player.isShiftKeyDown()) {
          this.walk |= 32;
       }
 
@@ -206,19 +206,19 @@ public final class FreecamModule extends ClientModule {
       }
 
       if (carry) {
-         if (player.field_6250 > 0.02F) {
+         if (player.zza > 0.02F) {
             this.walk |= 1;
          }
 
-         if (player.field_6250 < -0.02F) {
+         if (player.zza < -0.02F) {
             this.walk |= 2;
          }
 
-         if (player.field_6212 > 0.02F) {
+         if (player.xxa > 0.02F) {
             this.walk |= 4;
          }
 
-         if (player.field_6212 < -0.02F) {
+         if (player.xxa < -0.02F) {
             this.walk |= 8;
          }
 
@@ -234,14 +234,14 @@ public final class FreecamModule extends ClientModule {
       }
    }
 
-   private void aimFromMotion(class_746 player) {
-      class_243 motion = player.method_18798();
-      double vx = motion.field_1352;
-      double vz = motion.field_1350;
+   private void aimFromMotion(LocalPlayer player) {
+      Vec3 motion = player.getDeltaMovement();
+      double vx = motion.x;
+      double vz = motion.z;
       if (!(vx * vx + vz * vz < 1.0E-8)) {
-         class_243 look = class_243.method_1030(0.0F, player.method_36454());
-         double along = vx * look.field_1352 + vz * look.field_1350;
-         double across = vz * look.field_1352 - vx * look.field_1350;
+         Vec3 look = Vec3.directionFromRotation(0.0F, player.getYRot());
+         double along = vx * look.x + vz * look.z;
+         double across = vz * look.x - vx * look.z;
          if (Math.abs(along) >= Math.abs(across)) {
             if (along > 0.01) {
                this.walk |= 1;
@@ -256,99 +256,99 @@ public final class FreecamModule extends ClientModule {
       }
    }
 
-   public static void drive(class_310 mc) {
+   public static void drive(Minecraft mc) {
       FreecamModule module = active;
-      if (module != null && mc.field_1724 != null) {
+      if (module != null && mc.player != null) {
          module.pushWalk(mc);
       }
    }
 
-   private void pushWalk(class_310 mc) {
-      class_315 options = mc.field_1690;
+   private void pushWalk(Minecraft mc) {
+      Options options = mc.options;
       boolean liveKeys = this.bodyFollowsKeys.get();
-      boolean forward = this.on(1) || liveKeys && options.field_1894.method_1434();
-      boolean back = this.on(2) || liveKeys && options.field_1881.method_1434();
-      boolean left = this.on(4) || liveKeys && options.field_1913.method_1434();
-      boolean right = this.on(8) || liveKeys && options.field_1849.method_1434();
+      boolean forward = this.on(1) || liveKeys && options.keyUp.isDown();
+      boolean back = this.on(2) || liveKeys && options.keyDown.isDown();
+      boolean left = this.on(4) || liveKeys && options.keyLeft.isDown();
+      boolean right = this.on(8) || liveKeys && options.keyRight.isDown();
       boolean jump = this.on(16);
-      boolean sneak = this.on(32) || liveKeys && options.field_1832.method_1434();
-      boolean sprint = this.on(64) || liveKeys && options.field_1867.method_1434();
+      boolean sneak = this.on(32) || liveKeys && options.keyShift.isDown();
+      boolean sprint = this.on(64) || liveKeys && options.keySprint.isDown();
       if (liveKeys) {
-         if (options.field_1881.method_1434()) {
+         if (options.keyDown.isDown()) {
             this.walk &= -2;
          }
 
-         if (options.field_1894.method_1434()) {
+         if (options.keyUp.isDown()) {
             this.walk &= -3;
          }
 
-         if (options.field_1849.method_1434()) {
+         if (options.keyRight.isDown()) {
             this.walk &= -5;
          }
 
-         if (options.field_1913.method_1434()) {
+         if (options.keyLeft.isDown()) {
             this.walk &= -9;
          }
       }
 
-      class_746 player = mc.field_1724;
-      player.field_3913.field_54155 = new class_10185(forward, back, left, right, jump, sneak, sprint);
+      LocalPlayer player = mc.player;
+      player.input.keyPresses = new Input(forward, back, left, right, jump, sneak, sprint);
       float sideways = (left ? 1.0F : 0.0F) - (right ? 1.0F : 0.0F);
       float ahead = (forward ? 1.0F : 0.0F) - (back ? 1.0F : 0.0F);
-      ((AccessorMovementClientInput)player.field_3913).champ$setMoveVector(new class_241(sideways, ahead).method_35581());
-      player.method_5660(sneak);
+      ((AccessorMovementClientInput)player.input).champ$setMoveVector(new Vec2(sideways, ahead).normalized());
+      player.setShiftKeyDown(sneak);
    }
 
    private boolean on(int bit) {
       return (this.walk & bit) != 0;
    }
 
-   private void followChunks(class_310 mc) {
-      if (this.live && mc.field_1687 != null && mc.field_1724 != null) {
-         class_631 cache = mc.field_1687.method_2935();
-         class_1923 camera = new class_1923(class_3532.method_15357(this.pos.field_1352) >> 4, class_3532.method_15357(this.pos.field_1350) >> 4);
-         class_1923 feet = mc.field_1724.method_31476();
-         int span = Math.max(Math.abs(camera.field_9181 - feet.field_9181), Math.abs(camera.field_9180 - feet.field_9180));
-         int preference = class_3532.method_15340(this.chunkDistance.getInt(), 2, 32);
-         class_1923 next = span > preference
-            ? new class_1923(feet.field_9181 + (camera.field_9181 - feet.field_9181) / 2, feet.field_9180 + (camera.field_9180 - feet.field_9180) / 2)
+   private void followChunks(Minecraft mc) {
+      if (this.live && mc.level != null && mc.player != null) {
+         ClientChunkCache cache = mc.level.getChunkSource();
+         ChunkPos camera = new ChunkPos(Mth.floor(this.pos.x) >> 4, Mth.floor(this.pos.z) >> 4);
+         ChunkPos feet = mc.player.chunkPosition();
+         int span = Math.max(Math.abs(camera.x - feet.x), Math.abs(camera.z - feet.z));
+         int preference = Mth.clamp(this.chunkDistance.getInt(), 2, 32);
+         ChunkPos next = span > preference
+            ? new ChunkPos(feet.x + (camera.x - feet.x) / 2, feet.z + (camera.z - feet.z) / 2)
             : camera;
-         int needed = class_3532.method_15340(Math.max(preference, span / 2 + 3), 2, 32);
+         int needed = Mth.clamp(Math.max(preference, span / 2 + 3), 2, 32);
          if (needed != this.radius) {
-            cache.method_20180(needed);
+            cache.updateViewRadius(needed);
             this.radius = needed;
          }
 
-         if (this.focus == null || next.field_9181 != this.focus.field_9181 || next.field_9180 != this.focus.field_9180) {
-            cache.method_20317(next.field_9181, next.field_9180);
+         if (this.focus == null || next.x != this.focus.x || next.z != this.focus.z) {
+            cache.updateViewCenter(next.x, next.z);
             this.focus = next;
-            if (mc.field_1769 != null) {
-               mc.field_1769.method_3292();
+            if (mc.levelRenderer != null) {
+               mc.levelRenderer.needsUpdate();
             }
          }
       }
    }
 
-   private void releaseChunks(class_310 mc) {
+   private void releaseChunks(Minecraft mc) {
       this.focus = null;
       this.radius = -1;
-      if (mc.field_1687 != null) {
-         class_631 cache = mc.field_1687.method_2935();
-         if (mc.field_1724 != null) {
-            class_1923 feet = mc.field_1724.method_31476();
-            cache.method_20317(feet.field_9181, feet.field_9180);
+      if (mc.level != null) {
+         ClientChunkCache cache = mc.level.getChunkSource();
+         if (mc.player != null) {
+            ChunkPos feet = mc.player.chunkPosition();
+            cache.updateViewCenter(feet.x, feet.z);
          }
 
-         cache.method_20180(mc.field_1690.method_38521());
-         if (mc.field_1769 != null) {
-            mc.field_1769.method_3292();
+         cache.updateViewRadius(mc.options.getEffectiveRenderDistance());
+         if (mc.levelRenderer != null) {
+            mc.levelRenderer.needsUpdate();
          }
       }
    }
 
-   public boolean drawsSelf(class_1297 entity, class_1657 viewer) {
-      class_310 mc = class_310.method_1551();
-      return this.showOwnBody.get() && mc.field_1724 != null && entity == mc.field_1724 && viewer == mc.field_1724;
+   public boolean drawsSelf(Entity entity, Player viewer) {
+      Minecraft mc = Minecraft.getInstance();
+      return this.showOwnBody.get() && mc.player != null && entity == mc.player && viewer == mc.player;
    }
 
    public boolean keepHands() {
@@ -365,7 +365,7 @@ public final class FreecamModule extends ClientModule {
          float factor = amount > 0.0 ? 1.2F : 0.8333333F;
          NumberSetting speed = module.speed;
          if (module.scrollResets.get()) {
-            module.scrolled = class_3532.method_15363(module.scrolled * factor, speed.min() / speed.get(), speed.max() / speed.get());
+            module.scrolled = Mth.clamp(module.scrolled * factor, speed.min() / speed.get(), speed.max() / speed.get());
          } else {
             speed.set(speed.get() * factor);
          }
@@ -378,19 +378,19 @@ public final class FreecamModule extends ClientModule {
 
    public void turn(double yRot, double xRot) {
       this.yaw += (float)yRot * 0.15F;
-      this.pitch = class_3532.method_15363(this.pitch + (float)xRot * 0.15F, -90.0F, 90.0F);
+      this.pitch = Mth.clamp(this.pitch + (float)xRot * 0.15F, -90.0F, 90.0F);
    }
 
    public double getX(float tickDelta) {
-      return class_3532.method_16436(tickDelta, this.prev.field_1352, this.pos.field_1352);
+      return Mth.lerp(tickDelta, this.prev.x, this.pos.x);
    }
 
    public double getY(float tickDelta) {
-      return class_3532.method_16436(tickDelta, this.prev.field_1351, this.pos.field_1351);
+      return Mth.lerp(tickDelta, this.prev.y, this.pos.y);
    }
 
    public double getZ(float tickDelta) {
-      return class_3532.method_16436(tickDelta, this.prev.field_1350, this.pos.field_1350);
+      return Mth.lerp(tickDelta, this.prev.z, this.pos.z);
    }
 
    public float getYaw() {

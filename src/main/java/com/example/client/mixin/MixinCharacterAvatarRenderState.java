@@ -4,12 +4,12 @@ import net.champ.client.module.impl.render.character.CharacterHolder;
 import net.champ.client.module.impl.render.character.WornCharacter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10055;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_10055.class)
+@Mixin(AvatarRenderState.class)
 public abstract class MixinCharacterAvatarRenderState implements CharacterHolder {
    @Unique
    private WornCharacter champ$character;

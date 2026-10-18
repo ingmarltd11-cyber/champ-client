@@ -7,13 +7,13 @@ import java.util.List;
 import java.util.Map.Entry;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_243;
+import net.minecraft.world.phys.Vec3;
 
 @Environment(EnvType.CLIENT)
 final class ChunkTileGeometry {
-   final class_243[] outline;
-   final class_243[] curves;
-   final class_243[] edges;
+   final Vec3[] outline;
+   final Vec3[] curves;
+   final Vec3[] edges;
    private final double x0;
    private final double z0;
    private final double x1;
@@ -37,9 +37,9 @@ final class ChunkTileGeometry {
       double ne = north && east ? radius : 0.0;
       double se = south && east ? radius : 0.0;
       double sw = south && west ? radius : 0.0;
-      List<class_243> outline = new ArrayList<>(20);
-      List<class_243> curves = new ArrayList<>(32);
-      List<class_243> edges = new ArrayList<>(8);
+      List<Vec3> outline = new ArrayList<>(20);
+      List<Vec3> curves = new ArrayList<>(32);
+      List<Vec3> edges = new ArrayList<>(8);
       corner(outline, curves, x0 + nw, z0 + nw, nw, 180.0);
       corner(outline, curves, x1 - ne, z0 + ne, ne, 270.0);
       corner(outline, curves, x1 - se, z1 - se, se, 0.0);
@@ -60,9 +60,9 @@ final class ChunkTileGeometry {
          edge(edges, x1, z0 + ne, x1, z1 - se);
       }
 
-      this.outline = outline.toArray(new class_243[0]);
-      this.curves = curves.toArray(new class_243[0]);
-      this.edges = edges.toArray(new class_243[0]);
+      this.outline = outline.toArray(new Vec3[0]);
+      this.curves = curves.toArray(new Vec3[0]);
+      this.edges = edges.toArray(new Vec3[0]);
    }
 
    private boolean matches(double x0, double z0, double x1, double z1, double radius, int mask) {
@@ -74,15 +74,15 @@ final class ChunkTileGeometry {
          && Double.compare(this.radius, radius) == 0;
    }
 
-   private static void corner(List<class_243> outline, List<class_243> curves, double cx, double cz, double radius, double startDegrees) {
+   private static void corner(List<Vec3> outline, List<Vec3> curves, double cx, double cz, double radius, double startDegrees) {
       if (radius <= 0.0) {
-         outline.add(new class_243(cx, 63.0, cz));
+         outline.add(new Vec3(cx, 63.0, cz));
       } else {
-         class_243 previous = null;
+         Vec3 previous = null;
 
          for (int i = 0; i <= 4; i++) {
             double angle = Math.toRadians(startDegrees + 90.0 * i / 4.0);
-            class_243 point = new class_243(cx + Math.cos(angle) * radius, 63.0, cz + Math.sin(angle) * radius);
+            Vec3 point = new Vec3(cx + Math.cos(angle) * radius, 63.0, cz + Math.sin(angle) * radius);
             outline.add(point);
             if (previous != null) {
                curves.add(previous);
@@ -94,9 +94,9 @@ final class ChunkTileGeometry {
       }
    }
 
-   private static void edge(List<class_243> edges, double ax, double az, double bx, double bz) {
-      edges.add(new class_243(ax, 63.0, az));
-      edges.add(new class_243(bx, 63.0, bz));
+   private static void edge(List<Vec3> edges, double ax, double az, double bx, double bz) {
+      edges.add(new Vec3(ax, 63.0, az));
+      edges.add(new Vec3(bx, 63.0, bz));
    }
 
    @Environment(EnvType.CLIENT)

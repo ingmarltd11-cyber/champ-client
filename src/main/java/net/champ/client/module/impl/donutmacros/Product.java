@@ -7,19 +7,19 @@ import java.util.Locale;
 import java.util.function.Predicate;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_1887;
-import net.minecraft.class_1890;
-import net.minecraft.class_2960;
-import net.minecraft.class_6880;
-import net.minecraft.class_7923;
-import net.minecraft.class_9304;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.resources.Identifier;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 @Environment(EnvType.CLIENT)
 record Product(
-   class_1792 item,
+   Item item,
    String id,
    String search,
    String displayName,
@@ -31,10 +31,10 @@ record Product(
    long fixedPrice,
    long bidIncrement,
    long maxPrice,
-   Predicate<class_1799> filter
+   Predicate<ItemStack> filter
 ) {
    Product(
-      class_1792 item,
+      Item item,
       String id,
       String search,
       String displayName,
@@ -50,7 +50,7 @@ record Product(
       this(item, id, search, displayName, minPrice, enchants, restock, orderAmount, beatTopOrder, fixedPrice, bidIncrement, maxPrice, null);
    }
 
-   static class_1792 resolveItem(String raw) {
+   static Item resolveItem(String raw) {
       String text = raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
       if (text.isEmpty()) {
          return null;
@@ -60,17 +60,17 @@ record Product(
          text = "minecraft:" + text;
       }
 
-      class_2960 id = class_2960.method_12829(text);
-      if (id != null && class_7923.field_41178.method_10250(id)) {
-         class_1792 item = (class_1792)class_7923.field_41178.method_63535(id);
-         return item == class_1802.field_8162 ? null : item;
+      Identifier id = Identifier.tryParse(text);
+      if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
+         Item item = (Item)BuiltInRegistries.ITEM.getValue(id);
+         return item == Items.AIR ? null : item;
       } else {
          return null;
       }
    }
 
-   static String searchText(class_1792 item) {
-      return class_7923.field_41178.method_10221(item).method_12832().replace('_', ' ');
+   static String searchText(Item item) {
+      return BuiltInRegistries.ITEM.getKey(item).getPath().replace('_', ' ');
    }
 
    static List<Product.Enchant> parseEnchants(String raw) {
@@ -112,8 +112,8 @@ record Product(
       }
    }
 
-   boolean matches(class_1799 stack) {
-      if (!stack.method_7960() && stack.method_31574(this.item)) {
+   boolean matches(ItemStack stack) {
+      if (!stack.isEmpty() && stack.is(this.item)) {
          if (this.filter != null) {
             return this.filter.test(stack);
          }
@@ -122,7 +122,7 @@ record Product(
             return true;
          }
 
-         class_9304 present = class_1890.method_57532(stack);
+         ItemEnchantments present = EnchantmentHelper.getEnchantmentsForCrafting(stack);
 
          for (Product.Enchant wanted : this.enchants) {
             if (levelOf(present, wanted.key()) < wanted.level()) {
@@ -136,9 +136,9 @@ record Product(
       }
    }
 
-   static boolean enchantsMatch(class_1799 stack, List<Product.Enchant> wanted, boolean exact) {
-      class_9304 present = class_1890.method_57532(stack);
-      if (exact && present.method_57541() != wanted.size()) {
+   static boolean enchantsMatch(ItemStack stack, List<Product.Enchant> wanted, boolean exact) {
+      ItemEnchantments present = EnchantmentHelper.getEnchantmentsForCrafting(stack);
+      if (exact && present.size() != wanted.size()) {
          return false;
       }
 
@@ -152,9 +152,9 @@ record Product(
       return true;
    }
 
-   private static int levelOf(class_9304 present, String key) {
-      for (Entry<class_6880<class_1887>> entry : present.method_57539()) {
-         String path = ((class_6880)entry.getKey()).method_40230().map(k -> k.method_29177().method_12832()).orElse("");
+   private static int levelOf(ItemEnchantments present, String key) {
+      for (Entry<Holder<Enchantment>> entry : present.entrySet()) {
+         String path = ((Holder)entry.getKey()).unwrapKey().map(k -> k.identifier().getPath()).orElse("");
          if (ServerText.key(path).equals(key)) {
             return entry.getIntValue();
          }
@@ -165,7 +165,7 @@ record Product(
 
    boolean nameMatches(String label, boolean loose) {
       String key = ServerText.key(label);
-      String byId = ServerText.key(class_7923.field_41178.method_10221(this.item).method_12832());
+      String byId = ServerText.key(BuiltInRegistries.ITEM.getKey(this.item).getPath());
       String byName = ServerText.key(this.displayName);
       return !key.equals(byId) && !key.equals(byName) ? loose && (key.endsWith(byId) || !byName.isEmpty() && key.endsWith(byName)) : true;
    }

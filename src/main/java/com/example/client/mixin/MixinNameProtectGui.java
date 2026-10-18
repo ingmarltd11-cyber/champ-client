@@ -4,48 +4,48 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import net.champ.client.module.impl.misc.NameProtectModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2561;
-import net.minecraft.class_329;
+import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.Gui;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_329.class)
+@Mixin(Gui.class)
 public abstract class MixinNameProtectGui {
-   @ModifyVariable(method = "method_34004", at = @At("HEAD"), argsOnly = true)
-   private class_2561 champ$nameProtectTitle(class_2561 title) {
+   @ModifyVariable(method = "setTitle", at = @At("HEAD"), argsOnly = true)
+   private Component champ$nameProtectTitle(Component title) {
       return NameProtectModule.protect(title);
    }
 
-   @ModifyVariable(method = "method_34002", at = @At("HEAD"), argsOnly = true)
-   private class_2561 champ$nameProtectSubtitle(class_2561 subtitle) {
+   @ModifyVariable(method = "setSubtitle", at = @At("HEAD"), argsOnly = true)
+   private Component champ$nameProtectSubtitle(Component subtitle) {
       return NameProtectModule.protect(subtitle);
    }
 
-   @ModifyVariable(method = "method_1758", at = @At("HEAD"), argsOnly = true)
-   private class_2561 champ$nameProtectActionBar(class_2561 message) {
+   @ModifyVariable(method = "setOverlayMessage", at = @At("HEAD"), argsOnly = true)
+   private Component champ$nameProtectActionBar(Component message) {
       return NameProtectModule.protect(message);
    }
 
-   @ModifyExpressionValue(method = "method_1757", at = @At(value = "INVOKE", target = "Lnet/minecraft/class_266;method_1114()Lnet/minecraft/class_2561;"))
-   private class_2561 champ$nameProtectSidebarTitle(class_2561 original) {
+   @ModifyExpressionValue(method = "displayScoreboardSidebar", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/scores/Objective;getDisplayName()Lnet/minecraft/network/chat/Component;"))
+   private Component champ$nameProtectSidebarTitle(Component original) {
       return NameProtectModule.protect(original);
    }
 
    @ModifyExpressionValue(
-      method = "method_1757",
-      at = @At(value = "FIELD", opcode = 180, ordinal = 0, target = "Lnet/minecraft/class_329$class_9016;comp_2131:Lnet/minecraft/class_2561;")
+      method = "displayScoreboardSidebar",
+      at = @At(value = "FIELD", opcode = 180, ordinal = 0, target = "Lnet/minecraft/client/gui/Gui$1DisplayEntry;comp_2131:Lnet/minecraft/network/chat/Component;")
    )
-   private class_2561 champ$nameProtectSidebarLineWidth(class_2561 original) {
+   private Component champ$nameProtectSidebarLineWidth(Component original) {
       return NameProtectModule.protect(original);
    }
 
    @ModifyExpressionValue(
-      method = "method_1757",
-      at = @At(value = "FIELD", opcode = 180, ordinal = 1, target = "Lnet/minecraft/class_329$class_9016;comp_2131:Lnet/minecraft/class_2561;")
+      method = "displayScoreboardSidebar",
+      at = @At(value = "FIELD", opcode = 180, ordinal = 1, target = "Lnet/minecraft/client/gui/Gui$1DisplayEntry;comp_2131:Lnet/minecraft/network/chat/Component;")
    )
-   private class_2561 champ$nameProtectSidebarLineDraw(class_2561 original) {
+   private Component champ$nameProtectSidebarLineDraw(Component original) {
       return NameProtectModule.protect(original);
    }
 }

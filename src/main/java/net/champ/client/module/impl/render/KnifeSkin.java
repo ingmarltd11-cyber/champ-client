@@ -2,9 +2,9 @@ package net.champ.client.module.impl.render;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_3532;
-import net.minecraft.class_4587;
-import net.minecraft.class_7833;
+import net.minecraft.util.Mth;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -255,7 +255,7 @@ final class KnifeSkin {
       return this.streaks[streak].strength;
    }
 
-   void draw(class_4587 pose, float[] at, float weight, boolean slim, float size, KnifeSkin.Sink sink, float[] trail) {
+   void draw(PoseStack pose, float[] at, float weight, boolean slim, float size, KnifeSkin.Sink sink, float[] trail) {
       Matrix4f knife = this.knifeMatrix(at, weight, size, new Matrix4f());
       Vector3f hand = new Vector3f(this.fist).add(at[0] * weight, at[1] * weight, at[2] * weight);
       FirstPersonArm.place(pose, hand, this.elbow, slim, posed -> sink.arm(posed, false));
@@ -264,37 +264,37 @@ final class KnifeSkin {
       if (sheath != null) {
          other = sheath.transformPosition(this.saddleX, this.saddleY, 0.5F, new Vector3f());
       } else if (this.centre != null && at[14] * weight > 0.01F) {
-         float t = class_3532.method_15363(at[14] * weight, 0.0F, 1.0F);
+         float t = Mth.clamp(at[14] * weight, 0.0F, 1.0F);
          float x = at[15];
          float y = this.centre.y(x) + (x >= this.bladeFrom ? 3.0F : 0.0F);
          other = knife.transformPosition(x, y, 0.5F, new Vector3f()).fma(1.0F - t * t * (3.0F - 2.0F * t), OFF_AWAY);
       }
 
       if (other != null) {
-         pose.method_22903();
-         pose.method_22905(-1.0F, 1.0F, 1.0F);
+         pose.pushPose();
+         pose.scale(-1.0F, 1.0F, 1.0F);
          Vector3f mirrored = new Vector3f(-other.x, other.y, other.z);
          FirstPersonArm.place(pose, mirrored, new Vector3f(mirrored).fma(0.6F, OFF_FOREARM), slim, posed -> sink.arm(posed, true));
-         pose.method_22909();
+         pose.popPose();
       }
 
       KnifeMesh.Shine wipe = this.wipe(at, weight);
       KnifeMesh.Shine shine = wipe;
       if (shine == null) {
          float sweep = shinePosition(at[10]);
-         shine = new KnifeMesh.Shine(sweep, sweep > 0.0F ? class_3532.method_15374((float) Math.PI * sweep) * weight : 0.0F, 0.0F);
+         shine = new KnifeMesh.Shine(sweep, sweep > 0.0F ? Mth.sin((float) Math.PI * sweep) * weight : 0.0F, 0.0F);
       }
 
-      pose.method_22903();
-      pose.method_34425(knife);
+      pose.pushPose();
+      pose.mulPose(knife);
 
       for (int i = 0; i < this.parts.length; i++) {
          KnifeSkin.Part part = this.parts[i];
-         pose.method_22903();
+         pose.pushPose();
          if (part.channel >= 0) {
-            float angle = class_3532.method_15393(at[part.channel]) * weight;
+            float angle = Mth.wrapDegrees(at[part.channel]) * weight;
             if (angle != 0.0F) {
-               pose.method_49278(class_7833.field_40718.rotationDegrees(angle), part.pivotX, part.pivotY, 0.5F);
+               pose.rotateAround(Axis.ZP.rotationDegrees(angle), part.pivotX, part.pivotY, 0.5F);
             }
          }
 
@@ -304,18 +304,18 @@ final class KnifeSkin {
          }
 
          if (trail != null) {
-            this.streaks(i, pose.method_23760().method_23761(), trail);
+            this.streaks(i, pose.last().pose(), trail);
          }
 
-         pose.method_22909();
+         pose.popPose();
       }
 
-      pose.method_22909();
+      pose.popPose();
       if (sheath != null) {
-         pose.method_22903();
-         pose.method_34425(sheath);
+         pose.pushPose();
+         pose.mulPose(sheath);
          sink.part(pose, this.scabbard, KnifeMesh.Shine.NONE);
-         pose.method_22909();
+         pose.popPose();
       }
    }
 
@@ -343,12 +343,12 @@ final class KnifeSkin {
       dest.translation(this.fist.x + at[0] * weight, this.fist.y + at[1] * weight, this.fist.z + at[2] * weight)
          .rotate(
             new Quaternionf()
-               .rotateY(class_3532.method_15393(at[3]) * turn)
-               .rotateX(class_3532.method_15393(at[4]) * turn)
-               .rotateZ(class_3532.method_15393(at[5]) * turn)
+               .rotateY(Mth.wrapDegrees(at[3]) * turn)
+               .rotateX(Mth.wrapDegrees(at[4]) * turn)
+               .rotateZ(Mth.wrapDegrees(at[5]) * turn)
          )
          .rotate(this.rest);
-      float flip = class_3532.method_15393(at[6]) * turn;
+      float flip = Mth.wrapDegrees(at[6]) * turn;
       if (flip != 0.0F) {
          dest.rotateX(flip);
       }
@@ -376,7 +376,7 @@ final class KnifeSkin {
    }
 
    private KnifeMesh.Shine wipe(float[] at, float weight) {
-      float touch = this.centre != null ? class_3532.method_15363((at[14] * weight - 0.7F) / 0.3F, 0.0F, 1.0F) : 0.0F;
+      float touch = this.centre != null ? Mth.clamp((at[14] * weight - 0.7F) / 0.3F, 0.0F, 1.0F) : 0.0F;
       if (!(touch <= 0.01F) && !(at[15] < this.bladeFrom)) {
          float along = (at[15] - this.bladeFrom) / (this.bladeTo - this.bladeFrom);
          return new KnifeMesh.Shine(along, touch * touch * (3.0F - 2.0F * touch), 16.0F);
@@ -389,8 +389,8 @@ final class KnifeSkin {
       float flash = sparkle(at[10]);
       if (this.centre != null && at[15] >= this.bladeFrom) {
          float along = (at[15] - this.bladeFrom) / (this.bladeTo - this.bladeFrom);
-         float leaving = class_3532.method_15363((along - 0.96F) / 0.06F, 0.0F, 1.0F) * class_3532.method_15363((1.3F - along) / 0.15F, 0.0F, 1.0F);
-         flash = Math.max(flash, leaving * class_3532.method_15363(at[14] * 1.6F, 0.0F, 1.0F));
+         float leaving = Mth.clamp((along - 0.96F) / 0.06F, 0.0F, 1.0F) * Mth.clamp((1.3F - along) / 0.15F, 0.0F, 1.0F);
+         flash = Math.max(flash, leaving * Mth.clamp(at[14] * 1.6F, 0.0F, 1.0F));
       }
 
       return flash * weight;
@@ -401,13 +401,13 @@ final class KnifeSkin {
          return 0.0F;
       }
 
-      float f = channel - 2.0F * class_3532.method_15375(channel / 2.0F);
+      float f = channel - 2.0F * Mth.floor(channel / 2.0F);
       return f < 1.0F ? f : 0.0F;
    }
 
    static float sparkle(float channel) {
       float f = shinePosition(channel);
-      return class_3532.method_15363((f - 0.72F) / 0.16F, 0.0F, 1.0F) * class_3532.method_15363((1.0F - f) / 0.07F, 0.0F, 1.0F);
+      return Mth.clamp((f - 0.72F) / 0.16F, 0.0F, 1.0F) * Mth.clamp((1.0F - f) / 0.07F, 0.0F, 1.0F);
    }
 
    @Environment(EnvType.CLIENT)
@@ -421,11 +421,11 @@ final class KnifeSkin {
 
    @Environment(EnvType.CLIENT)
    interface Sink {
-      void part(class_4587 var1, KnifeMesh var2, KnifeMesh.Shine var3);
+      void part(PoseStack var1, KnifeMesh var2, KnifeMesh.Shine var3);
 
-      void glow(class_4587 var1, KnifeMesh var2, KnifeMesh.Shine var3);
+      void glow(PoseStack var1, KnifeMesh var2, KnifeMesh.Shine var3);
 
-      void arm(class_4587 var1, boolean var2);
+      void arm(PoseStack var1, boolean var2);
    }
 
    @Environment(EnvType.CLIENT)

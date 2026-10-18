@@ -15,18 +15,18 @@ import net.champ.client.util.glyph.GlyphCanvas;
 import net.champ.client.util.glyph.GlyphShapes;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_238;
-import net.minecraft.class_265;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_4604;
-import net.minecraft.class_5819;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
-import net.minecraft.class_9848;
-import net.minecraft.class_2338.class_2339;
-import net.minecraft.class_2350.class_2351;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.util.RandomSource;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.util.ARGB;
+import net.minecraft.core.BlockPos.MutableBlockPos;
+import net.minecraft.core.Direction.Axis;
 
 @Environment(EnvType.CLIENT)
 public final class FloatingRelicsModule extends ClientModule {
@@ -86,11 +86,11 @@ public final class FloatingRelicsModule extends ClientModule {
    private final BooleanSetting blocks = this.addSetting("block-bounce", new BooleanSetting("Block Bounce", true));
    private final FloatingRelicsModule.Relic[] relics = new FloatingRelicsModule.Relic[32];
    private final GlyphCanvas canvas = new GlyphCanvas();
-   private final class_5819 random = class_5819.method_43047();
-   private final class_2339 cursor = new class_2339();
+   private final RandomSource random = RandomSource.create();
+   private final MutableBlockPos cursor = new MutableBlockPos();
    private int live;
    private int age;
-   private class_638 boundLevel;
+   private ClientLevel boundLevel;
    private int tintMain;
    private int tintShade;
    private int tintShine;
@@ -123,7 +123,7 @@ public final class FloatingRelicsModule extends ClientModule {
       this.boundLevel = null;
    }
 
-   private void syncLevel(class_638 level) {
+   private void syncLevel(ClientLevel level) {
       if (level != this.boundLevel) {
          this.boundLevel = level;
          this.live = 0;
@@ -131,9 +131,9 @@ public final class FloatingRelicsModule extends ClientModule {
    }
 
    private void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      class_638 level = mc.field_1687;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      ClientLevel level = mc.level;
       if (player != null && level != null) {
          this.syncLevel(level);
          this.age++;
@@ -144,12 +144,12 @@ public final class FloatingRelicsModule extends ClientModule {
          }
 
          this.live = want;
-         double px = player.method_23317();
-         double py = player.method_23318();
-         double pz = player.method_23321();
-         float height = player.method_17682();
-         float moveX = (float)(px - player.field_6014);
-         float moveZ = (float)(pz - player.field_5969);
+         double px = player.getX();
+         double py = player.getY();
+         double pz = player.getZ();
+         float height = player.getBbHeight();
+         float moveX = (float)(px - player.xo);
+         float moveZ = (float)(pz - player.zo);
          float restitution = this.bounce.get();
 
          for (int i = 0; i < this.live; i++) {
@@ -169,31 +169,31 @@ public final class FloatingRelicsModule extends ClientModule {
    private void wake(FloatingRelicsModule.Relic r, int delay) {
       r.placed = false;
       r.wakeAt = this.age + delay;
-      r.orbit = 0.55F + 0.45F * this.random.method_43057();
-      r.lift = this.random.method_43057();
-      r.grain = 0.82F + 0.3F * this.random.method_43057();
-      r.phase = this.random.method_43057() * (float) (Math.PI * 2);
+      r.orbit = 0.55F + 0.45F * this.random.nextFloat();
+      r.lift = this.random.nextFloat();
+      r.grain = 0.82F + 0.3F * this.random.nextFloat();
+      r.phase = this.random.nextFloat() * (float) (Math.PI * 2);
       r.restTurn = this.signed(0.07F, 0.12F);
    }
 
    private float signed(float min, float max) {
-      float value = min + (max - min) * this.random.method_43057();
-      return this.random.method_43056() ? value : -value;
+      float value = min + (max - min) * this.random.nextFloat();
+      return this.random.nextBoolean() ? value : -value;
    }
 
    private void place(FloatingRelicsModule.Relic r, double px, double py, double pz) {
-      float angle = this.random.method_43057() * (float) (Math.PI * 2);
+      float angle = this.random.nextFloat() * (float) (Math.PI * 2);
       double radius = this.spread.get() * r.orbit;
-      r.x = px + class_3532.method_15362(angle) * radius;
+      r.x = px + Mth.cos(angle) * radius;
       r.y = py + 0.15;
-      r.z = pz + class_3532.method_15374(angle) * radius;
+      r.z = pz + Mth.sin(angle) * radius;
       r.lastX = r.x;
       r.lastY = r.y;
       r.lastZ = r.z;
-      r.vx = -class_3532.method_15374(angle) * 0.03F;
-      r.vy = 0.14F + 0.08F * this.random.method_43057();
-      r.vz = class_3532.method_15362(angle) * 0.03F;
-      r.yaw = this.random.method_43057() * (float) (Math.PI * 2);
+      r.vx = -Mth.sin(angle) * 0.03F;
+      r.vy = 0.14F + 0.08F * this.random.nextFloat();
+      r.vz = Mth.cos(angle) * 0.03F;
+      r.yaw = this.random.nextFloat() * (float) (Math.PI * 2);
       r.lastYaw = r.yaw;
       r.turn = r.restTurn * 3.0F;
       r.tiltX = 0.0F;
@@ -206,7 +206,7 @@ public final class FloatingRelicsModule extends ClientModule {
       r.placedAt = this.age;
    }
 
-   private void step(FloatingRelicsModule.Relic r, class_638 level, double px, double py, double pz, float height, float moveX, float moveZ, float restitution) {
+   private void step(FloatingRelicsModule.Relic r, ClientLevel level, double px, double py, double pz, float height, float moveX, float moveZ, float restitution) {
       if (!r.placed) {
          if (this.age < r.wakeAt) {
             return;
@@ -221,7 +221,7 @@ public final class FloatingRelicsModule extends ClientModule {
       double dx = r.x - px;
       double dz = r.z - pz;
       double flat = Math.sqrt(dx * dx + dz * dz);
-      double hover = py + 0.35 + r.lift * (height + 0.2) + 0.16 * class_3532.method_15374((this.age + r.phase * 16.0F) * 0.045F);
+      double hover = py + 0.35 + r.lift * (height + 0.2) + 0.16 * Mth.sin((this.age + r.phase * 16.0F) * 0.045F);
       double leash = this.spread.get() * 3.0 + 8.0;
       if (!(flat > leash) && !(Math.abs(r.y - hover) > leash)) {
          float nx = flat > 1.0E-4 ? (float)(dx / flat) : 1.0F;
@@ -231,8 +231,8 @@ public final class FloatingRelicsModule extends ClientModule {
          r.vx += nx * pull - nz * swirl + moveX * 0.035F;
          r.vz += nz * pull + nx * swirl + moveZ * 0.035F;
          float wander = (this.age + r.phase * 20.0F) * 0.06F;
-         r.vx = r.vx + class_3532.method_15374(wander) * 0.003F;
-         r.vz = r.vz + class_3532.method_15362(wander * 1.31F) * 0.003F;
+         r.vx = r.vx + Mth.sin(wander) * 0.003F;
+         r.vz = r.vz + Mth.cos(wander * 1.31F) * 0.003F;
          r.vy -= 0.016F;
          double sink = hover - r.y;
          if (sink > 0.0) {
@@ -298,8 +298,8 @@ public final class FloatingRelicsModule extends ClientModule {
          r.yaw = r.yaw + r.turn;
          r.swayX = (r.swayX - r.tiltX * 0.09F) * 0.9F;
          r.swayZ = (r.swayZ - r.tiltZ * 0.09F) * 0.9F;
-         r.tiltX = class_3532.method_15363(r.tiltX + r.swayX, -0.55F, 0.55F);
-         r.tiltZ = class_3532.method_15363(r.tiltZ + r.swayZ, -0.55F, 0.55F);
+         r.tiltX = Mth.clamp(r.tiltX + r.swayX, -0.55F, 0.55F);
+         r.tiltZ = Mth.clamp(r.tiltZ + r.swayZ, -0.55F, 0.55F);
       } else {
          this.place(r, px, py, pz);
       }
@@ -341,43 +341,43 @@ public final class FloatingRelicsModule extends ClientModule {
    }
 
    private void tumble(FloatingRelicsModule.Relic r, float strength) {
-      r.turn = r.turn + (this.random.method_43057() - 0.5F) * 0.3F * strength;
-      r.swayX = r.swayX + (this.random.method_43057() - 0.5F) * 0.12F * strength;
-      r.swayZ = r.swayZ + (this.random.method_43057() - 0.5F) * 0.12F * strength;
+      r.turn = r.turn + (this.random.nextFloat() - 0.5F) * 0.3F * strength;
+      r.swayX = r.swayX + (this.random.nextFloat() - 0.5F) * 0.12F * strength;
+      r.swayZ = r.swayZ + (this.random.nextFloat() - 0.5F) * 0.12F * strength;
    }
 
-   private boolean solid(class_638 level, double x, double y, double z) {
-      this.cursor.method_10103(class_3532.method_15357(x), class_3532.method_15357(y), class_3532.method_15357(z));
-      class_2680 state = level.method_8320(this.cursor);
-      if (state.method_26215()) {
+   private boolean solid(ClientLevel level, double x, double y, double z) {
+      this.cursor.set(Mth.floor(x), Mth.floor(y), Mth.floor(z));
+      BlockState state = level.getBlockState(this.cursor);
+      if (state.isAir()) {
          return false;
       }
 
-      class_265 shape = state.method_26220(level, this.cursor);
-      if (shape.method_1110()) {
+      VoxelShape shape = state.getCollisionShape(level, this.cursor);
+      if (shape.isEmpty()) {
          return false;
       }
 
-      double lx = x - this.cursor.method_10263();
-      double ly = y - this.cursor.method_10264();
-      double lz = z - this.cursor.method_10260();
-      return lx >= shape.method_1091(class_2351.field_11048)
-         && lx <= shape.method_1105(class_2351.field_11048)
-         && ly >= shape.method_1091(class_2351.field_11052)
-         && ly <= shape.method_1105(class_2351.field_11052)
-         && lz >= shape.method_1091(class_2351.field_11051)
-         && lz <= shape.method_1105(class_2351.field_11051);
+      double lx = x - this.cursor.getX();
+      double ly = y - this.cursor.getY();
+      double lz = z - this.cursor.getZ();
+      return lx >= shape.min(Axis.X)
+         && lx <= shape.max(Axis.X)
+         && ly >= shape.min(Axis.Y)
+         && ly <= shape.max(Axis.Y)
+         && lz >= shape.min(Axis.Z)
+         && lz <= shape.max(Axis.Z);
    }
 
    private void onRender3D(Render3DEvent event) {
       if (this.live != 0) {
-         class_310 mc = class_310.method_1551();
-         if (mc.field_1687 != null && mc.field_1724 != null) {
-            this.canvas.begin(mc.field_1773.method_19418());
+         Minecraft mc = Minecraft.getInstance();
+         if (mc.level != null && mc.player != null) {
+            this.canvas.begin(mc.gameRenderer.getMainCamera());
             float pt = event.partialTick;
             float time = (float)(System.nanoTime() - EPOCH) / 1.0E9F;
             boolean mobile = MobilePerformance.active();
-            class_4604 frustum = !PerformanceModule.frustumCulling() && !mobile ? null : event.frustum;
+            Frustum frustum = !PerformanceModule.frustumCulling() && !mobile ? null : event.frustum;
             float base = this.size.get() * 0.5F * 1.25F;
             boolean larp = this.symbols.is("Larp");
             float[][] glyphs = larp ? LARP_GLYPHS : CHAMP_GLYPHS;
@@ -392,16 +392,16 @@ public final class FloatingRelicsModule extends ClientModule {
                   float since = this.age - r.placedAt + pt;
                   float extent = base * r.grain * fits[kind] * appear(since / 12.0F);
                   if (!(extent < 0.004F)) {
-                     double x = class_3532.method_16436(pt, r.lastX, r.x);
-                     double y = class_3532.method_16436(pt, r.lastY, r.y) + extent * 0.2F * class_3532.method_15374(time * 2.4F + r.phase * 3.0F);
-                     double z = class_3532.method_16436(pt, r.lastZ, r.z);
+                     double x = Mth.lerp(pt, r.lastX, r.x);
+                     double y = Mth.lerp(pt, r.lastY, r.y) + extent * 0.2F * Mth.sin(time * 2.4F + r.phase * 3.0F);
+                     double z = Mth.lerp(pt, r.lastZ, r.z);
                      double reach = renderReach(extent, glow, mobile);
-                     if (frustum == null || frustum.method_23093(new class_238(x - reach, y - reach, z - reach, x + reach, y + reach, z + reach))) {
+                     if (frustum == null || frustum.isVisible(new AABB(x - reach, y - reach, z - reach, x + reach, y + reach, z + reach))) {
                         float fade = Math.min(1.0F, since / 7.2000003F);
-                        float yaw = class_3532.method_16439(pt, r.lastYaw, r.yaw);
-                        float tiltX = class_3532.method_16439(pt, r.lastTiltX, r.tiltX) + 0.12F * class_3532.method_15374(time * 1.3F + r.phase);
-                        float tiltZ = class_3532.method_16439(pt, r.lastTiltZ, r.tiltZ) + 0.12F * class_3532.method_15374(time * 0.9F + r.phase * 2.3F);
-                        float shimmer = glow ? (0.1F + 0.07F * class_3532.method_15374(time * 2.1F + r.phase)) * fade : 0.0F;
+                        float yaw = Mth.lerp(pt, r.lastYaw, r.yaw);
+                        float tiltX = Mth.lerp(pt, r.lastTiltX, r.tiltX) + 0.12F * Mth.sin(time * 1.3F + r.phase);
+                        float tiltZ = Mth.lerp(pt, r.lastTiltZ, r.tiltZ) + 0.12F * Mth.sin(time * 0.9F + r.phase * 2.3F);
+                        float shimmer = glow ? (0.1F + 0.07F * Mth.sin(time * 2.1F + r.phase)) * fade : 0.0F;
                         float[] glyph = mobile ? RelicGlyphs.mobile(glyphs[kind]) : glyphs[kind];
                         this.drawRelic(glyph, x, y, z, extent, yaw, tiltX, tiltZ, fade, shimmer);
                      }
@@ -420,23 +420,23 @@ public final class FloatingRelicsModule extends ClientModule {
 
    private void tint() {
       if (this.colorMode.is("Manual")) {
-         this.tintMain = class_9848.method_61334(this.mainColor.argb());
-         this.tintShade = class_9848.method_61334(this.secondColor.argb());
+         this.tintMain = ARGB.opaque(this.mainColor.argb());
+         this.tintShade = ARGB.opaque(this.secondColor.argb());
       } else {
          this.tintMain = CosmeticAccent.argb();
-         this.tintShade = class_9848.method_61321(this.tintMain, 0.45F);
+         this.tintShade = ARGB.scaleRGB(this.tintMain, 0.45F);
       }
 
-      this.tintShine = class_9848.method_61319(0.6F, this.tintMain, -1);
+      this.tintShine = ARGB.srgbLerp(0.6F, this.tintMain, -1);
    }
 
    private void drawRelic(float[] glyph, double x, double y, double z, float extent, float yaw, float tiltX, float tiltZ, float fade, float shimmer) {
-      float cy = class_3532.method_15362(yaw);
-      float sy = class_3532.method_15374(yaw);
-      float cx = class_3532.method_15362(tiltX);
-      float sx = class_3532.method_15374(tiltX);
-      float cz = class_3532.method_15362(tiltZ);
-      float sz = class_3532.method_15374(tiltZ);
+      float cy = Mth.cos(yaw);
+      float sy = Mth.sin(yaw);
+      float cx = Mth.cos(tiltX);
+      float sx = Mth.sin(tiltX);
+      float cz = Mth.cos(tiltZ);
+      float sz = Mth.sin(tiltZ);
       float ux = cy * cz + sy * sx * sz;
       float uy = cx * sz;
       float uz = -sy * cz + cy * sx * sz;
@@ -490,7 +490,7 @@ public final class FloatingRelicsModule extends ClientModule {
          float glint = facing * facing;
          glint *= glint;
          glint *= glint;
-         int face = class_9848.method_61319(glint * 0.45F, class_9848.method_61321(this.tintMain, 0.6F + 0.22F * light + 0.18F * facing), this.tintShine);
+         int face = ARGB.srgbLerp(glint * 0.45F, ARGB.scaleRGB(this.tintMain, 0.6F + 0.22F * light + 0.18F * facing), this.tintShine);
          this.canvas.shape(glyph, x + nx * depth, y + ny * depth, z + nz * depth, au, bu, cu, av, bv, cv, withAlpha(face, 0.94F * fade));
       }
    }
@@ -505,7 +505,7 @@ public final class FloatingRelicsModule extends ClientModule {
       }
 
       float inv = 1.0F - t;
-      return 1.0F - inv * inv * inv + 0.22F * class_3532.method_15374(t * (float) Math.PI) * inv;
+      return 1.0F - inv * inv * inv + 0.22F * Mth.sin(t * (float) Math.PI) * inv;
    }
 
    private static int withAlpha(int rgb, float alpha) {

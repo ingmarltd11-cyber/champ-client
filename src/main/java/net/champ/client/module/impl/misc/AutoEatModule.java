@@ -14,27 +14,27 @@ import net.champ.client.module.impl.combat.melee.SlotReturn;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1268;
-import net.minecraft.class_1661;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_310;
-import net.minecraft.class_4174;
-import net.minecraft.class_746;
-import net.minecraft.class_9334;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.component.DataComponents;
 
 @Environment(EnvType.CLIENT)
 public final class AutoEatModule extends ClientModule {
-   private static final Set<class_1792> NEVER_EAT = Set.of(
-      class_1802.field_8511,
-      class_1802.field_8680,
-      class_1802.field_8635,
-      class_1802.field_8323,
-      class_1802.field_8726,
-      class_1802.field_8233,
-      class_1802.field_8766,
-      class_1802.field_8367
+   private static final Set<Item> NEVER_EAT = Set.of(
+      Items.ROTTEN_FLESH,
+      Items.SPIDER_EYE,
+      Items.POISONOUS_POTATO,
+      Items.PUFFERFISH,
+      Items.CHICKEN,
+      Items.CHORUS_FRUIT,
+      Items.SUSPICIOUS_STEW,
+      Items.ENCHANTED_GOLDEN_APPLE
    );
    private static final int NOT_FOUND = -1;
    private static final int OFFHAND_SLOT = -2;
@@ -52,7 +52,7 @@ public final class AutoEatModule extends ClientModule {
 
    @Override
    protected void onDisable() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       this.stop(mc);
       this.slots.drop(mc, true);
    }
@@ -64,19 +64,19 @@ public final class AutoEatModule extends ClientModule {
 
    @EventHandler(priority = EventPriority.HIGH)
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       this.eat(mc);
       if (!this.eating) {
          this.slots.tick(mc, true);
       }
    }
 
-   private void eat(class_310 mc) {
-      class_746 player = mc.field_1724;
-      if (player != null && mc.field_1687 != null && mc.field_1761 != null && mc.field_1755 == null && !AutoInvTotemModule.wantsHotbar()) {
-         if (player.method_6115() && player.method_6030().method_57826(class_9334.field_50075)) {
+   private void eat(Minecraft mc) {
+      LocalPlayer player = mc.player;
+      if (player != null && mc.level != null && mc.gameMode != null && mc.screen == null && !AutoInvTotemModule.wantsHotbar()) {
+         if (player.isUsingItem() && player.getUseItem().has(DataComponents.FOOD)) {
             if (this.eating) {
-               mc.field_1690.field_1904.method_23481(true);
+               mc.options.keyUse.setDown(true);
             }
          } else if (!this.shouldEat(player)) {
             this.stop(mc);
@@ -88,7 +88,7 @@ public final class AutoEatModule extends ClientModule {
                this.eating = true;
             } else {
                if (slot == -2) {
-                  mc.field_1761.method_2919(player, class_1268.field_5810);
+                  mc.gameMode.useItem(player, InteractionHand.OFF_HAND);
                   MeleeAttacks.claimTick(mc);
                } else if (!this.slots.take(player, slot)) {
                   this.stop(mc);
@@ -97,7 +97,7 @@ public final class AutoEatModule extends ClientModule {
 
                this.eating = true;
                MeleeAttacks.takeAttackClicks(mc);
-               mc.field_1690.field_1904.method_23481(true);
+               mc.options.keyUse.setDown(true);
             }
          }
       } else {
@@ -105,23 +105,23 @@ public final class AutoEatModule extends ClientModule {
       }
    }
 
-   private boolean hungry(class_746 player) {
-      return player.method_7344().method_7586() <= this.hunger.getInt();
+   private boolean hungry(LocalPlayer player) {
+      return player.getFoodData().getFoodLevel() <= this.hunger.getInt();
    }
 
-   private boolean shouldEat(class_746 player) {
-      boolean hurt = this.health.getInt() > 0 && player.method_6032() <= this.health.getInt();
+   private boolean shouldEat(LocalPlayer player) {
+      boolean hurt = this.health.getInt() > 0 && player.getHealth() <= this.health.getInt();
       return this.hungry(player) || hurt;
    }
 
-   private int findBestSlot(class_746 player) {
+   private int findBestSlot(LocalPlayer player) {
       boolean healing = !this.hungry(player);
-      class_1661 inventory = player.method_31548();
+      Inventory inventory = player.getInventory();
       int best = -1;
       float bestScore = -1.0F;
 
       for (int slot = 0; slot < 9; slot++) {
-         class_4174 food = foodOf(player, inventory.method_5438(slot));
+         FoodProperties food = foodOf(player, inventory.getItem(slot));
          if (food != null) {
             float score = score(food, healing);
             if (score > bestScore) {
@@ -131,7 +131,7 @@ public final class AutoEatModule extends ClientModule {
          }
       }
 
-      class_4174 offhandFood = foodOf(player, player.method_6079());
+      FoodProperties offhandFood = foodOf(player, player.getOffhandItem());
       if (offhandFood != null && score(offhandFood, healing) > bestScore) {
          best = -2;
       }
@@ -139,24 +139,24 @@ public final class AutoEatModule extends ClientModule {
       return best;
    }
 
-   private static float score(class_4174 food, boolean healing) {
+   private static float score(FoodProperties food, boolean healing) {
       float score = food.comp_2491() + food.comp_2492();
       return healing && food.comp_2493() ? score + 100.0F : score;
    }
 
-   private static class_4174 foodOf(class_746 player, class_1799 stack) {
-      if (!stack.method_7960() && !NEVER_EAT.contains(stack.method_7909()) && !player.method_7357().method_7904(stack)) {
-         class_4174 food = (class_4174)stack.method_58694(class_9334.field_50075);
-         return food != null && player.method_7332(food.comp_2493()) ? food : null;
+   private static FoodProperties foodOf(LocalPlayer player, ItemStack stack) {
+      if (!stack.isEmpty() && !NEVER_EAT.contains(stack.getItem()) && !player.getCooldowns().isOnCooldown(stack)) {
+         FoodProperties food = (FoodProperties)stack.get(DataComponents.FOOD);
+         return food != null && player.canEat(food.comp_2493()) ? food : null;
       } else {
          return null;
       }
    }
 
-   private void stop(class_310 mc) {
+   private void stop(Minecraft mc) {
       if (this.eating) {
          this.eating = false;
-         mc.field_1690.field_1904.method_23481(Crystals.isPhysicallyDown(mc, mc.field_1690.field_1904));
+         mc.options.keyUse.setDown(Crystals.isPhysicallyDown(mc, mc.options.keyUse));
       }
    }
 }

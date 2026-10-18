@@ -15,11 +15,11 @@ import net.champ.client.module.setting.StringSetting;
 import net.champ.client.util.ItemEnchants;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_310;
-import net.minecraft.class_7439;
-import net.minecraft.class_746;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.client.player.LocalPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -91,8 +91,8 @@ public final class AhSellModule extends ClientModule {
 
    @Override
    protected void onEnable() {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null && mc.method_1548() != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.getUser() != null) {
          List<Product> products = new ArrayList<>();
          String problem = this.buildProducts(products);
          if (problem != null) {
@@ -111,7 +111,7 @@ public final class AhSellModule extends ClientModule {
                36,
                15000L
             );
-            AhSellBot created = new AhSellBot(this, this.worker, products, !this.auto(), config, mc.method_1548().method_1676());
+            AhSellBot created = new AhSellBot(this, this.worker, products, !this.auto(), config, mc.getUser().getName());
             this.bot = created;
             this.worker.start(created::run, failure -> {
                LOGGER.error("[Champ Client] AH Sell stopped", failure);
@@ -134,11 +134,11 @@ public final class AhSellModule extends ClientModule {
       AhSellBot stopped = this.bot;
       this.bot = null;
       this.worker.stop();
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       if (stopped != null && player != null) {
-         if (player.field_7512 != player.field_7498) {
-            player.method_7346();
+         if (player.containerMenu != player.inventoryMenu) {
+            player.closeContainer();
          } else {
             Dialogs.close(mc);
          }
@@ -150,7 +150,7 @@ public final class AhSellModule extends ClientModule {
    @EventHandler
    public void onPacket(PacketReceiveNettyEvent event) {
       AhSellBot current = this.bot;
-      if (current != null && event.packet instanceof class_7439 chat && chat.comp_763() != null) {
+      if (current != null && event.packet instanceof ClientboundSystemChatPacket chat && chat.comp_763() != null) {
          current.onChat(chat.comp_763().getString());
       }
    }
@@ -160,12 +160,12 @@ public final class AhSellModule extends ClientModule {
          return "Undercut By must be a price like 100.";
       }
 
-      Set<class_1792> seen = new HashSet<>();
+      Set<Item> seen = new HashSet<>();
 
       for (int i = 0; i < this.slotCount(); i++) {
          String raw = this.items[i].get().trim();
          if (!raw.isEmpty()) {
-            class_1792 item = Product.resolveItem(raw);
+            Item item = Product.resolveItem(raw);
             if (item == null) {
                return "Item " + (i + 1) + ": unknown item '" + raw + "'.";
             }
@@ -180,7 +180,7 @@ public final class AhSellModule extends ClientModule {
             }
 
             List<Product.Enchant> wanted = ItemEnchants.supports(item) ? Product.parseEnchants(this.enchants[i].get()) : List.of();
-            out.add(new Product(item, raw, Product.searchText(item), new class_1799(item).method_7964().getString(), price, wanted, false, 1, true, 1L, 1L, 0L));
+            out.add(new Product(item, raw, Product.searchText(item), new ItemStack(item).getHoverName().getString(), price, wanted, false, 1, true, 1L, 1L, 0L));
          }
       }
 

@@ -4,7 +4,7 @@ import java.util.BitSet;
 import java.util.List;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_6606;
+import net.minecraft.network.protocol.game.ClientboundLightUpdatePacketData;
 
 @Environment(EnvType.CLIENT)
 public final class LightDataClassifier {
@@ -42,14 +42,14 @@ public final class LightDataClassifier {
       }
    }
 
-   public static void apply(class_6606 data, ChunkLightSnapshot snapshot) {
-      applyTrack(data.method_38601(), data.method_38604(), data.method_38606(), snapshot.sky);
+   public static void apply(ClientboundLightUpdatePacketData data, ChunkLightSnapshot snapshot) {
+      applyTrack(data.getSkyYMask(), data.getEmptySkyYMask(), data.getSkyUpdates(), snapshot.sky);
    }
 
-   static int sentNotDark(class_6606 data, int sectionCount, int bottomSectionY) {
-      BitSet mask = data.method_38601();
-      BitSet empty = data.method_38604();
-      List<byte[]> updates = data.method_38606();
+   static int sentNotDark(ClientboundLightUpdatePacketData data, int sectionCount, int bottomSectionY) {
+      BitSet mask = data.getSkyYMask();
+      BitSet empty = data.getEmptySkyYMask();
+      List<byte[]> updates = data.getSkyUpdates();
       int bits = 0;
       int next = 0;
 

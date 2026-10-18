@@ -13,9 +13,9 @@ import java.util.Map.Entry;
 import java.util.function.Supplier;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1792;
-import net.minecraft.class_2960;
-import net.minecraft.class_7923;
+import net.minecraft.world.item.Item;
+import net.minecraft.resources.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 public final class ItemColorListSetting extends Setting {
@@ -79,13 +79,13 @@ public final class ItemColorListSetting extends Setting {
       this.enabledLookup = map;
    }
 
-   public boolean isEnabled(class_1792 item) {
-      class_2960 key = class_7923.field_41178.method_10221(item);
+   public boolean isEnabled(Item item) {
+      Identifier key = BuiltInRegistries.ITEM.getKey(item);
       return key == null ? false : this.lookup().containsKey(key.toString());
    }
 
-   public int colorArgb(class_1792 item) {
-      class_2960 key = class_7923.field_41178.method_10221(item);
+   public int colorArgb(Item item) {
+      Identifier key = BuiltInRegistries.ITEM.getKey(item);
       if (key == null) {
          return rgbaToArgb(this.defaultColor);
       }
@@ -283,11 +283,11 @@ public final class ItemColorListSetting extends Setting {
    private static List<ItemColorListSetting.ItemEntry> buildDefaultEntries() {
       List<ItemColorListSetting.ItemEntry> e = new ArrayList<>();
 
-      for (class_1792 item : class_7923.field_41178) {
-         class_2960 key = class_7923.field_41178.method_10221(item);
+      for (Item item : BuiltInRegistries.ITEM) {
+         Identifier key = BuiltInRegistries.ITEM.getKey(item);
          if (key != null) {
             String id = key.toString();
-            String path = key.method_12832();
+            String path = key.getPath();
             String displayName = prettify(path);
             float[] color = defaultColorFor(path);
             boolean enabled = isPreEnabled(path);

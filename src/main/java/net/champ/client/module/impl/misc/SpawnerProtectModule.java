@@ -21,26 +21,26 @@ import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.module.setting.StringSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1268;
-import net.minecraft.class_1297;
-import net.minecraft.class_1542;
-import net.minecraft.class_1657;
-import net.minecraft.class_1707;
-import net.minecraft.class_1713;
-import net.minecraft.class_1799;
-import net.minecraft.class_2246;
-import net.minecraft.class_2248;
-import net.minecraft.class_2338;
-import net.minecraft.class_2350;
-import net.minecraft.class_243;
-import net.minecraft.class_2480;
-import net.minecraft.class_2561;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_3965;
-import net.minecraft.class_419;
-import net.minecraft.class_746;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.client.gui.screens.DisconnectedScreen;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class SpawnerProtectModule extends ClientModule {
@@ -61,8 +61,8 @@ public final class SpawnerProtectModule extends ClientModule {
    );
    private final StringSetting webhookUrl = this.addSetting("webhook-url", new StringSetting("Webhook URL", ""));
    private SpawnerProtectModule.State currentState = SpawnerProtectModule.State.WAITING_FOR_STRANGER;
-   private class_2338 targetBlock;
-   private class_2338 targetChest;
+   private BlockPos targetBlock;
+   private BlockPos targetChest;
    private int chestTick;
    private int breakCooldown;
    private int lagWaitTicks;
@@ -133,27 +133,27 @@ public final class SpawnerProtectModule extends ClientModule {
    }
 
    private void onBlockUpdate(BlockUpdateEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (!this.strangerDetected && mc.field_1724 != null && mc.field_1687 != null && !this.isNearSpawn() && this.detectBlockUpdates.get()) {
-         if (!event.oldState.method_26215() && !(event.oldState.method_26204() instanceof class_2480)) {
+      Minecraft mc = Minecraft.getInstance();
+      if (!this.strangerDetected && mc.player != null && mc.level != null && !this.isNearSpawn() && this.detectBlockUpdates.get()) {
+         if (!event.oldState.isAir() && !(event.oldState.getBlock() instanceof ShulkerBoxBlock)) {
             this.checkBlockUpdate(event.pos, event.newState);
          }
       }
    }
 
-   private void checkBlockUpdate(class_2338 pos, class_2680 newState) {
-      class_310 mc = class_310.method_1551();
-      if (!this.strangerDetected && mc.field_1687 != null) {
-         for (class_1657 player : mc.field_1687.method_18456()) {
-            if (player.method_33571().method_1022(class_243.method_24953(pos)) < 8.0 && this.isWhitelisted(player.method_5477().getString())) {
+   private void checkBlockUpdate(BlockPos pos, BlockState newState) {
+      Minecraft mc = Minecraft.getInstance();
+      if (!this.strangerDetected && mc.level != null) {
+         for (Player player : mc.level.players()) {
+            if (player.getEyePosition().distanceTo(Vec3.atCenterOf(pos)) < 8.0 && this.isWhitelisted(player.getName().getString())) {
                return;
             }
          }
 
-         if (pos.method_10264() > -64 && newState.method_26215()) {
-            if (!(mc.field_1724.method_33571().method_1022(class_243.method_24953(pos)) < 6.0)) {
-               double dx = mc.field_1724.method_23317() - pos.method_10263();
-               double dz = mc.field_1724.method_23321() - pos.method_10260();
+         if (pos.getY() > -64 && newState.isAir()) {
+            if (!(mc.player.getEyePosition().distanceTo(Vec3.atCenterOf(pos)) < 6.0)) {
+               double dx = mc.player.getX() - pos.getX();
+               double dz = mc.player.getZ() - pos.getZ();
                double horizontalDist = Math.sqrt(dx * dx + dz * dz);
                if (!(horizontalDist > this.scanRange.get())) {
                   long now = System.currentTimeMillis();
@@ -167,7 +167,7 @@ public final class SpawnerProtectModule extends ClientModule {
                      this.strangerDetected = true;
                      this.currentState = SpawnerProtectModule.State.WORKING;
                      ModuleChat.send(
-                        this, "\ud83d\udea8 UZAK TESPİT: Yakında bir blok kırıldı! (Yatay Mesafe: " + (int)horizontalDist + "m, Y: " + pos.method_10264() + ")"
+                        this, "\ud83d\udea8 UZAK TESPİT: Yakında bir blok kırıldı! (Yatay Mesafe: " + (int)horizontalDist + "m, Y: " + pos.getY() + ")"
                      );
                      this.sendWebhook(
                         "\ud83d\udea8 Protection activated",
@@ -186,8 +186,8 @@ public final class SpawnerProtectModule extends ClientModule {
    }
 
    private void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 == null || mc.field_1687 == null || mc.field_1761 == null || mc.field_1755 instanceof class_419) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player == null || mc.level == null || mc.gameMode == null || mc.screen instanceof DisconnectedScreen) {
          this.resetModule();
       } else if (this.isNearSpawn()) {
          if (this.strangerDetected) {
@@ -233,24 +233,24 @@ public final class SpawnerProtectModule extends ClientModule {
    }
 
    private void notifyNearbyPlayers() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       Set<UUID> present = new HashSet<>();
 
-      for (class_1657 player : mc.field_1687.method_18456()) {
-         if (player != mc.field_1724
-            && !player.method_7325()
-            && !this.isWhitelisted(player.method_5477().getString())
-            && !(mc.field_1724.method_5739(player) > this.scanRange.get())) {
-            present.add(player.method_5667());
-            if (!this.nearbyPlayers.contains(player.method_5667())) {
+      for (Player player : mc.level.players()) {
+         if (player != mc.player
+            && !player.isSpectator()
+            && !this.isWhitelisted(player.getName().getString())
+            && !(mc.player.distanceTo(player) > this.scanRange.get())) {
+            present.add(player.getUUID());
+            if (!this.nearbyPlayers.contains(player.getUUID())) {
                this.sendWebhook(
                   "\ud83d\udc64 A player entered your range",
                   "A new player is nearby. This event only sends a notification.",
                   5793266,
-                  SpawnerAlerts.field("Player", "`" + player.method_5477().getString() + "`", true),
-                  SpawnerAlerts.field("\ud83d\udccf Distance", String.format(Locale.ROOT, "%.1f blocks", mc.field_1724.method_5739(player)), true),
+                  SpawnerAlerts.field("Player", "`" + player.getName().getString() + "`", true),
+                  SpawnerAlerts.field("\ud83d\udccf Distance", String.format(Locale.ROOT, "%.1f blocks", mc.player.distanceTo(player)), true),
                   SpawnerAlerts.field("\ud83d\udee1️ Protection", this.strangerDetected ? "In progress" : "Standby", true),
-                  SpawnerAlerts.field("\ud83d\udccd Player location", coordinates(player.method_24515()), false)
+                  SpawnerAlerts.field("\ud83d\udccd Player location", coordinates(player.blockPosition()), false)
                );
             }
          }
@@ -261,64 +261,64 @@ public final class SpawnerProtectModule extends ClientModule {
    }
 
    private void handleRotation() {
-      class_310 mc = class_310.method_1551();
-      class_243 targetPos = null;
+      Minecraft mc = Minecraft.getInstance();
+      Vec3 targetPos = null;
       if (this.currentState == SpawnerProtectModule.State.WORKING) {
-         class_1542 dropped = this.findDroppedSpawner();
+         ItemEntity dropped = this.findDroppedSpawner();
          if (dropped != null) {
-            targetPos = dropped.method_73189();
+            targetPos = dropped.position();
          } else {
             this.retargetSpawner(mc);
             if (this.targetBlock != null) {
-               targetPos = class_243.method_24953(this.targetBlock);
+               targetPos = Vec3.atCenterOf(this.targetBlock);
             }
          }
       } else if ((this.currentState == SpawnerProtectModule.State.GOING_TO_CHEST || this.currentState == SpawnerProtectModule.State.OPENING_CHEST)
          && this.targetChest != null) {
-         targetPos = class_243.method_24953(this.targetChest);
+         targetPos = Vec3.atCenterOf(this.targetChest);
       }
 
       if (targetPos != null) {
-         this.smoothLook(mc.field_1724, targetPos);
+         this.smoothLook(mc.player, targetPos);
       }
    }
 
-   private void retargetSpawner(class_310 mc) {
+   private void retargetSpawner(Minecraft mc) {
       if (this.targetBlock == null
-         || mc.field_1687.method_8320(this.targetBlock).method_26204() != class_2246.field_10260
-         || mc.field_1724.method_24515().method_10262(this.targetBlock) > 256.0) {
-         this.targetBlock = this.findRandomBlock(class_2246.field_10260, 16);
+         || mc.level.getBlockState(this.targetBlock).getBlock() != Blocks.SPAWNER
+         || mc.player.blockPosition().distSqr(this.targetBlock) > 256.0) {
+         this.targetBlock = this.findRandomBlock(Blocks.SPAWNER, 16);
          this.miningTicks = 0;
       }
    }
 
-   private void smoothLook(class_746 player, class_243 target) {
-      class_243 eyes = player.method_33571();
-      double dx = target.field_1352 - eyes.field_1352;
-      double dy = target.field_1351 - eyes.field_1351;
-      double dz = target.field_1350 - eyes.field_1350;
+   private void smoothLook(LocalPlayer player, Vec3 target) {
+      Vec3 eyes = player.getEyePosition();
+      double dx = target.x - eyes.x;
+      double dy = target.y - eyes.y;
+      double dz = target.z - eyes.z;
       double dist = Math.sqrt(dx * dx + dz * dz);
       float targetYaw = (float)Math.toDegrees(Math.atan2(-dx, dz));
       float targetPitch = (float)(-Math.toDegrees(Math.atan2(dy, dist)));
       float step = this.rotationSpeed.get();
-      player.method_36456(player.method_36454() + class_3532.method_15363(class_3532.method_15393(targetYaw - player.method_36454()), -step, step));
-      player.method_36457(player.method_36455() + class_3532.method_15363(class_3532.method_15393(targetPitch - player.method_36455()), -step, step));
+      player.setYRot(player.getYRot() + Mth.clamp(Mth.wrapDegrees(targetYaw - player.getYRot()), -step, step));
+      player.setXRot(player.getXRot() + Mth.clamp(Mth.wrapDegrees(targetPitch - player.getXRot()), -step, step));
    }
 
    private void handleWorking() {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      if (player.field_7512 != player.field_7498) {
-         player.method_7346();
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      if (player.containerMenu != player.inventoryMenu) {
+         player.closeContainer();
       }
 
       if (this.findDroppedSpawner() != null) {
          this.lagWaitTicks = 0;
          this.stopBreaking();
-         mc.field_1690.field_1894.method_23481(true);
+         mc.options.keyUp.setDown(true);
       } else {
          int spawners = this.getSpawnerCount();
-         if (spawners < this.targetStackCount.getInt() * 64 && (spawners <= 0 || player.method_31548().method_7376() != -1)) {
+         if (spawners < this.targetStackCount.getInt() * 64 && (spawners <= 0 || player.getInventory().getFreeSlot() != -1)) {
             this.retargetSpawner(mc);
             if (this.targetBlock == null) {
                this.stopMovement();
@@ -332,27 +332,27 @@ public final class SpawnerProtectModule extends ClientModule {
                }
             } else {
                this.lagWaitTicks = 0;
-               if (player.method_33571().method_1022(class_243.method_24953(this.targetBlock)) > this.breakRange.get()) {
+               if (player.getEyePosition().distanceTo(Vec3.atCenterOf(this.targetBlock)) > this.breakRange.get()) {
                   this.stopBreaking();
-                  mc.field_1690.field_1894.method_23481(true);
+                  mc.options.keyUp.setDown(true);
                } else {
-                  mc.field_1690.field_1894.method_23481(false);
+                  mc.options.keyUp.setDown(false);
                   this.miningTicks++;
                   if (this.miningTicks > 60) {
-                     mc.field_1761
-                        .method_2896(
+                     mc.gameMode
+                        .useItemOn(
                            player,
-                           class_1268.field_5808,
-                           new class_3965(class_243.method_24953(this.targetBlock), class_2350.field_11036, this.targetBlock, false)
+                           InteractionHand.MAIN_HAND,
+                           new BlockHitResult(Vec3.atCenterOf(this.targetBlock), Direction.UP, this.targetBlock, false)
                         );
-                     player.method_6104(class_1268.field_5808);
+                     player.swing(InteractionHand.MAIN_HAND);
                      this.miningTicks = 0;
                   }
 
                   if (this.breakCooldown <= 0) {
-                     mc.field_1761.method_2902(this.targetBlock, class_2350.field_11036);
-                     player.method_6104(class_1268.field_5808);
-                     mc.field_1690.field_1886.method_23481(true);
+                     mc.gameMode.continueDestroyBlock(this.targetBlock, Direction.UP);
+                     player.swing(InteractionHand.MAIN_HAND);
+                     mc.options.keyAttack.setDown(true);
                      this.breakCooldown = 6;
                   } else {
                      this.breakCooldown--;
@@ -367,7 +367,7 @@ public final class SpawnerProtectModule extends ClientModule {
 
    private void goToChest() {
       this.stopMovement();
-      this.targetChest = this.findNearestBlock(class_2246.field_10443, 4);
+      this.targetChest = this.findNearestBlock(Blocks.ENDER_CHEST, 4);
       if (this.targetChest != null) {
          this.currentState = SpawnerProtectModule.State.GOING_TO_CHEST;
       } else if (this.getEnderChestCount() > 0) {
@@ -381,16 +381,16 @@ public final class SpawnerProtectModule extends ClientModule {
    }
 
    private void handleGoingToChest() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       if (this.targetChest == null) {
-         this.targetChest = this.findNearestBlock(class_2246.field_10443, 4);
+         this.targetChest = this.findNearestBlock(Blocks.ENDER_CHEST, 4);
       }
 
       if (this.targetChest == null) {
          this.currentState = SpawnerProtectModule.State.WORKING;
       } else {
-         mc.field_1690.field_1894.method_23481(true);
-         if (mc.field_1724.method_24515().method_19771(this.targetChest, 4.0)) {
+         mc.options.keyUp.setDown(true);
+         if (mc.player.blockPosition().closerThan(this.targetChest, 4.0)) {
             this.stopMovement();
             this.currentState = SpawnerProtectModule.State.OPENING_CHEST;
          }
@@ -398,7 +398,7 @@ public final class SpawnerProtectModule extends ClientModule {
    }
 
    private void handleOpeningChest() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       this.updateSneak(false);
       if (this.chestTick > 200) {
          ModuleChat.send(this, "Ender chest açılamadı; eşyalar envanterde tutuluyor.");
@@ -406,16 +406,16 @@ public final class SpawnerProtectModule extends ClientModule {
          this.lagWaitTicks = 0;
       } else {
          if (this.chestTick % 12 == 0 && this.targetChest != null) {
-            mc.field_1761
-               .method_2896(
-                  mc.field_1724,
-                  class_1268.field_5808,
-                  new class_3965(class_243.method_24953(this.targetChest), class_2350.field_11036, this.targetChest, false)
+            mc.gameMode
+               .useItemOn(
+                  mc.player,
+                  InteractionHand.MAIN_HAND,
+                  new BlockHitResult(Vec3.atCenterOf(this.targetChest), Direction.UP, this.targetChest, false)
                );
          }
 
          this.chestTick++;
-         if (mc.field_1724.field_7512 instanceof class_1707) {
+         if (mc.player.containerMenu instanceof ChestMenu) {
             this.chestTick = 0;
             this.currentState = SpawnerProtectModule.State.DEPOSITING_ITEMS;
             this.lagWaitTicks = 0;
@@ -424,7 +424,7 @@ public final class SpawnerProtectModule extends ClientModule {
    }
 
    private void handleBuyingEChest() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       this.stopMovement();
       this.updateSneak(false);
       this.shopTick++;
@@ -432,7 +432,7 @@ public final class SpawnerProtectModule extends ClientModule {
          ModuleChat.send(this, "Market zaman aşımı; eşyalar envanterde tutuluyor.");
          this.currentState = SpawnerProtectModule.State.FINAL_EXIT;
          this.lagWaitTicks = 0;
-      } else if (this.shopSequence > 0 && mc.field_1755 == null && this.shopTick > 60) {
+      } else if (this.shopSequence > 0 && mc.screen == null && this.shopTick > 60) {
          ModuleChat.send(this, "Market ekranı kapandı, baştan deneniyor...");
          this.shopSequence = 0;
          this.shopTick = 0;
@@ -440,7 +440,7 @@ public final class SpawnerProtectModule extends ClientModule {
          switch (this.shopSequence) {
             case 0:
                ModuleChat.send(this, "Market açılıyor: /shop");
-               mc.method_1562().method_45730("shop");
+               mc.getConnection().sendCommand("shop");
                this.shopSequence = 1;
                this.shopTick = 0;
                break;
@@ -456,12 +456,12 @@ public final class SpawnerProtectModule extends ClientModule {
             case 4:
                if (this.getEnderChestCount() > 0) {
                   ModuleChat.send(this, "Ender Chest satın alındı.");
-                  mc.field_1724.method_7346();
+                  mc.player.closeContainer();
                   this.currentState = SpawnerProtectModule.State.PLACING_ECHEST;
                   this.shopTick = 0;
                } else if (this.shopTick > 100) {
                   ModuleChat.send(this, "Satın alma başarısız oldu (Zaman aşımı).");
-                  mc.field_1724.method_7346();
+                  mc.player.closeContainer();
                   this.shopSequence = 0;
                   this.shopTick = 0;
                }
@@ -469,24 +469,24 @@ public final class SpawnerProtectModule extends ClientModule {
       }
    }
 
-   private void shopStep(class_310 mc, String title, String message, int slot) {
-      if (mc.field_1755 != null && mc.field_1755.method_25440().getString().toUpperCase(Locale.ROOT).contains(title)) {
+   private void shopStep(Minecraft mc, String title, String message, int slot) {
+      if (mc.screen != null && mc.screen.getTitle().getString().toUpperCase(Locale.ROOT).contains(title)) {
          ModuleChat.send(this, message);
-         mc.field_1761.method_2906(mc.field_1724.field_7512.field_7763, slot, 0, class_1713.field_7790, mc.field_1724);
+         mc.gameMode.handleInventoryMouseClick(mc.player.containerMenu.containerId, slot, 0, ClickType.PICKUP, mc.player);
          this.shopSequence++;
          this.shopTick = 0;
       }
    }
 
    private void handlePlacingEChest() {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       this.shopTick++;
       if (this.shopTick >= 10) {
          int slot = -1;
 
          for (int i = 0; i < 9; i++) {
-            if (player.method_31548().method_5438(i).method_7909() == class_2246.field_10443.method_8389()) {
+            if (player.getInventory().getItem(i).getItem() == Blocks.ENDER_CHEST.asItem()) {
                slot = i;
                break;
             }
@@ -494,9 +494,9 @@ public final class SpawnerProtectModule extends ClientModule {
 
          if (slot == -1) {
             for (int i = 9; i < 36; i++) {
-               if (player.method_31548().method_5438(i).method_7909() == class_2246.field_10443.method_8389()) {
-                  player.method_7346();
-                  mc.field_1761.method_2906(player.field_7498.field_7763, i, 0, class_1713.field_7791, player);
+               if (player.getInventory().getItem(i).getItem() == Blocks.ENDER_CHEST.asItem()) {
+                  player.closeContainer();
+                  mc.gameMode.handleInventoryMouseClick(player.inventoryMenu.containerId, i, 0, ClickType.SWAP, player);
                   this.shopTick = 0;
                   return;
                }
@@ -505,14 +505,14 @@ public final class SpawnerProtectModule extends ClientModule {
             this.currentState = SpawnerProtectModule.State.BUYING_ECHEST;
             this.shopSequence = 0;
          } else {
-            player.method_31548().method_61496(slot);
-            class_2338 feet = player.method_24515();
-            class_2338 placePos = null;
+            player.getInventory().setSelectedSlot(slot);
+            BlockPos feet = player.blockPosition();
+            BlockPos placePos = null;
 
-            for (class_2350 direction : class_2350.values()) {
-               if (direction != class_2350.field_11036 && direction != class_2350.field_11033) {
-                  class_2338 candidate = feet.method_10093(direction);
-                  if (mc.field_1687.method_8320(candidate).method_45474() && !mc.field_1687.method_8320(candidate.method_10074()).method_26215()) {
+            for (Direction direction : Direction.values()) {
+               if (direction != Direction.UP && direction != Direction.DOWN) {
+                  BlockPos candidate = feet.relative(direction);
+                  if (mc.level.getBlockState(candidate).canBeReplaced() && !mc.level.getBlockState(candidate.below()).isAir()) {
                      placePos = candidate;
                      break;
                   }
@@ -524,14 +524,14 @@ public final class SpawnerProtectModule extends ClientModule {
                this.currentState = SpawnerProtectModule.State.FINAL_EXIT;
                this.lagWaitTicks = 0;
             } else {
-               class_2338 support = placePos.method_10074();
-               mc.field_1761
-                  .method_2896(
+               BlockPos support = placePos.below();
+               mc.gameMode
+                  .useItemOn(
                      player,
-                     class_1268.field_5808,
-                     new class_3965(class_243.method_24953(support).method_1031(0.0, 0.5, 0.0), class_2350.field_11036, support, false)
+                     InteractionHand.MAIN_HAND,
+                     new BlockHitResult(Vec3.atCenterOf(support).add(0.0, 0.5, 0.0), Direction.UP, support, false)
                   );
-               player.method_6104(class_1268.field_5808);
+               player.swing(InteractionHand.MAIN_HAND);
                this.targetChest = placePos;
                this.currentState = SpawnerProtectModule.State.GOING_TO_CHEST;
             }
@@ -540,23 +540,23 @@ public final class SpawnerProtectModule extends ClientModule {
    }
 
    private int getEnderChestCount() {
-      return countInInventory(class_2246.field_10443);
+      return countInInventory(Blocks.ENDER_CHEST);
    }
 
    private void handleDepositing() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       if (this.lagWaitTicks < 15) {
          this.lagWaitTicks++;
-      } else if (!(mc.field_1724.field_7512 instanceof class_1707 chest)) {
+      } else if (!(mc.player.containerMenu instanceof ChestMenu chest)) {
          this.currentState = SpawnerProtectModule.State.OPENING_CHEST;
          this.chestTick = 0;
       } else {
-         int var8 = chest.field_7761.size() - 36;
+         int var8 = chest.slots.size() - 36;
          boolean hasSpace = false;
 
          for (int depositedSomething = 0; depositedSomething < var8; depositedSomething++) {
-            class_1799 stack = chest.method_7611(depositedSomething).method_7677();
-            if (stack.method_7960() || stack.method_7909() == class_2246.field_10260.method_8389() && stack.method_7947() < stack.method_7914()) {
+            ItemStack stack = chest.getSlot(depositedSomething).getItem();
+            if (stack.isEmpty() || stack.getItem() == Blocks.SPAWNER.asItem() && stack.getCount() < stack.getMaxStackSize()) {
                hasSpace = true;
                break;
             }
@@ -566,22 +566,22 @@ public final class SpawnerProtectModule extends ClientModule {
 
          for (int i = 0; i < 36; i++) {
             int slotId = var8 + i;
-            if (chest.method_7611(slotId).method_7677().method_7909() == class_2246.field_10260.method_8389()) {
+            if (chest.getSlot(slotId).getItem().getItem() == Blocks.SPAWNER.asItem()) {
                if (!hasSpace) {
                   this.currentState = SpawnerProtectModule.State.FINAL_EXIT;
                   this.lagWaitTicks = 0;
                   return;
                }
 
-               mc.field_1761.method_2906(chest.field_7763, slotId, 0, class_1713.field_7794, mc.field_1724);
+               mc.gameMode.handleInventoryMouseClick(chest.containerId, slotId, 0, ClickType.QUICK_MOVE, mc.player);
                depositedSomething = true;
                break;
             }
          }
 
          if (!depositedSomething) {
-            mc.field_1724.method_7346();
-            if (this.findNearestBlock(class_2246.field_10260, 16) != null) {
+            mc.player.closeContainer();
+            if (this.findNearestBlock(Blocks.SPAWNER, 16) != null) {
                this.currentState = SpawnerProtectModule.State.WORKING;
             } else {
                this.currentState = SpawnerProtectModule.State.FINAL_EXIT;
@@ -592,7 +592,7 @@ public final class SpawnerProtectModule extends ClientModule {
    }
 
    private void handleFinalExit() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       if (this.lagWaitTicks == 0) {
          int remaining = this.getSpawnerCount();
          boolean leftOver = remaining > 0;
@@ -612,8 +612,8 @@ public final class SpawnerProtectModule extends ClientModule {
       this.updateSneak(false);
       this.lagWaitTicks++;
       if (this.lagWaitTicks > 40) {
-         if (mc.method_1562() != null) {
-            mc.method_1562().method_48296().method_10747(class_2561.method_43470("[SpawnerProtect] Görev tamamlandı, güvenli çıkış yapıldı."));
+         if (mc.getConnection() != null) {
+            mc.getConnection().getConnection().disconnect(Component.literal("[SpawnerProtect] Görev tamamlandı, güvenli çıkış yapıldı."));
          }
 
          this.resetModule();
@@ -623,50 +623,50 @@ public final class SpawnerProtectModule extends ClientModule {
 
    @SafeVarargs
    private void sendWebhook(String title, String description, int color, Map<String, Object>... eventFields) {
-      class_310 mc = class_310.method_1551();
-      if (!this.webhookUrl.get().isBlank() && mc.field_1724 != null && mc.field_1687 != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (!this.webhookUrl.get().isBlank() && mc.player != null && mc.level != null) {
          List<Map<String, Object>> fields = new ArrayList<>(Arrays.asList(eventFields));
-         fields.add(SpawnerAlerts.field("\ud83d\udc64 Account", "`" + mc.field_1724.method_5477().getString() + "`", true));
-         fields.add(SpawnerAlerts.field("\ud83c\udf0d Dimension", "`" + mc.field_1687.method_27983().method_29177() + "`", true));
-         fields.add(SpawnerAlerts.field("\ud83d\udccd Your location", coordinates(mc.field_1724.method_24515()), false));
+         fields.add(SpawnerAlerts.field("\ud83d\udc64 Account", "`" + mc.player.getName().getString() + "`", true));
+         fields.add(SpawnerAlerts.field("\ud83c\udf0d Dimension", "`" + mc.level.dimension().identifier() + "`", true));
+         fields.add(SpawnerAlerts.field("\ud83d\udccd Your location", coordinates(mc.player.blockPosition()), false));
          SpawnerAlerts.send(this.webhookUrl.get(), SpawnerAlerts.payload(title, description, color, fields, Instant.now()));
       }
    }
 
-   private static String coordinates(class_2338 pos) {
-      return "`X: " + pos.method_10263() + "  Y: " + pos.method_10264() + "  Z: " + pos.method_10260() + "`";
+   private static String coordinates(BlockPos pos) {
+      return "`X: " + pos.getX() + "  Y: " + pos.getY() + "  Z: " + pos.getZ() + "`";
    }
 
    private void updateSneak(boolean sneak) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null) {
-         mc.field_1724.method_5660(sneak);
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null) {
+         mc.player.setShiftKeyDown(sneak);
       }
 
-      mc.field_1690.field_1832.method_23481(sneak);
+      mc.options.keyShift.setDown(sneak);
    }
 
    private boolean isNearSpawn() {
-      class_746 player = class_310.method_1551().field_1724;
-      return player != null && Math.abs(player.method_23317()) < 100.0 && Math.abs(player.method_23321()) < 100.0;
+      LocalPlayer player = Minecraft.getInstance().player;
+      return player != null && Math.abs(player.getX()) < 100.0 && Math.abs(player.getZ()) < 100.0;
    }
 
    private boolean isWhitelisted(String name) {
       return Arrays.stream(this.whitelist.get().split("[,;\\s]+")).anyMatch(entry -> entry.equalsIgnoreCase(name));
    }
 
-   private class_2338 findNearestBlock(class_2248 block, int radius) {
-      class_310 mc = class_310.method_1551();
-      class_2338 origin = mc.field_1724.method_24515();
-      class_2338 nearest = null;
+   private BlockPos findNearestBlock(Block block, int radius) {
+      Minecraft mc = Minecraft.getInstance();
+      BlockPos origin = mc.player.blockPosition();
+      BlockPos nearest = null;
       double minDist = Double.MAX_VALUE;
 
       for (int x = -radius; x <= radius; x++) {
          for (int y = -radius; y <= radius; y++) {
             for (int z = -radius; z <= radius; z++) {
-               class_2338 pos = origin.method_10069(x, y, z);
-               if (mc.field_1687.method_8320(pos).method_26204() == block) {
-                  double dist = origin.method_10262(pos);
+               BlockPos pos = origin.offset(x, y, z);
+               if (mc.level.getBlockState(pos).getBlock() == block) {
+                  double dist = origin.distSqr(pos);
                   if (dist < minDist) {
                      minDist = dist;
                      nearest = pos;
@@ -679,17 +679,17 @@ public final class SpawnerProtectModule extends ClientModule {
       return nearest;
    }
 
-   private class_2338 findRandomBlock(class_2248 block, int radius) {
-      class_310 mc = class_310.method_1551();
-      class_2338 origin = mc.field_1724.method_24515();
-      List<class_2338> found = new ArrayList<>();
+   private BlockPos findRandomBlock(Block block, int radius) {
+      Minecraft mc = Minecraft.getInstance();
+      BlockPos origin = mc.player.blockPosition();
+      List<BlockPos> found = new ArrayList<>();
       double maxDistSq = radius * radius;
 
       for (int x = -radius; x <= radius; x++) {
          for (int y = -radius; y <= radius; y++) {
             for (int z = -radius; z <= radius; z++) {
-               class_2338 pos = origin.method_10069(x, y, z);
-               if (origin.method_10262(pos) <= maxDistSq && mc.field_1687.method_8320(pos).method_26204() == block) {
+               BlockPos pos = origin.offset(x, y, z);
+               if (origin.distSqr(pos) <= maxDistSq && mc.level.getBlockState(pos).getBlock() == block) {
                   found.add(pos);
                }
             }
@@ -700,32 +700,32 @@ public final class SpawnerProtectModule extends ClientModule {
    }
 
    private int getSpawnerCount() {
-      return countInInventory(class_2246.field_10260);
+      return countInInventory(Blocks.SPAWNER);
    }
 
-   private static int countInInventory(class_2248 block) {
-      class_746 player = class_310.method_1551().field_1724;
+   private static int countInInventory(Block block) {
+      LocalPlayer player = Minecraft.getInstance().player;
       int count = 0;
 
       for (int i = 0; i < 36; i++) {
-         class_1799 stack = player.method_31548().method_5438(i);
-         if (stack.method_7909() == block.method_8389()) {
-            count += stack.method_7947();
+         ItemStack stack = player.getInventory().getItem(i);
+         if (stack.getItem() == block.asItem()) {
+            count += stack.getCount();
          }
       }
 
       return count;
    }
 
-   private class_1542 findDroppedSpawner() {
-      class_310 mc = class_310.method_1551();
-      class_1542 nearest = null;
+   private ItemEntity findDroppedSpawner() {
+      Minecraft mc = Minecraft.getInstance();
+      ItemEntity nearest = null;
       float nearestDist = Float.MAX_VALUE;
 
-      for (class_1297 entity : mc.field_1687.method_18112()) {
-         if (entity instanceof class_1542 item && item.method_6983().method_7909() == class_2246.field_10260.method_8389()) {
-            float dist = mc.field_1724.method_5739(item);
-            if (!(dist >= 16.0F) && !item.method_6977() && dist < nearestDist) {
+      for (Entity entity : mc.level.entitiesForRendering()) {
+         if (entity instanceof ItemEntity item && item.getItem().getItem() == Blocks.SPAWNER.asItem()) {
+            float dist = mc.player.distanceTo(item);
+            if (!(dist >= 16.0F) && !item.hasPickUpDelay() && dist < nearestDist) {
                nearestDist = dist;
                nearest = item;
             }
@@ -736,10 +736,10 @@ public final class SpawnerProtectModule extends ClientModule {
    }
 
    private void stopBreaking() {
-      class_310 mc = class_310.method_1551();
-      mc.field_1690.field_1886.method_23481(false);
-      if (mc.field_1761 != null) {
-         mc.field_1761.method_2925();
+      Minecraft mc = Minecraft.getInstance();
+      mc.options.keyAttack.setDown(false);
+      if (mc.gameMode != null) {
+         mc.gameMode.stopDestroyBlock();
       }
 
       this.breakCooldown = 0;
@@ -747,7 +747,7 @@ public final class SpawnerProtectModule extends ClientModule {
 
    private void stopMovement() {
       this.stopBreaking();
-      class_310.method_1551().field_1690.field_1894.method_23481(false);
+      Minecraft.getInstance().options.keyUp.setDown(false);
    }
 
    @Environment(EnvType.CLIENT)

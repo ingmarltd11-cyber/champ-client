@@ -11,11 +11,11 @@ import net.champ.client.util.MobilePerformance;
 import net.champ.client.util.TracerEngine;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_1542;
-import net.minecraft.class_1792;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class ItemEspModule extends ClientModule {
@@ -30,58 +30,58 @@ public final class ItemEspModule extends ClientModule {
       instance = this;
    }
 
-   public static boolean shouldGlow(class_1297 entity) {
+   public static boolean shouldGlow(Entity entity) {
       ItemEspModule module = instance;
-      return module != null && module.isEnabled() && module.sOutline.get() ? entity instanceof class_1542 item && module.wants(item, 1.0F) : false;
+      return module != null && module.isEnabled() && module.sOutline.get() ? entity instanceof ItemEntity item && module.wants(item, 1.0F) : false;
    }
 
-   public static int glowColor(class_1297 entity) {
+   public static int glowColor(Entity entity) {
       ItemEspModule module = instance;
-      return module != null && entity instanceof class_1542 item ? module.sItemColors.colorArgb(item.method_6983().method_7909()) & 16777215 : 16777215;
+      return module != null && entity instanceof ItemEntity item ? module.sItemColors.colorArgb(item.getItem().getItem()) & 16777215 : 16777215;
    }
 
-   private boolean wants(class_1542 item, float partialTick) {
-      if (item.method_31481()) {
+   private boolean wants(ItemEntity item, float partialTick) {
+      if (item.isRemoved()) {
          return false;
       }
 
-      class_1792 kind = item.method_6983().method_7909();
+      Item kind = item.getItem().getItem();
       if (!this.sItemColors.isEnabled(kind)) {
          return false;
       }
 
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 == null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player == null) {
          return true;
       }
 
       float range = Math.max(1.0F, this.sRange.get());
-      return item.method_30950(partialTick).method_1025(mc.field_1724.method_5836(partialTick)) <= (double)range * range;
+      return item.getPosition(partialTick).distanceToSqr(mc.player.getEyePosition(partialTick)) <= (double)range * range;
    }
 
    @EventHandler
    public void onRender3D(Render3DEvent event) {
       if (this.sTracers.get() && this.sItemColors.hasAnyEnabled()) {
-         class_310 mc = class_310.method_1551();
-         if (mc.field_1687 != null) {
+         Minecraft mc = Minecraft.getInstance();
+         if (mc.level != null) {
             if (!MobilePerformance.active()) {
-               for (class_1297 entity : mc.field_1687.method_18112()) {
-                  if (entity instanceof class_1542 item && this.wants(item, event.partialTick)) {
-                     class_243 pos = item.method_30950(event.partialTick);
-                     TracerEngine.draw(pos, this.sItemColors.colorArgb(item.method_6983().method_7909()));
+               for (Entity entity : mc.level.entitiesForRendering()) {
+                  if (entity instanceof ItemEntity item && this.wants(item, event.partialTick)) {
+                     Vec3 pos = item.getPosition(event.partialTick);
+                     TracerEngine.draw(pos, this.sItemColors.colorArgb(item.getItem().getItem()));
                   }
                }
             } else {
-               class_243 eye = mc.field_1724 == null ? null : mc.field_1724.method_5836(event.partialTick);
+               Vec3 eye = mc.player == null ? null : mc.player.getEyePosition(event.partialTick);
                float range = Math.max(1.0F, this.sRange.get());
                double rangeSq = (double)range * range;
 
-               for (class_1297 entity : mc.field_1687.method_18112()) {
-                  if (entity instanceof class_1542 item && !item.method_31481()) {
-                     class_1792 kind = item.method_6983().method_7909();
+               for (Entity entity : mc.level.entitiesForRendering()) {
+                  if (entity instanceof ItemEntity item && !item.isRemoved()) {
+                     Item kind = item.getItem().getItem();
                      if (this.sItemColors.isEnabled(kind)) {
-                        class_243 pos = item.method_30950(event.partialTick);
-                        if (eye == null || pos.method_1025(eye) <= rangeSq) {
+                        Vec3 pos = item.getPosition(event.partialTick);
+                        if (eye == null || pos.distanceToSqr(eye) <= rangeSq) {
                            TracerEngine.draw(pos, this.sItemColors.colorArgb(kind));
                         }
                      }

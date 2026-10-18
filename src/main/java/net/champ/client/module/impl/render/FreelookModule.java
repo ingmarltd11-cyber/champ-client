@@ -12,10 +12,10 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_5498;
-import net.minecraft.class_746;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class FreelookModule extends ClientModule {
@@ -29,7 +29,7 @@ public final class FreelookModule extends ClientModule {
    private final NumberSetting arrowSpeed = this.addSetting("arrow-speed", new NumberSetting("Arrow Speed", 4.0F, 0.0F, 10.0F).step(0.5F));
    private float cameraYaw;
    private float cameraPitch;
-   private class_5498 previousView;
+   private CameraType previousView;
 
    public FreelookModule() {
       super("freelook", "Freelook", "Turns the camera and the player separately.", ModuleCategory.RENDER);
@@ -44,15 +44,15 @@ public final class FreelookModule extends ClientModule {
 
    @Override
    protected void onEnable() {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 == null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player == null) {
          this.requestDisable();
       } else {
-         this.cameraYaw = mc.field_1724.method_36454();
-         this.cameraPitch = mc.field_1724.method_36455();
-         this.previousView = mc.field_1690.method_31044();
-         if (this.previousView != class_5498.field_26665 && this.togglePerspective.get()) {
-            mc.field_1690.method_31043(class_5498.field_26665);
+         this.cameraYaw = mc.player.getYRot();
+         this.cameraPitch = mc.player.getXRot();
+         this.previousView = mc.options.getCameraType();
+         if (this.previousView != CameraType.THIRD_PERSON_BACK && this.togglePerspective.get()) {
+            mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
          }
 
          this.on(TickEvent.TYPE, Stage.POST, this::onTick);
@@ -61,19 +61,19 @@ public final class FreelookModule extends ClientModule {
 
    @Override
    protected void onDisable() {
-      class_310 mc = class_310.method_1551();
-      if (this.previousView != null && mc.field_1690.method_31044() != this.previousView && this.togglePerspective.get()) {
-         mc.field_1690.method_31043(this.previousView);
+      Minecraft mc = Minecraft.getInstance();
+      if (this.previousView != null && mc.options.getCameraType() != this.previousView && this.togglePerspective.get()) {
+         mc.options.setCameraType(this.previousView);
       }
 
       this.previousView = null;
    }
 
    private void onTick(TickEvent e) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       if (player != null) {
-         if (this.arrows.get() && mc.field_1755 == null) {
+         if (this.arrows.get() && mc.screen == null) {
             float turn = this.arrowSpeed.get();
             float yawTurn = (held(mc, 262) ? turn : 0.0F) - (held(mc, 263) ? turn : 0.0F);
             float pitchTurn = (held(mc, 264) ? turn : 0.0F) - (held(mc, 265) ? turn : 0.0F);
@@ -81,17 +81,17 @@ public final class FreelookModule extends ClientModule {
                this.cameraYaw += yawTurn;
                this.cameraPitch += pitchTurn;
             } else if (yawTurn != 0.0F || pitchTurn != 0.0F) {
-               player.method_36456(player.method_36454() + yawTurn);
-               player.method_36457(player.method_36455() + pitchTurn);
+               player.setYRot(player.getYRot() + yawTurn);
+               player.setXRot(player.getXRot() + pitchTurn);
             }
          }
 
-         this.cameraPitch = class_3532.method_15363(this.cameraPitch, -90.0F, 90.0F);
+         this.cameraPitch = Mth.clamp(this.cameraPitch, -90.0F, 90.0F);
       }
    }
 
-   private static boolean held(class_310 mc, int key) {
-      return ChampKeyPolling.isKeyDown(mc.method_22683(), key);
+   private static boolean held(Minecraft mc, int key) {
+      return ChampKeyPolling.isKeyDown(mc.getWindow(), key);
    }
 
    public boolean cameraMode() {

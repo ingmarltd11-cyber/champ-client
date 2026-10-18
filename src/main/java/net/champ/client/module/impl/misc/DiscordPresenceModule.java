@@ -13,11 +13,11 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.BooleanSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2535;
-import net.minecraft.class_310;
-import net.minecraft.class_634;
-import net.minecraft.class_642;
-import net.minecraft.class_8732;
+import net.minecraft.network.Connection;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.network.protocol.configuration.ClientConfigurationPacketListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +43,7 @@ public final class DiscordPresenceModule extends ClientModule {
    private final BooleanSetting discordButton = this.addSetting("discord-button", new BooleanSetting("Discord Button", true));
    private volatile DiscordPresenceModule.Card card;
    private DiscordPresenceModule.Link link;
-   private class_2535 session;
+   private Connection session;
    private long joinedAt;
    private boolean loggedIdle;
 
@@ -83,20 +83,20 @@ public final class DiscordPresenceModule extends ClientModule {
    }
 
    private void refresh() {
-      class_310 mc = class_310.method_1551();
-      class_634 listener = mc.method_1562();
+      Minecraft mc = Minecraft.getInstance();
+      ClientPacketListener listener = mc.getConnection();
       String details;
       long startedAt;
       if (listener != null) {
-         if (listener.method_48296() != this.session) {
-            this.session = listener.method_48296();
+         if (listener.getConnection() != this.session) {
+            this.session = listener.getConnection();
             this.joinedAt = System.currentTimeMillis() / 1000L;
          }
 
-         details = this.place(mc, listener.method_45734());
+         details = this.place(mc, listener.getServerData());
          startedAt = this.joinedAt;
       } else {
-         if (this.session != null && this.session.method_10758() && this.session.method_10744() instanceof class_8732) {
+         if (this.session != null && this.session.isConnected() && this.session.getPacketListener() instanceof ClientConfigurationPacketListener) {
             return;
          }
 
@@ -113,17 +113,17 @@ public final class DiscordPresenceModule extends ClientModule {
       }
    }
 
-   private String place(class_310 mc, class_642 server) {
-      if (mc.method_1542()) {
+   private String place(Minecraft mc, ServerData server) {
+      if (mc.isLocalServer()) {
          return "Singleplayer";
       } else if (server == null) {
          return "Multiplayer";
-      } else if (server.method_52811()) {
+      } else if (server.isRealm()) {
          return "Realms";
-      } else if (server.method_2994()) {
+      } else if (server.isLan()) {
          return "LAN World";
       } else {
-         return this.showServerIp.get() ? server.field_3761 : "Multiplayer";
+         return this.showServerIp.get() ? server.ip : "Multiplayer";
       }
    }
 

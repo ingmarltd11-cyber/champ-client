@@ -7,10 +7,10 @@ import net.champ.client.module.impl.render.character.kit.Motion;
 import net.champ.client.module.impl.render.character.kit.PartMesh;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10055;
-import net.minecraft.class_3532;
-import net.minecraft.class_591;
-import net.minecraft.class_630;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.util.Mth;
+import net.minecraft.client.model.player.PlayerModel;
+import net.minecraft.client.model.geom.ModelPart;
 
 @Environment(EnvType.CLIENT)
 final class CharacterMotion {
@@ -23,18 +23,18 @@ final class CharacterMotion {
    private CharacterMotion() {
    }
 
-   static float[] update(class_10055 state, CharacterModel model, class_591 pm, float[] pitch) {
+   static float[] update(AvatarRenderState state, CharacterModel model, PlayerModel pm, float[] pitch) {
       if (model.motionSlots == 0) {
          return null;
       }
 
       long now = System.nanoTime();
       prune(now);
-      CharacterMotion.State st = (CharacterMotion.State)STATES.get(state.field_53528);
+      CharacterMotion.State st = (CharacterMotion.State)STATES.get(state.id);
       if (st == null || st.model != model) {
          st = new CharacterMotion.State(model);
-         st.bodyRot = state.field_53446;
-         STATES.put(state.field_53528, st);
+         st.bodyRot = state.bodyRot;
+         STATES.put(state.id, st);
       }
 
       float dt = st.nanos == 0L ? 0.0F : (float)(now - st.nanos) / 1.0E9F;
@@ -43,8 +43,8 @@ final class CharacterMotion {
       }
 
       st.nanos = now;
-      float turn = class_3532.method_15393(state.field_53446 - st.bodyRot);
-      st.bodyRot = state.field_53446;
+      float turn = Mth.wrapDegrees(state.bodyRot - st.bodyRot);
+      st.bodyRot = state.bodyRot;
       if (dt > 0.0F && dt < 0.25F) {
          st.turnRate = st.turnRate + (turn / dt - st.turnRate) * Math.min(1.0F, dt * 12.0F);
       } else {
@@ -52,16 +52,16 @@ final class CharacterMotion {
       }
 
       Motion.Input in = INPUT;
-      in.time = state.field_53328 / 20.0F;
-      in.walkPos = state.field_53450;
-      in.walkSpeed = state.field_53451;
+      in.time = state.ageInTicks / 20.0F;
+      in.walkPos = state.walkAnimationPos;
+      in.walkSpeed = state.walkAnimationSpeed;
       in.turnRate = st.turnRate;
-      bone(in, Bone.HEAD, pm.field_3398, pitch);
-      bone(in, Bone.BODY, pm.field_3391, pitch);
-      bone(in, Bone.RIGHT_ARM, pm.field_3401, pitch);
-      bone(in, Bone.LEFT_ARM, pm.field_27433, pitch);
-      bone(in, Bone.RIGHT_LEG, pm.field_3392, pitch);
-      bone(in, Bone.LEFT_LEG, pm.field_3397, pitch);
+      bone(in, Bone.HEAD, pm.head, pitch);
+      bone(in, Bone.BODY, pm.body, pitch);
+      bone(in, Bone.RIGHT_ARM, pm.rightArm, pitch);
+      bone(in, Bone.LEFT_ARM, pm.leftArm, pitch);
+      bone(in, Bone.RIGHT_LEG, pm.rightLeg, pitch);
+      bone(in, Bone.LEFT_LEG, pm.leftLeg, pitch);
 
       for (PartMesh part : model.parts) {
          if (part.motionSlot >= 0 && part.motion != null) {
@@ -74,11 +74,11 @@ final class CharacterMotion {
       return st.angles;
    }
 
-   private static void bone(Motion.Input in, Bone bone, class_630 part, float[] pitch) {
+   private static void bone(Motion.Input in, Bone bone, ModelPart part, float[] pitch) {
       int b = bone.ordinal();
       in.pitch[b] = pitch[b];
-      in.yaw[b] = -part.field_3675;
-      in.roll[b] = -part.field_3674;
+      in.yaw[b] = -part.yRot;
+      in.roll[b] = -part.zRot;
    }
 
    private static void prune(long now) {

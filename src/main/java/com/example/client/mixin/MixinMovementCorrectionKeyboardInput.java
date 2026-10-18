@@ -4,32 +4,32 @@ import net.champ.client.util.pvp.InputControl;
 import net.champ.client.util.pvp.ServerRotation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10185;
-import net.minecraft.class_241;
-import net.minecraft.class_310;
-import net.minecraft.class_743;
-import net.minecraft.class_744;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.KeyboardInput;
+import net.minecraft.client.player.ClientInput;
+import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_743.class)
+@Mixin(KeyboardInput.class)
 public abstract class MixinMovementCorrectionKeyboardInput {
-   @Inject(method = "method_3129", at = @At("TAIL"))
+   @Inject(method = "tick", at = @At("TAIL"))
    private void champ$shapeInput(CallbackInfo ci) {
-      class_744 input = (class_744)this;
-      class_746 player = class_310.method_1551().field_1724;
-      if (player != null && player.field_3913 == input) {
-         class_10185 keys = input.field_54155;
-         class_10185 corrected = InputControl.shape(player, ServerRotation.correctInput(keys));
+      ClientInput input = (ClientInput)this;
+      LocalPlayer player = Minecraft.getInstance().player;
+      if (player != null && player.input == input) {
+         Input keys = input.keyPresses;
+         Input corrected = InputControl.shape(player, ServerRotation.correctInput(keys));
          if (corrected != keys) {
-            input.field_54155 = corrected;
+            input.keyPresses = corrected;
             ((AccessorMovementClientInput)input)
                .champ$setMoveVector(
-                  new class_241(impulse(corrected.comp_3161(), corrected.comp_3162()), impulse(corrected.comp_3159(), corrected.comp_3160())).method_35581()
+                  new Vec2(impulse(corrected.comp_3161(), corrected.comp_3162()), impulse(corrected.comp_3159(), corrected.comp_3160())).normalized()
                );
          }
       }

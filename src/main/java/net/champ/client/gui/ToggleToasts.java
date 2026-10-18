@@ -17,11 +17,11 @@ import net.champ.client.module.ModuleRegistry;
 import net.champ.client.module.impl.client.HudModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_3928;
-import net.minecraft.class_408;
-import net.minecraft.class_424;
-import net.minecraft.class_435;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.LevelLoadingScreen;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.GenericMessageScreen;
+import net.minecraft.client.gui.screens.ProgressScreen;
 
 @Environment(EnvType.CLIENT)
 public final class ToggleToasts {
@@ -63,8 +63,8 @@ public final class ToggleToasts {
 
    public static void show(ClientModule module, boolean enabled) {
       if (module.toggleMessageOn()) {
-         class_310 mc = class_310.method_1551();
-         if (mc.field_1724 != null && mc.field_1687 != null) {
+         Minecraft mc = Minecraft.getInstance();
+         if (mc.player != null && mc.level != null) {
             PENDING.add(new ToggleToasts.Toggle(module, enabled));
          }
       }
@@ -75,8 +75,8 @@ public final class ToggleToasts {
    }
 
    public static void render() {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 == null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level == null) {
          PENDING.clear();
          TOASTS.clear();
          lift = Float.NaN;
@@ -146,14 +146,14 @@ public final class ToggleToasts {
       }
    }
 
-   private static float liftTarget(class_310 mc, float s) {
-      return mc.field_1755 instanceof class_408 ? 14.0F * mc.method_22683().method_4495() + 6.0F * s : 10.0F * s;
+   private static float liftTarget(Minecraft mc, float s) {
+      return mc.screen instanceof ChatScreen ? 14.0F * mc.getWindow().getGuiScale() + 6.0F * s : 10.0F * s;
    }
 
-   private static boolean hidden(class_310 mc) {
-      return mc.field_1690.field_1842 && mc.field_1755 == null
+   private static boolean hidden(Minecraft mc) {
+      return mc.options.hideGui && mc.screen == null
          ? true
-         : mc.method_18506() != null || mc.field_1755 instanceof class_3928 || mc.field_1755 instanceof class_424 || mc.field_1755 instanceof class_435;
+         : mc.getOverlay() != null || mc.screen instanceof LevelLoadingScreen || mc.screen instanceof GenericMessageScreen || mc.screen instanceof ProgressScreen;
    }
 
    private static void draw(float s) {

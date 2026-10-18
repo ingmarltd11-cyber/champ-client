@@ -31,16 +31,16 @@ import net.champ.client.module.setting.StringSetting;
 import net.champ.client.util.NameFilter;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1068;
-import net.minecraft.class_2561;
-import net.minecraft.class_2703;
-import net.minecraft.class_310;
-import net.minecraft.class_320;
-import net.minecraft.class_5348;
-import net.minecraft.class_634;
-import net.minecraft.class_640;
-import net.minecraft.class_8685;
-import net.minecraft.class_2703.class_5893;
+import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.User;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.world.entity.player.PlayerSkin;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Action;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,7 +76,7 @@ public final class NameProtectModule extends ClientModule {
    private final Map<String, Integer> numbers = new HashMap<>();
    private int nextNumber = 1;
    private final LinkedHashSet<String> seenSkeletons = new LinkedHashSet<>();
-   private WeakReference<class_634> trackedConnection = new WeakReference<>(null);
+   private WeakReference<ClientPacketListener> trackedConnection = new WeakReference<>(null);
    private volatile boolean dirty = true;
    private volatile boolean settingsEdited;
    private int builtListSize = -1;
@@ -100,15 +100,15 @@ public final class NameProtectModule extends ClientModule {
       this.othersLabel.onChange(this::markEdited);
    }
 
-   public static class_2561 protect(class_2561 text) {
+   public static Component protect(Component text) {
       NameMatcher current = active;
       if (current != null && text != null) {
          boolean cache = onRenderThread();
-         if (cache && cached(current, text) instanceof class_2561 hit) {
+         if (cache && cached(current, text) instanceof Component hit) {
             return hit;
          }
 
-         class_2561 shown;
+         Component shown;
          try {
             shown = ProtectedText.rewrite(current, text);
          } catch (RuntimeException failure) {
@@ -131,27 +131,27 @@ public final class NameProtectModule extends ClientModule {
       return current != null && name != null && current.aliasAt(name, 0, name.length()) != null;
    }
 
-   public static class_8685 hiddenHead(UUID profileId, class_8685 real) {
+   public static PlayerSkin hiddenHead(UUID profileId, PlayerSkin real) {
       SkinChangeModule skins = ModuleRegistry.get(SkinChangeModule.class);
       if (skins != null && skins.isEnabled()) {
-         class_8685 worn = skins.skinFor(profileId, real);
+         PlayerSkin worn = skins.skinFor(profileId, real);
          if (worn != real) {
             return worn;
          }
       }
 
-      return class_1068.method_4648(profileId);
+      return DefaultPlayerSkin.get(profileId);
    }
 
-   public static class_5348 protectText(class_5348 text) {
+   public static FormattedText protectText(FormattedText text) {
       NameMatcher current = active;
       if (current != null && text != null) {
          boolean cache = onRenderThread();
-         if (cache && cached(current, text) instanceof class_5348 hit) {
+         if (cache && cached(current, text) instanceof FormattedText hit) {
             return hit;
          }
 
-         class_5348 shown;
+         FormattedText shown;
          try {
             shown = ProtectedText.rewrite(current, text);
          } catch (RuntimeException failure) {
@@ -169,7 +169,7 @@ public final class NameProtectModule extends ClientModule {
       }
    }
 
-   public static class_5348 protectChatLine(class_5348 text) {
+   public static FormattedText protectChatLine(FormattedText text) {
       NameMatcher current = active;
       if (current != null && text != null) {
          try {
@@ -192,13 +192,13 @@ public final class NameProtectModule extends ClientModule {
       return generation;
    }
 
-   public static void onPlayerInfoApplied(class_2703 packet) {
+   public static void onPlayerInfoApplied(ClientboundPlayerInfoUpdatePacket packet) {
       NameProtectModule module = running;
       if (module != null && packet != null) {
-         EnumSet<class_5893> actions = packet.method_46327();
-         if (actions.contains(class_5893.field_29136) || actions.contains(class_5893.field_40700)) {
-            class_310 mc = class_310.method_1551();
-            if (mc.method_18854()) {
+         EnumSet<Action> actions = packet.actions();
+         if (actions.contains(Action.ADD_PLAYER) || actions.contains(Action.UPDATE_LISTED)) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.isSameThread()) {
                module.syncConnection(mc);
                module.rebuild();
             }
@@ -219,8 +219,8 @@ public final class NameProtectModule extends ClientModule {
    }
 
    private static boolean onRenderThread() {
-      class_310 mc = class_310.method_1551();
-      return mc != null && mc.method_18854();
+      Minecraft mc = Minecraft.getInstance();
+      return mc != null && mc.isSameThread();
    }
 
    private static Object cached(NameMatcher current, Object input) {
@@ -249,7 +249,7 @@ public final class NameProtectModule extends ClientModule {
    @Override
    protected void onEnable() {
       running = this;
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       this.syncConnection(mc);
       this.settingsEdited = false;
       this.rebuild();
@@ -270,13 +270,13 @@ public final class NameProtectModule extends ClientModule {
       this.dirty = true;
       this.refusedAlias = null;
       this.noticedAlias = null;
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       if (mc != null) {
          mc.execute(() -> {
             clearDisplayCache();
             Arrays.fill(recentChat, null);
-            if (mc.field_1705 != null) {
-               mc.field_1705.method_1743().method_1817();
+            if (mc.gui != null) {
+               mc.gui.getChat().rescaleChat();
             }
          });
       }
@@ -288,9 +288,9 @@ public final class NameProtectModule extends ClientModule {
    }
 
    private void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       this.syncConnection(mc);
-      if (listSize(mc.method_1562()) != this.builtListSize) {
+      if (listSize(mc.getConnection()) != this.builtListSize) {
          this.dirty = true;
       }
 
@@ -307,15 +307,15 @@ public final class NameProtectModule extends ClientModule {
          this.chatRefreshCooldown--;
       }
 
-      if (this.chatRefreshPending && this.chatRefreshCooldown == 0 && !chatOpen(mc) && mc.field_1705 != null) {
+      if (this.chatRefreshPending && this.chatRefreshCooldown == 0 && !chatOpen(mc) && mc.gui != null) {
          this.chatRefreshPending = false;
          this.chatRefreshCooldown = 20;
-         mc.field_1705.method_1743().method_1817();
+         mc.gui.getChat().rescaleChat();
       }
    }
 
-   private void syncConnection(class_310 mc) {
-      class_634 connection = mc != null ? mc.method_1562() : null;
+   private void syncConnection(Minecraft mc) {
+      ClientPacketListener connection = mc != null ? mc.getConnection() : null;
       if (connection != this.trackedConnection.get()) {
          this.trackedConnection = new WeakReference<>(connection);
          this.knownOthers.clear();
@@ -330,10 +330,10 @@ public final class NameProtectModule extends ClientModule {
       this.dirty = false;
       boolean edited = this.settingsEdited;
       this.settingsEdited = false;
-      class_310 mc = class_310.method_1551();
-      class_634 connection = mc != null ? mc.method_1562() : null;
-      class_320 user = mc != null ? mc.method_1548() : null;
-      String accountName = NameMatcher.nameCore(user != null ? user.method_1676() : null);
+      Minecraft mc = Minecraft.getInstance();
+      ClientPacketListener connection = mc != null ? mc.getConnection() : null;
+      User user = mc != null ? mc.getUser() : null;
+      String accountName = NameMatcher.nameCore(user != null ? user.getName() : null);
       this.builtProfileName = profileName(mc);
       String profile = NameMatcher.nameCore(this.builtProfileName);
       this.builtListSize = listSize(connection);
@@ -431,13 +431,13 @@ public final class NameProtectModule extends ClientModule {
       }
    }
 
-   private void announceRefusal(class_310 mc) {
+   private void announceRefusal(Minecraft mc) {
       if (this.refusedAlias == null) {
          this.noticedAlias = null;
       } else if (!this.refusedAlias.equals(this.noticedAlias)) {
          if (this.refusalNoticeDelay > 0) {
             this.refusalNoticeDelay--;
-         } else if (mc.field_1724 != null) {
+         } else if (mc.player != null) {
             this.noticedAlias = this.refusedAlias;
             ModuleChat.send(
                this,
@@ -454,10 +454,10 @@ public final class NameProtectModule extends ClientModule {
       }
    }
 
-   private void rememberOnline(class_634 connection, String accountName, String profile) {
+   private void rememberOnline(ClientPacketListener connection, String accountName, String profile) {
       if (connection != null) {
-         for (class_640 info : connection.method_2880()) {
-            GameProfile gameProfile = info.method_2966();
+         for (PlayerInfo info : connection.getOnlinePlayers()) {
+            GameProfile gameProfile = info.getProfile();
             String name = NameMatcher.nameCore(gameProfile != null ? gameProfile.name() : null);
             if (name != null && !name.equalsIgnoreCase(accountName) && !name.equalsIgnoreCase(profile)) {
                String skeleton = AliasPolicy.skeleton(name);
@@ -475,12 +475,12 @@ public final class NameProtectModule extends ClientModule {
       }
    }
 
-   private void trackOthers(class_634 connection, List<String> own) {
+   private void trackOthers(ClientPacketListener connection, List<String> own) {
       if (connection != null) {
          int online = 0;
 
-         for (class_640 info : connection.method_45732()) {
-            GameProfile profile = info.method_2966();
+         for (PlayerInfo info : connection.getListedOnlinePlayers()) {
+            GameProfile profile = info.getProfile();
             if (profile != null && (profile.id() == null || profile.id().version() != 2)) {
                String name = NameMatcher.nameCore(profile.name());
                if (isLikelyPlayer(name) && !isOwn(name, own)) {
@@ -533,15 +533,15 @@ public final class NameProtectModule extends ClientModule {
       return false;
    }
 
-   private static String profileName(class_310 mc) {
-      return mc != null && mc.field_1724 != null ? mc.field_1724.method_7334().name() : null;
+   private static String profileName(Minecraft mc) {
+      return mc != null && mc.player != null ? mc.player.getGameProfile().name() : null;
    }
 
-   private static int listSize(class_634 connection) {
-      return connection != null ? connection.method_45732().size() : -1;
+   private static int listSize(ClientPacketListener connection) {
+      return connection != null ? connection.getListedOnlinePlayers().size() : -1;
    }
 
-   private static boolean chatOpen(class_310 mc) {
-      return mc.field_1705 != null && mc.field_1705.method_1743().method_1819();
+   private static boolean chatOpen(Minecraft mc) {
+      return mc.gui != null && mc.gui.getChat().isChatFocused();
    }
 }

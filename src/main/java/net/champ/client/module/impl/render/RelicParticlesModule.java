@@ -18,17 +18,17 @@ import net.champ.client.util.glyph.GlyphSwarm;
 import net.champ.client.util.glyph.GlyphTint;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_1309;
-import net.minecraft.class_1665;
-import net.minecraft.class_1684;
-import net.minecraft.class_1685;
-import net.minecraft.class_238;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_5819;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl;
+import net.minecraft.world.entity.projectile.arrow.ThrownTrident;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class RelicParticlesModule extends ClientModule {
@@ -70,9 +70,9 @@ public final class RelicParticlesModule extends ClientModule {
    private final GlyphSwarm swarm = new GlyphSwarm(CAPACITY);
    private final GlyphCanvas canvas = new GlyphCanvas();
    private final GlyphTint palette = new GlyphTint();
-   private final class_5819 random = class_5819.method_43047();
-   private final Consumer<class_1309> popSink = this::burst;
-   private class_638 boundLevel;
+   private final RandomSource random = RandomSource.create();
+   private final Consumer<LivingEntity> popSink = this::burst;
+   private ClientLevel boundLevel;
    private long lastFrame;
 
    public RelicParticlesModule() {
@@ -110,7 +110,7 @@ public final class RelicParticlesModule extends ClientModule {
       this.lastFrame = 0L;
    }
 
-   private boolean bind(class_638 level) {
+   private boolean bind(ClientLevel level) {
       if (level == null) {
          if (this.boundLevel != null) {
             this.reset();
@@ -134,12 +134,12 @@ public final class RelicParticlesModule extends ClientModule {
    }
 
    private void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      if (this.bind(mc.field_1687) && player != null) {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      if (this.bind(mc.level) && player != null) {
          this.refreshPalette();
          if (this.projectiles.get()) {
-            this.trails(mc.field_1687, player);
+            this.trails(mc.level, player);
          }
 
          if (this.footsteps.get()) {
@@ -149,71 +149,71 @@ public final class RelicParticlesModule extends ClientModule {
    }
 
    private void onRender(Render3DEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (this.bind(mc.field_1687)) {
+      Minecraft mc = Minecraft.getInstance();
+      if (this.bind(mc.level)) {
          long now = System.nanoTime();
          float dt = this.lastFrame == 0L ? 0.0F : Math.min(0.1F, (float)(now - this.lastFrame) / 1.0E9F);
          this.lastFrame = now;
-         if (mc.method_1493()) {
+         if (mc.isPaused()) {
             dt = 0.0F;
          }
 
          this.swarm.trim(this.particleLimit());
          this.swarm.step(dt);
          if (this.swarm.count() != 0) {
-            this.canvas.begin(mc.field_1773.method_19418());
+            this.canvas.begin(mc.gameRenderer.getMainCamera());
             this.swarm.draw(this.canvas, 1.0F, this.halo.get(), MobilePerformance.active() ? event.frustum : null);
             this.canvas.submit(false);
          }
       }
    }
 
-   private void burst(class_1309 entity) {
-      class_310 mc = class_310.method_1551();
-      if (this.bind(mc.field_1687) && entity.method_73183() == mc.field_1687) {
-         if (entity != mc.field_1724 || this.ownPops.get()) {
+   private void burst(LivingEntity entity) {
+      Minecraft mc = Minecraft.getInstance();
+      if (this.bind(mc.level) && entity.level() == mc.level) {
+         if (entity != mc.player || this.ownPops.get()) {
             this.refreshPalette();
-            class_238 box = entity.method_5829();
+            AABB box = entity.getBoundingBox();
             int total = MobilePerformance.particles(this.popBurst.getInt(), 6);
             String mode = this.popGlyph.get();
 
             for (int i = 0; i < total; i++) {
                byte kind = pick(mode, i);
-               double px = box.field_1323 + box.method_17939() * this.random.method_43058();
-               double py = box.field_1322 + box.method_17940() * (0.15 + 0.8 * this.random.method_43058());
-               double pz = box.field_1321 + box.method_17941() * this.random.method_43058();
-               float heading = this.random.method_43057() * (float) (Math.PI * 2);
-               float out = outward(kind) * (0.45F + this.random.method_43057());
-               float up = upward(kind) * (0.55F + 0.8F * this.random.method_43057());
+               double px = box.minX + box.getXsize() * this.random.nextDouble();
+               double py = box.minY + box.getYsize() * (0.15 + 0.8 * this.random.nextDouble());
+               double pz = box.minZ + box.getZsize() * this.random.nextDouble();
+               float heading = this.random.nextFloat() * (float) (Math.PI * 2);
+               float out = outward(kind) * (0.45F + this.random.nextFloat());
+               float up = upward(kind) * (0.55F + 0.8F * this.random.nextFloat());
                this.emit(
-                  kind, px, py, pz, class_3532.method_15362(heading) * out, up, class_3532.method_15374(heading) * out, 1.0F, 1.0F, this.colorFor(kind, -1)
+                  kind, px, py, pz, Mth.cos(heading) * out, up, Mth.sin(heading) * out, 1.0F, 1.0F, this.colorFor(kind, -1)
                );
             }
          }
       }
    }
 
-   private void trails(class_638 level, class_746 player) {
+   private void trails(ClientLevel level, LocalPlayer player) {
       int density = MobilePerformance.particles(this.trailDensity.getInt(), 1);
       String mode = this.trailGlyph.get();
 
-      for (class_1297 entity : level.method_18112()) {
+      for (Entity entity : level.entitiesForRendering()) {
          int role = this.role(entity);
          if (role != -1) {
-            double dx = entity.method_23317() - entity.field_6014;
-            double dy = entity.method_23318() - entity.field_6036;
-            double dz = entity.method_23321() - entity.field_5969;
-            if (!(dx * dx + dy * dy + dz * dz < 9.0E-4) && !(entity.method_5858(player) > 6400.0)) {
-               double mid = entity.method_17682() * 0.5;
+            double dx = entity.getX() - entity.xo;
+            double dy = entity.getY() - entity.yo;
+            double dz = entity.getZ() - entity.zo;
+            if (!(dx * dx + dy * dy + dz * dz < 9.0E-4) && !(entity.distanceToSqr(player) > 6400.0)) {
+               double mid = entity.getBbHeight() * 0.5;
 
                for (int i = 0; i < density; i++) {
-                  float f = (i + this.random.method_43057()) / density;
-                  byte kind = pick(mode, entity.field_6012 * density + i);
+                  float f = (i + this.random.nextFloat()) / density;
+                  byte kind = pick(mode, entity.tickCount * density + i);
                   this.emit(
                      kind,
-                     entity.field_6014 + dx * f + this.jitter(0.06F),
-                     entity.field_6036 + dy * f + mid + this.jitter(0.06F),
-                     entity.field_5969 + dz * f + this.jitter(0.06F),
+                     entity.xo + dx * f + this.jitter(0.06F),
+                     entity.yo + dy * f + mid + this.jitter(0.06F),
+                     entity.zo + dz * f + this.jitter(0.06F),
                      this.jitter(0.3F),
                      this.jitter(0.3F) + 0.15F,
                      this.jitter(0.3F),
@@ -227,25 +227,25 @@ public final class RelicParticlesModule extends ClientModule {
       }
    }
 
-   private void steps(class_746 player) {
-      if (player.method_24828() && !player.method_7325() && !player.method_5765() && !player.method_52535()) {
-         double dx = player.method_23317() - player.field_6014;
-         double dz = player.method_23321() - player.field_5969;
+   private void steps(LocalPlayer player) {
+      if (player.onGround() && !player.isSpectator() && !player.isPassenger() && !player.isInLiquid()) {
+         double dx = player.getX() - player.xo;
+         double dz = player.getZ() - player.zo;
          double speed = Math.sqrt(dx * dx + dz * dz);
          if (!(speed < 0.07)) {
-            int count = MobilePerformance.particles(this.stepDensity.getInt() + (player.method_5624() ? 1 : 0), 1);
+            int count = MobilePerformance.particles(this.stepDensity.getInt() + (player.isSprinting() ? 1 : 0), 1);
             String mode = this.stepGlyph.get();
 
             for (int i = 0; i < count; i++) {
-               byte kind = pick(mode, player.field_6012 * count + i);
-               double back = 0.2 + 0.3 * this.random.method_43058();
+               byte kind = pick(mode, player.tickCount * count + i);
+               double back = 0.2 + 0.3 * this.random.nextDouble();
                this.emit(
                   kind,
-                  player.method_23317() - dx / speed * back + this.jitter(0.22F),
-                  player.method_23318() + 0.04,
-                  player.method_23321() - dz / speed * back + this.jitter(0.22F),
+                  player.getX() - dx / speed * back + this.jitter(0.22F),
+                  player.getY() + 0.04,
+                  player.getZ() - dz / speed * back + this.jitter(0.22F),
                   (float)(-dx * 7.0) + this.jitter(0.5F),
-                  0.8F + this.random.method_43057() * 1.1F,
+                  0.8F + this.random.nextFloat() * 1.1F,
                   (float)(-dz * 7.0) + this.jitter(0.5F),
                   0.7F,
                   0.75F,
@@ -257,11 +257,11 @@ public final class RelicParticlesModule extends ClientModule {
    }
 
    private void emit(byte kind, double x, double y, double z, float vx, float vy, float vz, float lifeScale, float sizeScale, int rgb) {
-      float life = this.lifetime.get() * lifeScale * (0.75F + 0.5F * this.random.method_43057());
-      float scale = 0.085F * this.size.get() * sizeScale * sizeOf(kind) * (0.8F + 0.4F * this.random.method_43057());
-      float turn = spinOf(kind) * (this.random.method_43056() ? 1.0F : -1.0F) * (0.5F + this.random.method_43057());
-      float angle = kind == 0 ? this.jitter(0.35F) : this.random.method_43057() * (float) (Math.PI * 2);
-      this.swarm.spawn(kind, x, y, z, vx, vy, vz, life, scale, angle, turn, this.random.method_43057(), rgb, this.particleLimit());
+      float life = this.lifetime.get() * lifeScale * (0.75F + 0.5F * this.random.nextFloat());
+      float scale = 0.085F * this.size.get() * sizeScale * sizeOf(kind) * (0.8F + 0.4F * this.random.nextFloat());
+      float turn = spinOf(kind) * (this.random.nextBoolean() ? 1.0F : -1.0F) * (0.5F + this.random.nextFloat());
+      float angle = kind == 0 ? this.jitter(0.35F) : this.random.nextFloat() * (float) (Math.PI * 2);
+      this.swarm.spawn(kind, x, y, z, vx, vy, vz, life, scale, angle, turn, this.random.nextFloat(), rgb, this.particleLimit());
    }
 
    private int particleLimit() {
@@ -272,14 +272,14 @@ public final class RelicParticlesModule extends ClientModule {
       this.palette.resolve(this.colorMode.get(), CosmeticAccent.argb(), this.mainColor.argb(), this.secondColor.argb());
    }
 
-   private int role(class_1297 entity) {
-      if (entity.method_31481()) {
+   private int role(Entity entity) {
+      if (entity.isRemoved()) {
          return -1;
-      } else if (entity instanceof class_1684) {
+      } else if (entity instanceof ThrownEnderpearl) {
          return this.pearls.get() ? 0 : -1;
-      } else if (entity instanceof class_1685) {
+      } else if (entity instanceof ThrownTrident) {
          return this.tridents.get() ? 2 : -1;
-      } else if (entity instanceof class_1665) {
+      } else if (entity instanceof AbstractArrow) {
          return this.arrows.get() ? 1 : -1;
       } else {
          return -1;
@@ -297,7 +297,7 @@ public final class RelicParticlesModule extends ClientModule {
    }
 
    private int colorFor(byte kind, int role) {
-      float r = this.random.method_43057();
+      float r = this.random.nextFloat();
 
       int base = switch (kind) {
          case 0 -> r < 0.6F ? this.palette.primary() : this.palette.highlight();
@@ -359,6 +359,6 @@ public final class RelicParticlesModule extends ClientModule {
    }
 
    private float jitter(float amount) {
-      return (this.random.method_43057() * 2.0F - 1.0F) * amount;
+      return (this.random.nextFloat() * 2.0F - 1.0F) * amount;
    }
 }

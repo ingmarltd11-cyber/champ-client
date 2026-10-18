@@ -13,17 +13,17 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.util.pvp.ServerRotation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10707;
-import net.minecraft.class_1297;
-import net.minecraft.class_1657;
-import net.minecraft.class_1661;
-import net.minecraft.class_1799;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_3966;
-import net.minecraft.class_640;
-import net.minecraft.class_746;
-import net.minecraft.class_9334;
+import net.minecraft.world.item.component.BlocksAttacks;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.component.DataComponents;
 
 @Environment(EnvType.CLIENT)
 public final class ShieldBreakerModule extends ClientModule {
@@ -49,11 +49,11 @@ public final class ShieldBreakerModule extends ClientModule {
 
    @Override
    protected void onDisable() {
-      this.slots.drop(class_310.method_1551(), this.switchBack.get());
+      this.slots.drop(Minecraft.getInstance(), this.switchBack.get());
    }
 
-   public void beforeAttack(class_746 player, class_1297 target) {
-      if (target instanceof class_1657 other && !MeleeAttacks.disablesShields(player.method_6047())) {
+   public void beforeAttack(LocalPlayer player, Entity target) {
+      if (target instanceof Player other && !MeleeAttacks.disablesShields(player.getMainHandItem())) {
          if (!MeleeAttacks.shieldBroken(other) && blocksSoon(player, other)) {
             int slot = bestAxe(player);
             if (slot >= 0 && this.slots.take(player, slot)) {
@@ -66,25 +66,25 @@ public final class ShieldBreakerModule extends ClientModule {
    @EventHandler(priority = EventPriority.HIGH)
    public void onTick(TickEvent event) {
       this.ticks++;
-      this.slots.tick(class_310.method_1551(), this.switchBack.get());
+      this.slots.tick(Minecraft.getInstance(), this.switchBack.get());
    }
 
    @EventHandler
    public void onAutoTick(TickEvent event) {
       if (this.mode.is("Auto")) {
-         this.tryHit(class_310.method_1551());
+         this.tryHit(Minecraft.getInstance());
       }
    }
 
-   private void tryHit(class_310 mc) {
+   private void tryHit(Minecraft mc) {
       if (this.ticks >= this.rearmTick && MeleeAttacks.canAct(mc)) {
          if (!CombatMacroLock.heldByOther(this) && !AutoInvTotemModule.wantsHotbar()) {
-            class_746 player = mc.field_1724;
+            LocalPlayer player = mc.player;
             if (!MeleeAttacks.actedThisTick(player) && !ServerRotation.pending() && !MeleeAttacks.clickPending(mc)) {
-               class_3966 hit = MeleeAttacks.crosshairHit(mc);
-               if (hit != null && hit.method_17782() instanceof class_1657 target && MeleeAttacks.isEnemy(player, target)) {
+               EntityHitResult hit = MeleeAttacks.crosshairHit(mc);
+               if (hit != null && hit.getEntity() instanceof Player target && MeleeAttacks.isEnemy(player, target)) {
                   if (!MeleeAttacks.shieldBroken(target) && blocksSoon(player, target)) {
-                     if (MeleeAttacks.disablesShields(player.method_6047()) || bestAxe(player) >= 0) {
+                     if (MeleeAttacks.disablesShields(player.getMainHandItem()) || bestAxe(player) >= 0) {
                         if (MeleeAttacks.attack(mc, hit)) {
                            this.rearmTick = this.ticks + 10;
                            MeleeAttacks.claimTick(mc);
@@ -97,29 +97,29 @@ public final class ShieldBreakerModule extends ClientModule {
       }
    }
 
-   private static boolean blocksSoon(class_746 player, class_1657 target) {
-      if (!target.method_6115()) {
+   private static boolean blocksSoon(LocalPlayer player, Player target) {
+      if (!target.isUsingItem()) {
          return false;
       }
 
-      class_1799 shield = target.method_6030();
-      class_10707 blocks = (class_10707)shield.method_58694(class_9334.field_56396);
-      return blocks != null && target.method_6048() + leadTicks(player) >= blocks.method_67197() ? MeleeAttacks.shieldBlocks(target, player, shield) : false;
+      ItemStack shield = target.getUseItem();
+      BlocksAttacks blocks = (BlocksAttacks)shield.get(DataComponents.BLOCKS_ATTACKS);
+      return blocks != null && target.getTicksUsingItem() + leadTicks(player) >= blocks.blockDelayTicks() ? MeleeAttacks.shieldBlocks(target, player, shield) : false;
    }
 
-   private static int leadTicks(class_746 player) {
-      class_640 info = player.field_3944.method_2871(player.method_5667());
-      return info == null ? 0 : class_3532.method_15340(Math.round(info.method_2959() / 50.0F), 0, 4);
+   private static int leadTicks(LocalPlayer player) {
+      PlayerInfo info = player.connection.getPlayerInfo(player.getUUID());
+      return info == null ? 0 : Mth.clamp(Math.round(info.getLatency() / 50.0F), 0, 4);
    }
 
-   static int bestAxe(class_746 player) {
-      class_1661 inventory = player.method_31548();
+   static int bestAxe(LocalPlayer player) {
+      Inventory inventory = player.getInventory();
       int best = -1;
       double bestDamage = Double.NEGATIVE_INFINITY;
 
-      for (int slot = 0; slot < class_1661.method_7368(); slot++) {
-         class_1799 stack = inventory.method_5438(slot);
-         if (MeleeAttacks.disablesShields(stack) && !stack.method_63692()) {
+      for (int slot = 0; slot < Inventory.getSelectionSize(); slot++) {
+         ItemStack stack = inventory.getItem(slot);
+         if (MeleeAttacks.disablesShields(stack) && !stack.nextDamageWillBreak()) {
             double damage = MeleeAttacks.attackDamage(stack);
             if (damage > bestDamage) {
                best = slot;

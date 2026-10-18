@@ -4,19 +4,19 @@ import com.llamalad7.mixinextras.sugar.Local;
 import net.champ.client.module.impl.movement.SpeedModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1313;
-import net.minecraft.class_243;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_746.class)
+@Mixin(LocalPlayer.class)
 public abstract class MixinSpeedLocalPlayer {
-   @ModifyVariable(method = "method_5784", at = @At("HEAD"), argsOnly = true)
-   private class_243 champ$speedMove(class_243 movement, @Local(argsOnly = true) class_1313 type) {
+   @ModifyVariable(method = "move", at = @At("HEAD"), argsOnly = true)
+   private Vec3 champ$speedMove(Vec3 movement, @Local(argsOnly = true) MoverType type) {
       SpeedModule speed = SpeedModule.active;
-      return speed != null && type == class_1313.field_6308 ? speed.onSelfMove((class_746)this, movement) : movement;
+      return speed != null && type == MoverType.SELF ? speed.onSelfMove((LocalPlayer)this, movement) : movement;
    }
 }

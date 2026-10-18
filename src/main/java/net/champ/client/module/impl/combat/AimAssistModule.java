@@ -14,13 +14,13 @@ import net.champ.client.util.pvp.RotationUtils;
 import net.champ.client.util.pvp.TargetingUtils;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_156;
-import net.minecraft.class_1657;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_746;
+import net.minecraft.util.Util;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class AimAssistModule extends ClientModule {
@@ -34,7 +34,7 @@ public final class AimAssistModule extends ClientModule {
    private final NumberSetting speed = this.addSetting("speed", new NumberSetting("Speed", 60.0F, 10.0F, 180.0F).step(5.0F));
    private final BooleanSetting weaponsOnly = this.addSetting("weapons-only", new BooleanSetting("Weapons Only", true));
    private final BooleanSetting vertical = this.addSetting("vertical", new BooleanSetting("Vertical", true));
-   private class_1657 target;
+   private Player target;
    private double pace;
    private double pendingYaw;
    private double pendingPitch;
@@ -65,20 +65,20 @@ public final class AimAssistModule extends ClientModule {
 
    @EventHandler
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       if (MeleeAttacks.canAct(mc)
-         && !player.method_6115()
-         && !mc.field_1690.field_1904.method_1434()
-         && (!this.weaponsOnly.get() || MeleeAttacks.isMeleeWeapon(player.method_6047()))) {
+         && !player.isUsingItem()
+         && !mc.options.keyUse.isDown()
+         && (!this.weaponsOnly.get() || MeleeAttacks.isMeleeWeapon(player.getMainHandItem()))) {
          this.follow(this.choose(mc, player));
       } else {
          this.follow(null);
       }
    }
 
-   public double[] nudge(class_746 player, double userYaw, double userPitch, double seconds) {
-      long now = class_156.method_658();
+   public double[] nudge(LocalPlayer player, double userYaw, double userPitch, double seconds) {
+      long now = Util.getMillis();
       if (userYaw != 0.0 || userPitch != 0.0) {
          this.movedAt = now;
       }
@@ -91,7 +91,7 @@ public final class AimAssistModule extends ClientModule {
          this.userPitchSign = Math.signum(userPitch);
       }
 
-      Rotation want = this.target != null && now - this.movedAt <= 150L ? this.aim(player, player.method_33571(), core(this.target)) : null;
+      Rotation want = this.target != null && now - this.movedAt <= 150L ? this.aim(player, player.getEyePosition(), core(this.target)) : null;
       if (want == null) {
          this.pendingYaw = 0.0;
          this.pendingPitch = 0.0;
@@ -101,8 +101,8 @@ public final class AimAssistModule extends ClientModule {
       }
 
       double dt = Math.min(seconds, 0.05);
-      float yawError = class_3532.method_15393(want.yaw() - player.method_36454());
-      float pitchError = this.vertical.get() ? want.pitch() - player.method_36455() : 0.0F;
+      float yawError = Mth.wrapDegrees(want.yaw() - player.getYRot());
+      float pitchError = this.vertical.get() ? want.pitch() - player.getXRot() : 0.0F;
       if (this.userYawSign * yawError < 0.0) {
          yawError = 0.0F;
       }
@@ -113,10 +113,10 @@ public final class AimAssistModule extends ClientModule {
 
       double cap = this.speed.get() * this.pace * dt;
       double ease = 1.0 - Math.exp(-12.0 * dt);
-      double k = RotationUtils.mouseScale(class_310.method_1551(), player);
+      double k = RotationUtils.mouseScale(Minecraft.getInstance(), player);
       double degreesPerCount = (float)k * 0.15F;
-      this.pendingYaw = this.pendingYaw + class_3532.method_15350(yawError * ease, -cap, cap) / degreesPerCount;
-      this.pendingPitch = this.pendingPitch + class_3532.method_15350(pitchError * ease * 0.6, -cap, cap) / degreesPerCount;
+      this.pendingYaw = this.pendingYaw + Mth.clamp(yawError * ease, -cap, cap) / degreesPerCount;
+      this.pendingPitch = this.pendingPitch + Mth.clamp(pitchError * ease * 0.6, -cap, cap) / degreesPerCount;
       long yawCounts = (long)this.pendingYaw;
       long pitchCounts = (long)this.pendingPitch;
       this.pendingYaw -= yawCounts;
@@ -124,7 +124,7 @@ public final class AimAssistModule extends ClientModule {
       return new double[]{yawCounts * k, pitchCounts * k};
    }
 
-   private void follow(class_1657 next) {
+   private void follow(Player next) {
       if (next != this.target) {
          this.target = next;
          this.pace = ThreadLocalRandom.current().nextDouble(0.85, 1.15);
@@ -133,22 +133,22 @@ public final class AimAssistModule extends ClientModule {
       }
    }
 
-   private class_1657 choose(class_310 mc, class_746 player) {
-      class_243 eye = player.method_33571();
+   private Player choose(Minecraft mc, LocalPlayer player) {
+      Vec3 eye = player.getEyePosition();
       double halfFov = this.fov.get() / 2.0;
-      if (CombatTarget.lastHit(1500L) instanceof class_1657 hit && this.offAngle(player, eye, hit, this.range.get()) <= halfFov) {
+      if (CombatTarget.lastHit(1500L) instanceof Player hit && this.offAngle(player, eye, hit, this.range.get()) <= halfFov) {
          return hit;
       } else {
          if (this.target != null
-            && this.target.method_73183() == player.method_73183()
+            && this.target.level() == player.level()
             && this.offAngle(player, eye, this.target, this.range.get() + 0.5) <= halfFov * 1.3) {
             return this.target;
          }
 
-         class_1657 best = null;
+         Player best = null;
          double bestAngle = halfFov;
 
-         for (class_1657 candidate : mc.field_1687.method_18456()) {
+         for (Player candidate : mc.level.players()) {
             double angle = this.offAngle(player, eye, candidate, this.range.get());
             if (!(angle > bestAngle)) {
                best = candidate;
@@ -160,14 +160,14 @@ public final class AimAssistModule extends ClientModule {
       }
    }
 
-   private double offAngle(class_746 player, class_243 eye, class_1657 candidate, double reach) {
-      if (MeleeAttacks.isEnemy(player, candidate) && !candidate.method_5767()) {
-         if (eye.method_1022(TargetingUtils.closestPoint(eye, candidate.method_5829())) > reach) {
+   private double offAngle(LocalPlayer player, Vec3 eye, Player candidate, double reach) {
+      if (MeleeAttacks.isEnemy(player, candidate) && !candidate.isInvisible()) {
+         if (eye.distanceTo(TargetingUtils.closestPoint(eye, candidate.getBoundingBox())) > reach) {
             return Double.MAX_VALUE;
          }
 
-         class_238 core = core(candidate);
-         if (!MeleeAttacks.lineIsClear(player, eye, core.method_1005())) {
+         AABB core = core(candidate);
+         if (!MeleeAttacks.lineIsClear(player, eye, core.getCenter())) {
             return Double.MAX_VALUE;
          }
 
@@ -178,18 +178,18 @@ public final class AimAssistModule extends ClientModule {
       }
    }
 
-   private Rotation aim(class_746 player, class_243 eye, class_238 core) {
-      class_243 view = player.method_5828(1.0F);
-      if (core.method_992(eye, eye.method_1019(view.method_1021(this.range.get() + 1.0))).isPresent()) {
+   private Rotation aim(LocalPlayer player, Vec3 eye, AABB core) {
+      Vec3 view = player.getViewVector(1.0F);
+      if (core.clip(eye, eye.add(view.scale(this.range.get() + 1.0))).isPresent()) {
          return null;
       }
 
-      class_243 near = TargetingUtils.closestPoint(eye.method_1019(view.method_1021(eye.method_1022(core.method_1005()))), core);
+      Vec3 near = TargetingUtils.closestPoint(eye.add(view.scale(eye.distanceTo(core.getCenter()))), core);
       return RotationUtils.fromTo(eye, near);
    }
 
-   private static class_238 core(class_1657 player) {
-      class_238 box = player.method_5829();
-      return box.method_35580(box.method_17939() * 0.25, box.method_17940() * 0.1, box.method_17939() * 0.25);
+   private static AABB core(Player player) {
+      AABB box = player.getBoundingBox();
+      return box.deflate(box.getXsize() * 0.25, box.getYsize() * 0.1, box.getXsize() * 0.25);
    }
 }

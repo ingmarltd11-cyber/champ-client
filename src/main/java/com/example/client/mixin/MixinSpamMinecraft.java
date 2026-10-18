@@ -3,10 +3,10 @@ package com.example.client.mixin;
 import net.champ.client.module.impl.misc.SpamModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_419;
-import net.minecraft.class_437;
-import net.minecraft.class_638;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.DisconnectedScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.multiplayer.ClientLevel;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -14,21 +14,21 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_310.class)
+@Mixin(Minecraft.class)
 public abstract class MixinSpamMinecraft {
    @Shadow
-   public class_638 field_1687;
+   public ClientLevel field_1687;
 
-   @Inject(method = "method_18096", at = @At("HEAD"))
-   private void champ$spamGameLeft(class_437 screen, boolean keepResourcePacks, boolean stopSound, CallbackInfo ci) {
-      if (SpamModule.active != null && this.field_1687 != null) {
+   @Inject(method = "disconnect", at = @At("HEAD"))
+   private void champ$spamGameLeft(Screen screen, boolean keepResourcePacks, boolean stopSound, CallbackInfo ci) {
+      if (SpamModule.active != null && this.level != null) {
          SpamModule.onGameLeft();
       }
    }
 
-   @Inject(method = "method_1507", at = @At("HEAD"))
-   private void champ$spamDisconnectedScreen(class_437 screen, CallbackInfo ci) {
-      if (SpamModule.active != null && this.field_1687 != null && screen instanceof class_419) {
+   @Inject(method = "setScreen", at = @At("HEAD"))
+   private void champ$spamDisconnectedScreen(Screen screen, CallbackInfo ci) {
+      if (SpamModule.active != null && this.level != null && screen instanceof DisconnectedScreen) {
          SpamModule.onDisconnectedScreen();
       }
    }

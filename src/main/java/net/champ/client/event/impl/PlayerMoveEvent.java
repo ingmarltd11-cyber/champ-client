@@ -5,7 +5,7 @@ import net.champ.client.event.CancellableEvent;
 import net.champ.client.event.PooledCancellableEventType;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_243;
+import net.minecraft.world.phys.Vec3;
 
 @Environment(EnvType.CLIENT)
 public final class PlayerMoveEvent extends CancellableEvent {
@@ -17,14 +17,14 @@ public final class PlayerMoveEvent extends CancellableEvent {
    private PlayerMoveEvent() {
    }
 
-   public static void move(class_243 movement, Consumer<class_243> original) {
+   public static void move(Vec3 movement, Consumer<Vec3> original) {
       if (!TYPE.hasListeners()) {
          original.accept(movement);
       } else {
          PlayerMoveEvent event = TYPE.pool.acquire();
-         event.x = movement.field_1352;
-         event.y = movement.field_1351;
-         event.z = movement.field_1350;
+         event.x = movement.x;
+         event.y = movement.y;
+         event.z = movement.z;
          event.resetCancellation();
 
          try {
@@ -34,9 +34,9 @@ public final class PlayerMoveEvent extends CancellableEvent {
             }
 
             if (Double.isFinite(event.x) && Double.isFinite(event.y) && Double.isFinite(event.z)) {
-               class_243 changed = event.x == movement.field_1352 && event.y == movement.field_1351 && event.z == movement.field_1350
+               Vec3 changed = event.x == movement.x && event.y == movement.y && event.z == movement.z
                   ? movement
-                  : new class_243(event.x, event.y, event.z);
+                  : new Vec3(event.x, event.y, event.z);
                original.accept(changed);
                TYPE.dispatchPost(event);
                return;

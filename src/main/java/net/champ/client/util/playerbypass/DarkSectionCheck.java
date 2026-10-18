@@ -2,11 +2,11 @@ package net.champ.client.util.playerbypass;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2806;
-import net.minecraft.class_2818;
-import net.minecraft.class_2826;
-import net.minecraft.class_638;
-import net.minecraft.class_4970.class_4971;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.world.level.block.state.BlockBehaviour.BlockStateBase;
 
 @Environment(EnvType.CLIENT)
 final class DarkSectionCheck {
@@ -15,7 +15,7 @@ final class DarkSectionCheck {
    private DarkSectionCheck() {
    }
 
-   static boolean airlessAround(class_638 level, int chunkX, int sectionY, int chunkZ) {
+   static boolean airlessAround(ClientLevel level, int chunkX, int sectionY, int chunkZ) {
       if (!airless(level, chunkX, sectionY, chunkZ)) {
          return false;
       }
@@ -29,26 +29,26 @@ final class DarkSectionCheck {
       return true;
    }
 
-   private static boolean airless(class_638 level, int chunkX, int sectionY, int chunkZ) {
-      if (sectionY >= level.method_32891() && sectionY <= level.method_31597()) {
-         class_2818 chunk = level.method_2935().method_2857(chunkX, chunkZ, class_2806.field_12803, false);
+   private static boolean airless(ClientLevel level, int chunkX, int sectionY, int chunkZ) {
+      if (sectionY >= level.getMinSectionY() && sectionY <= level.getMaxSectionY()) {
+         LevelChunk chunk = level.getChunkSource().getChunk(chunkX, chunkZ, ChunkStatus.FULL, false);
          if (chunk == null) {
             return false;
          }
 
-         class_2826 section = chunk.method_38259(chunk.method_31603(sectionY));
-         if (section.method_38292()) {
+         LevelChunkSection section = chunk.getSection(chunk.getSectionIndexFromSectionY(sectionY));
+         if (section.hasOnlyAir()) {
             return false;
          }
 
-         if (!section.method_12265().method_19526(class_4971::method_26215)) {
+         if (!section.getStates().maybeHas(BlockStateBase::isAir)) {
             return true;
          }
 
          for (int y = 0; y < 16; y++) {
             for (int z = 0; z < 16; z++) {
                for (int x = 0; x < 16; x++) {
-                  if (section.method_12254(x, y, z).method_26215()) {
+                  if (section.getBlockState(x, y, z).isAir()) {
                      return false;
                   }
                }

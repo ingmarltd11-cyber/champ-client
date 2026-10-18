@@ -12,8 +12,8 @@ import java.util.List;
 import java.util.Map;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2338;
-import net.minecraft.class_3532;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
 
 @Environment(EnvType.CLIENT)
 final class OreSim {
@@ -110,17 +110,17 @@ final class OreSim {
          int size = spec.size();
          float f = random.nextFloat() * (float) Math.PI;
          float g = size / 8.0F;
-         int i = class_3532.method_15386((size / 16.0F * 2.0F + 1.0F) / 2.0F);
+         int i = Mth.ceil((size / 16.0F * 2.0F + 1.0F) / 2.0F);
          double d = x + Math.sin(f) * g;
          double e = x - Math.sin(f) * g;
          double h = z + Math.cos(f) * g;
          double j = z - Math.cos(f) * g;
          double l = y + random.nextInt(3) - 2;
          double m = y + random.nextInt(3) - 2;
-         int n = x - class_3532.method_15386(g) - i;
+         int n = x - Mth.ceil(g) - i;
          int o = y - 2 - i;
-         int p = z - class_3532.method_15386(g) - i;
-         int q = 2 * (class_3532.method_15386(g) + i);
+         int p = z - Mth.ceil(g) - i;
+         int q = 2 * (Mth.ceil(g) + i);
          int r = 2 * (2 + i);
          byte gate = gate(world, o, n, p, q);
          if (gate == 0) {
@@ -180,11 +180,11 @@ final class OreSim {
 
       for (int k = 0; k < size; k++) {
          float t = (float)k / size;
-         double sx = class_3532.method_16436(t, d, e);
-         double sy = class_3532.method_16436(t, l, m);
-         double sz = class_3532.method_16436(t, h, j);
+         double sx = Mth.lerp(t, d, e);
+         double sy = Mth.lerp(t, l, m);
+         double sz = Mth.lerp(t, h, j);
          double v = random.nextDouble() * size / 16.0;
-         double w = ((class_3532.method_15374((float) Math.PI * t) + 1.0F) * v + 1.0) / 2.0;
+         double w = ((Mth.sin((float) Math.PI * t) + 1.0F) * v + 1.0) / 2.0;
          ds[k * 4] = sx;
          ds[k * 4 + 1] = sy;
          ds[k * 4 + 2] = sz;
@@ -226,12 +226,12 @@ final class OreSim {
             double t = ds[k * 4];
             double u = ds[k * 4 + 1];
             double v = ds[k * 4 + 2];
-            int x0 = Math.max(class_3532.method_15357(t - s), n);
-            int y0 = Math.max(class_3532.method_15357(u - s), o);
-            int z0 = Math.max(class_3532.method_15357(v - s), p);
-            int x1 = Math.max(class_3532.method_15357(t + s), x0);
-            int y1 = Math.max(class_3532.method_15357(u + s), y0);
-            int z1 = Math.max(class_3532.method_15357(v + s), z0);
+            int x0 = Math.max(Mth.floor(t - s), n);
+            int y0 = Math.max(Mth.floor(u - s), o);
+            int z0 = Math.max(Mth.floor(v - s), p);
+            int x1 = Math.max(Mth.floor(t + s), x0);
+            int y1 = Math.max(Mth.floor(u + s), y0);
+            int z1 = Math.max(Mth.floor(v + s), z0);
 
             for (int ae = x0; ae <= x1; ae++) {
                double af = (ae + 0.5 - t) / s;
@@ -246,7 +246,7 @@ final class OreSim {
                               if (!bits.get(ak)) {
                                  bits.set(ak);
                                  if (Math.abs((ae >> 4) - chunkX) <= 1 && Math.abs((ai >> 4) - chunkZ) <= 1) {
-                                    long key = class_2338.method_10064(ae, ag, ai);
+                                    long key = BlockPos.asLong(ae, ag, ai);
                                     byte base = baseNow(world, written, baseKind, ae, ag, ai, key);
                                     if (base != 0) {
                                        if (base == 2) {
@@ -320,7 +320,7 @@ final class OreSim {
             return 0;
          }
 
-         if (written.get(class_2338.method_10064(nx, ny, nz)) != 1) {
+         if (written.get(BlockPos.asLong(nx, ny, nz)) != 1) {
             byte air = world.air(nx, ny, nz);
             if (air == 1) {
                return 0;

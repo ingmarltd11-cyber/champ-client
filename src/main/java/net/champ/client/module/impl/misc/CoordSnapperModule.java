@@ -24,22 +24,22 @@ import net.champ.client.webhook.WebhookPayloadBuilder;
 import net.champ.client.webhook.WebhookService;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1937;
-import net.minecraft.class_2338;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_265;
-import net.minecraft.class_310;
-import net.minecraft.class_3959;
-import net.minecraft.class_3965;
-import net.minecraft.class_4184;
-import net.minecraft.class_5321;
-import net.minecraft.class_638;
-import net.minecraft.class_642;
-import net.minecraft.class_746;
-import net.minecraft.class_239.class_240;
-import net.minecraft.class_3959.class_242;
-import net.minecraft.class_3959.class_3960;
+import net.minecraft.world.level.Level;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.client.Camera;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.level.ClipContext.Block;
 
 @Environment(EnvType.CLIENT)
 public final class CoordSnapperModule extends ClientModule {
@@ -97,17 +97,17 @@ public final class CoordSnapperModule extends ClientModule {
    private void onPress(int pressed) {
       int bound = this.key.value();
       if (ModuleKeybinds.isBindable(bound) && pressed == bound) {
-         class_310 mc = class_310.method_1551();
-         if (mc.field_1755 == null && mc.field_1724 != null && mc.field_1687 != null) {
-            this.snap(mc, mc.field_1724, mc.field_1687);
+         Minecraft mc = Minecraft.getInstance();
+         if (mc.screen == null && mc.player != null && mc.level != null) {
+            this.snap(mc, mc.player, mc.level);
          }
       }
    }
 
-   private void snap(class_310 mc, class_746 player, class_638 level) {
-      class_2338 pos;
+   private void snap(Minecraft mc, LocalPlayer player, ClientLevel level) {
+      BlockPos pos;
       if (this.target.is("Own Position")) {
-         pos = player.method_24515();
+         pos = player.blockPosition();
       } else {
          pos = this.raycast(mc, player, level);
          if (pos == null) {
@@ -118,38 +118,38 @@ public final class CoordSnapperModule extends ClientModule {
          }
 
          if (this.format.is("/tp Command")) {
-            pos = pos.method_10084();
+            pos = pos.above();
          }
       }
 
-      String text = this.formatCoords(pos, level.method_27983());
-      mc.field_1774.method_1455(text);
+      String text = this.formatCoords(pos, level.dimension());
+      mc.keyboardHandler.setClipboard(text);
       if (this.confirm.get()) {
          ModuleChat.send(this, ModuleChat.body().good("Copied").text(" ").value(text));
       }
 
       if (this.webhook.get()) {
-         this.sendWebhook(mc, player, pos, level.method_27983());
+         this.sendWebhook(mc, player, pos, level.dimension());
       }
    }
 
-   private void sendWebhook(class_310 mc, class_746 player, class_2338 pos, class_5321<class_1937> dimension) {
+   private void sendWebhook(Minecraft mc, LocalPlayer player, BlockPos pos, ResourceKey<Level> dimension) {
       String url = this.webhookUrl.get().trim();
       if (url.isEmpty()) {
          ModuleChat.send(this, ModuleChat.body().text("Webhook URL is ").warn("not set"));
       } else if (!WebhookConfig.isValidUrl(url)) {
          ModuleChat.send(this, ModuleChat.body().text("Webhook URL is ").danger("invalid"));
       } else {
-         class_642 server = mc.method_1558();
-         String serverName = server != null && server.field_3752 != null ? server.field_3752 : "Singleplayer";
+         ServerData server = mc.getCurrentServer();
+         String serverName = server != null && server.name != null ? server.name : "Singleplayer";
          String description = "**Coordinates:** `"
-            + String.format(Locale.ROOT, "%d %d %d", pos.method_10263(), pos.method_10264(), pos.method_10260())
+            + String.format(Locale.ROOT, "%d %d %d", pos.getX(), pos.getY(), pos.getZ())
             + "`\n**Dimension:** "
             + dimensionName(dimension)
             + "\n**Server:** "
             + escapeMarkdown(serverName)
             + "\n**Player:** "
-            + escapeMarkdown(player.method_5477().getString())
+            + escapeMarkdown(player.getName().getString())
             + "\n**Time:** <t:"
             + System.currentTimeMillis() / 1000L
             + ":R>";
@@ -189,45 +189,45 @@ public final class CoordSnapperModule extends ClientModule {
       return out.toString();
    }
 
-   private class_2338 raycast(class_310 mc, class_746 player, class_638 level) {
+   private BlockPos raycast(Minecraft mc, LocalPlayer player, ClientLevel level) {
       FreecamModule freecam = ModuleRegistry.get(FreecamModule.class);
-      class_243 origin;
-      class_243 direction;
+      Vec3 origin;
+      Vec3 direction;
       if (freecam != null && freecam.isEnabled()) {
-         class_4184 camera = mc.field_1773.method_19418();
-         origin = camera.method_71156();
-         direction = class_243.method_1030(camera.method_19329(), camera.method_19330());
+         Camera camera = mc.gameRenderer.getMainCamera();
+         origin = camera.position();
+         direction = Vec3.directionFromRotation(camera.xRot(), camera.yRot());
       } else {
-         origin = player.method_5836(1.0F);
-         direction = player.method_5828(1.0F);
+         origin = player.getEyePosition(1.0F);
+         direction = player.getViewVector(1.0F);
       }
 
-      class_243 end = origin.method_1019(direction.method_1021(this.range.get()));
-      class_242 fluids = this.stopAtFluids.get() ? class_242.field_1347 : class_242.field_1348;
-      class_3959 context = new class_3959(origin, end, class_3960.field_17559, fluids, player);
-      class_2338 viewBlock = class_2338.method_49638(origin);
+      Vec3 end = origin.add(direction.scale(this.range.get()));
+      Fluid fluids = this.stopAtFluids.get() ? Fluid.ANY : Fluid.NONE;
+      ClipContext context = new ClipContext(origin, end, Block.OUTLINE, fluids, player);
+      BlockPos viewBlock = BlockPos.containing(origin);
       if (startsInside(context, level, viewBlock, origin)) {
-         Optional<class_243> exit = new class_238(viewBlock).method_992(end, origin);
+         Optional<Vec3> exit = new AABB(viewBlock).clip(end, origin);
          if (exit.isEmpty()) {
             return null;
          }
 
-         class_243 start = exit.get().method_1019(direction.method_1021(0.001));
-         context = new class_3959(start, end, class_3960.field_17559, fluids, player);
+         Vec3 start = exit.get().add(direction.scale(0.001));
+         context = new ClipContext(start, end, Block.OUTLINE, fluids, player);
       }
 
-      class_3965 hit = level.method_17742(context);
-      return hit.method_17783() == class_240.field_1332 ? hit.method_17777() : null;
+      BlockHitResult hit = level.clip(context);
+      return hit.getType() == Type.BLOCK ? hit.getBlockPos() : null;
    }
 
-   private static boolean startsInside(class_3959 context, class_638 level, class_2338 pos, class_243 point) {
-      return contains(context.method_17748(level.method_8320(pos), level, pos), pos, point)
-         || contains(context.method_17749(level.method_8316(pos), level, pos), pos, point);
+   private static boolean startsInside(ClipContext context, ClientLevel level, BlockPos pos, Vec3 point) {
+      return contains(context.getBlockShape(level.getBlockState(pos), level, pos), pos, point)
+         || contains(context.getFluidShape(level.getFluidState(pos), level, pos), pos, point);
    }
 
-   private static boolean contains(class_265 shape, class_2338 pos, class_243 point) {
-      for (class_238 box : shape.method_1090()) {
-         if (box.method_996(pos).method_1006(point)) {
+   private static boolean contains(VoxelShape shape, BlockPos pos, Vec3 point) {
+      for (AABB box : shape.toAabbs()) {
+         if (box.move(pos).contains(point)) {
             return true;
          }
       }
@@ -235,32 +235,32 @@ public final class CoordSnapperModule extends ClientModule {
       return false;
    }
 
-   private String formatCoords(class_2338 pos, class_5321<class_1937> dimension) {
-      int x = pos.method_10263();
-      int y = pos.method_10264();
-      int z = pos.method_10260();
+   private String formatCoords(BlockPos pos, ResourceKey<Level> dimension) {
+      int x = pos.getX();
+      int y = pos.getY();
+      int z = pos.getZ();
       boolean withDimension = this.includeDimension.get();
 
       return switch (this.format.get()) {
          case "/tp Command" -> withDimension
-            ? String.format(Locale.ROOT, "/execute in %s run tp @s %d %d %d", dimension.method_29177(), x, y, z)
+            ? String.format(Locale.ROOT, "/execute in %s run tp @s %d %d %d", dimension.identifier(), x, y, z)
             : String.format(Locale.ROOT, "/tp %d %d %d", x, y, z);
          case "X, Y, Z" -> String.format(Locale.ROOT, "%d, %d, %d", x, y, z) + dimensionSuffix(dimension, withDimension);
          default -> String.format(Locale.ROOT, "%d %d %d", x, y, z) + dimensionSuffix(dimension, withDimension);
       };
    }
 
-   private static String dimensionSuffix(class_5321<class_1937> dimension, boolean enabled) {
+   private static String dimensionSuffix(ResourceKey<Level> dimension, boolean enabled) {
       return enabled ? " (" + dimensionName(dimension) + ")" : "";
    }
 
-   private static String dimensionName(class_5321<class_1937> dimension) {
-      if (class_1937.field_25179.equals(dimension)) {
+   private static String dimensionName(ResourceKey<Level> dimension) {
+      if (Level.OVERWORLD.equals(dimension)) {
          return "Overworld";
-      } else if (class_1937.field_25180.equals(dimension)) {
+      } else if (Level.NETHER.equals(dimension)) {
          return "Nether";
       } else {
-         return class_1937.field_25181.equals(dimension) ? "End" : dimension.method_29177().toString();
+         return Level.END.equals(dimension) ? "End" : dimension.identifier().toString();
       }
    }
 

@@ -21,17 +21,17 @@ import net.champ.client.util.StableTopK;
 import net.champ.client.util.TracerEngine;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12179;
-import net.minecraft.class_12180;
-import net.minecraft.class_1297;
-import net.minecraft.class_1308;
-import net.minecraft.class_1309;
-import net.minecraft.class_1569;
-import net.minecraft.class_1657;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_638;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 
 @Environment(EnvType.CLIENT)
 public final class EspModule extends ClientModule {
@@ -59,11 +59,11 @@ public final class EspModule extends ClientModule {
    private final ColorSetting sAnimalColor = this.addSetting("animal-color", new ColorSetting("Passive Color", -13577896));
    private final NumberSetting sFillAlpha = this.addSetting("fill-alpha", new NumberSetting("Fill Alpha", 0.3F, 0.0F, 1.0F).step(0.05F));
    private final NumberSetting sLineWidth = this.addSetting("line-width", new NumberSetting("Line Width", 1.5F, 0.5F, 5.0F).step(0.5F));
-   private final Map<class_1297, Integer> glowing = new IdentityHashMap<>();
+   private final Map<Entity, Integer> glowing = new IdentityHashMap<>();
    private final StableTopK<EspModule.Target> mobileTargets = new StableTopK<>(PRIORITY);
-   private final Map<Integer, class_12179> mobileStyles = new HashMap<>();
+   private final Map<Integer, GizmoStyle> mobileStyles = new HashMap<>();
    private long glowFrame = -1L;
-   private class_638 glowLevel;
+   private ClientLevel glowLevel;
 
    public EspModule() {
       super("esp", "ESP", "Highlights players, hostile and passive mobs with outlines, boxes and tracers.", ModuleCategory.VISUALS);
@@ -85,18 +85,18 @@ public final class EspModule extends ClientModule {
       this.resetGlow();
    }
 
-   public static boolean shouldGlow(class_1297 entity) {
+   public static boolean shouldGlow(Entity entity) {
       EspModule module = instance;
       return module != null && module.isEnabled() && module.sShape.is("Glow") ? module.glowing().containsKey(entity) : false;
    }
 
-   public static int glowColor(class_1297 entity) {
+   public static int glowColor(Entity entity) {
       EspModule module = instance;
       Integer color = module == null ? null : module.glowing().get(entity);
       return (color == null ? 16777215 : color) & 16777215;
    }
 
-   private Map<class_1297, Integer> glowing() {
+   private Map<Entity, Integer> glowing() {
       long frame = Render3DEvent.frame();
       if (frame != this.glowFrame) {
          this.glowFrame = frame;
@@ -112,7 +112,7 @@ public final class EspModule extends ClientModule {
 
    @EventHandler
    public void onTick(TickEvent event) {
-      class_638 level = class_310.method_1551().field_1687;
+      ClientLevel level = Minecraft.getInstance().level;
       if (level != this.glowLevel || !this.sShape.is("Glow")) {
          this.resetGlow();
       }
@@ -143,38 +143,38 @@ public final class EspModule extends ClientModule {
 
          for (EspModule.Target target : this.targets(event.partialTick)) {
             int color = this.colorFor(target);
-            class_238 bounds = mobile ? interpolatedBox(target.entity(), target.interpolated()) : interpolatedBox(target.entity(), event.partialTick);
+            AABB bounds = mobile ? interpolatedBox(target.entity(), target.interpolated()) : interpolatedBox(target.entity(), event.partialTick);
             if (box) {
                int fill = color & 16777215 | fillAlpha << 24;
-               class_12179 style = mobile ? this.mobileStyles.get(color) : null;
+               GizmoStyle style = mobile ? this.mobileStyles.get(color) : null;
                if (style == null) {
                   style = switch (shape) {
-                     case "Fill" -> class_12179.method_75539(fill);
-                     case "Both" -> class_12179.method_75537(color, lineWidth, fill);
-                     default -> class_12179.method_75536(color, lineWidth);
+                     case "Fill" -> GizmoStyle.fill(fill);
+                     case "Both" -> GizmoStyle.strokeAndFill(color, lineWidth, fill);
+                     default -> GizmoStyle.stroke(color, lineWidth);
                   };
                   if (mobile) {
                      this.mobileStyles.put(color, style);
                   }
                }
 
-               class_12180.method_75541(bounds, style).method_75533();
+               Gizmos.cuboid(bounds, style).setAlwaysOnTop();
             }
 
             if (tracers) {
-               TracerEngine.draw(bounds.method_1005(), this.sCustomTracerColor.get() ? this.sTracerColor.argb() : color);
+               TracerEngine.draw(bounds.getCenter(), this.sCustomTracerColor.get() ? this.sTracerColor.argb() : color);
             }
          }
       }
    }
 
    private List<EspModule.Target> targets(float partialTick) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 != null && mc.field_1724 != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level != null && mc.player != null) {
          int max = Math.max(1, Math.min(96, this.sMaxEntities.getInt()));
          float range = Math.max(1.0F, this.sRange.get());
          double rangeSq = (double)range * range;
-         class_243 eye = mc.field_1724.method_5836(partialTick);
+         Vec3 eye = mc.player.getEyePosition(partialTick);
          boolean mobile = MobilePerformance.active();
          if (mobile) {
             this.mobileTargets.reset(max);
@@ -182,15 +182,15 @@ public final class EspModule extends ClientModule {
 
          List<EspModule.Target> result = mobile ? null : new ArrayList<>();
 
-         for (class_1297 entity : mc.field_1687.method_18112()) {
+         for (Entity entity : mc.level.entitiesForRendering()) {
             EspModule.Group group = groupOf(entity);
             if (group != null
                && this.shown(group)
-               && (entity != mc.field_1724 || !this.sIgnoreSelf.get())
+               && (entity != mc.player || !this.sIgnoreSelf.get())
                && !isGone(entity)
-               && !(entity instanceof class_1657 player && player.method_7325())) {
-               class_243 interpolated = entity.method_30950(partialTick);
-               double distanceSq = interpolated.method_1025(eye);
+               && !(entity instanceof Player player && player.isSpectator())) {
+               Vec3 interpolated = entity.getPosition(partialTick);
+               double distanceSq = interpolated.distanceToSqr(eye);
                if (!(distanceSq > rangeSq)) {
                   EspModule.Target target = new EspModule.Target(entity, group, distanceSq, mobile ? interpolated : null);
                   if (mobile) {
@@ -217,17 +217,17 @@ public final class EspModule extends ClientModule {
       }
    }
 
-   private static boolean isGone(class_1297 entity) {
-      return entity.method_31481() || entity instanceof class_1309 living && living.method_29504();
+   private static boolean isGone(Entity entity) {
+      return entity.isRemoved() || entity instanceof LivingEntity living && living.isDeadOrDying();
    }
 
-   private static EspModule.Group groupOf(class_1297 entity) {
-      if (entity instanceof class_1657) {
+   private static EspModule.Group groupOf(Entity entity) {
+      if (entity instanceof Player) {
          return EspModule.Group.PLAYER;
-      } else if (entity instanceof class_1569) {
+      } else if (entity instanceof Enemy) {
          return EspModule.Group.HOSTILE;
       } else {
-         return entity instanceof class_1308 ? EspModule.Group.PASSIVE : null;
+         return entity instanceof Mob ? EspModule.Group.PASSIVE : null;
       }
    }
 
@@ -242,7 +242,7 @@ public final class EspModule extends ClientModule {
    private int colorFor(EspModule.Target target) {
       return switch (target.group()) {
          case PLAYER -> {
-            if (this.sFriends.get() && target.entity() instanceof class_1657 player && FriendStore.getInstance().isFriend(player.method_7334().name())) {
+            if (this.sFriends.get() && target.entity() instanceof Player player && FriendStore.getInstance().isFriend(player.getGameProfile().name())) {
                yield this.sFriendColor.argb();
             }
 
@@ -253,17 +253,17 @@ public final class EspModule extends ClientModule {
       };
    }
 
-   private static class_238 interpolatedBox(class_1297 entity, float partialTick) {
-      class_243 current = entity.method_73189();
-      class_243 interpolated = entity.method_30950(partialTick);
-      return entity.method_5829()
-         .method_989(interpolated.field_1352 - current.field_1352, interpolated.field_1351 - current.field_1351, interpolated.field_1350 - current.field_1350);
+   private static AABB interpolatedBox(Entity entity, float partialTick) {
+      Vec3 current = entity.position();
+      Vec3 interpolated = entity.getPosition(partialTick);
+      return entity.getBoundingBox()
+         .move(interpolated.x - current.x, interpolated.y - current.y, interpolated.z - current.z);
    }
 
-   private static class_238 interpolatedBox(class_1297 entity, class_243 interpolated) {
-      class_243 current = entity.method_73189();
-      return entity.method_5829()
-         .method_989(interpolated.field_1352 - current.field_1352, interpolated.field_1351 - current.field_1351, interpolated.field_1350 - current.field_1350);
+   private static AABB interpolatedBox(Entity entity, Vec3 interpolated) {
+      Vec3 current = entity.position();
+      return entity.getBoundingBox()
+         .move(interpolated.x - current.x, interpolated.y - current.y, interpolated.z - current.z);
    }
 
    @Environment(EnvType.CLIENT)
@@ -274,6 +274,6 @@ public final class EspModule extends ClientModule {
    }
 
    @Environment(EnvType.CLIENT)
-   private record Target(class_1297 entity, EspModule.Group group, double distanceSq, class_243 interpolated) {
+   private record Target(Entity entity, EspModule.Group group, double distanceSq, Vec3 interpolated) {
    }
 }

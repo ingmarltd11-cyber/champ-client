@@ -33,52 +33,52 @@ import net.champ.client.util.ChunkOverlay;
 import net.champ.client.util.LevelUtil;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_156;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_1923;
-import net.minecraft.class_1944;
-import net.minecraft.class_2231;
-import net.minecraft.class_2246;
-import net.minecraft.class_2248;
-import net.minecraft.class_2269;
-import net.minecraft.class_2309;
-import net.minecraft.class_2312;
-import net.minecraft.class_2315;
-import net.minecraft.class_2338;
-import net.minecraft.class_2350;
-import net.minecraft.class_2377;
-import net.minecraft.class_2401;
-import net.minecraft.class_2426;
-import net.minecraft.class_2428;
-import net.minecraft.class_2436;
-import net.minecraft.class_2453;
-import net.minecraft.class_2457;
-import net.minecraft.class_2459;
-import net.minecraft.class_2537;
-import net.minecraft.class_2561;
-import net.minecraft.class_2665;
-import net.minecraft.class_2667;
-import net.minecraft.class_2671;
-import net.minecraft.class_2672;
-import net.minecraft.class_2676;
-import net.minecraft.class_2678;
-import net.minecraft.class_2680;
-import net.minecraft.class_2804;
-import net.minecraft.class_2806;
-import net.minecraft.class_2818;
-import net.minecraft.class_2826;
-import net.minecraft.class_310;
-import net.minecraft.class_3562;
-import net.minecraft.class_4076;
-import net.minecraft.class_4850;
-import net.minecraft.class_5803;
-import net.minecraft.class_631;
-import net.minecraft.class_638;
-import net.minecraft.class_6606;
-import net.minecraft.class_8886;
-import net.minecraft.class_9848;
-import net.minecraft.class_2338.class_2339;
+import net.minecraft.util.Util;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.LightLayer;
+import net.minecraft.world.level.block.BasePressurePlateBlock;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.ButtonBlock;
+import net.minecraft.world.level.block.DaylightDetectorBlock;
+import net.minecraft.world.level.block.DiodeBlock;
+import net.minecraft.world.level.block.DispenserBlock;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.HopperBlock;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.ObserverBlock;
+import net.minecraft.world.level.block.NoteBlock;
+import net.minecraft.world.level.block.PoweredBlock;
+import net.minecraft.world.level.block.RedstoneLampBlock;
+import net.minecraft.world.level.block.RedStoneWireBlock;
+import net.minecraft.world.level.block.RedstoneTorchBlock;
+import net.minecraft.world.level.block.TripWireHookBlock;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.block.piston.PistonBaseBlock;
+import net.minecraft.world.level.block.piston.MovingPistonBlock;
+import net.minecraft.world.level.block.piston.PistonHeadBlock;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
+import net.minecraft.network.protocol.game.ClientboundLightUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundLoginPacket;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.DataLayer;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.lighting.LayerLightEventListener;
+import net.minecraft.core.SectionPos;
+import net.minecraft.world.level.block.TargetBlock;
+import net.minecraft.world.level.block.CaveVines;
+import net.minecraft.client.multiplayer.ClientChunkCache;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.network.protocol.game.ClientboundLightUpdatePacketData;
+import net.minecraft.world.level.block.CrafterBlock;
+import net.minecraft.util.ARGB;
+import net.minecraft.core.BlockPos.MutableBlockPos;
 
 @Environment(EnvType.CLIENT)
 public final class PrimeChunkFinderModule extends ClientModule {
@@ -110,7 +110,7 @@ public final class PrimeChunkFinderModule extends ClientModule {
    private final Long2ObjectOpenHashMap<long[]> oreSections = new Long2ObjectOpenHashMap();
    private final Long2ObjectOpenHashMap<int[]> lampSections = new Long2ObjectOpenHashMap();
    private final Long2LongOpenHashMap goneLamps = new Long2LongOpenHashMap();
-   private final class_2339 cursor = new class_2339();
+   private final MutableBlockPos cursor = new MutableBlockPos();
    private final Long2LongOpenHashMap redstoneNotified = new Long2LongOpenHashMap();
 
    public PrimeChunkFinderModule() {
@@ -138,28 +138,28 @@ public final class PrimeChunkFinderModule extends ClientModule {
    }
 
    private void onPacket(PacketReceiveNettyEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (event.packet instanceof class_2678) {
+      Minecraft mc = Minecraft.getInstance();
+      if (event.packet instanceof ClientboundLoginPacket) {
          mc.execute(() -> {
             if (this.isEnabled()) {
                this.reset();
             }
          });
-      } else if (event.packet instanceof class_2672 packet) {
-         int chunkX = packet.method_11523();
-         int chunkZ = packet.method_11524();
-         class_6606 data = packet.method_38599();
+      } else if (event.packet instanceof ClientboundLevelChunkWithLightPacket packet) {
+         int chunkX = packet.getX();
+         int chunkZ = packet.getZ();
+         ClientboundLightUpdatePacketData data = packet.getLightData();
          mc.execute(() -> {
-            if (this.isEnabled() && mc.field_1687 != null) {
+            if (this.isEnabled() && mc.level != null) {
                this.baselineChunk(chunkX, chunkZ, data);
             }
          });
-      } else if (event.packet instanceof class_2676 packet) {
-         int chunkX = packet.method_11558();
-         int chunkZ = packet.method_11554();
-         class_6606 data = packet.method_38600();
+      } else if (event.packet instanceof ClientboundLightUpdatePacket packet) {
+         int chunkX = packet.getX();
+         int chunkZ = packet.getZ();
+         ClientboundLightUpdatePacketData data = packet.getLightData();
          mc.execute(() -> {
-            if (this.isEnabled() && mc.field_1687 != null) {
+            if (this.isEnabled() && mc.level != null) {
                this.detectChanges(chunkX, chunkZ, data);
             }
          });
@@ -168,7 +168,7 @@ public final class PrimeChunkFinderModule extends ClientModule {
 
    @EventHandler
    public void onBlockUpdate(BlockUpdateEvent event) {
-      if (event.oldState != event.newState && class_310.method_1551().field_1687 != null) {
+      if (event.oldState != event.newState && Minecraft.getInstance().level != null) {
          this.rememberGoneLamp(event.pos, event.oldState, event.newState);
          this.detectRedstone(event.pos, event.oldState, event.newState);
       }
@@ -176,26 +176,26 @@ public final class PrimeChunkFinderModule extends ClientModule {
 
    @EventHandler(stage = Stage.POST)
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 == null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level == null) {
          this.reset();
       } else {
-         if (mc.field_1724 != null && mc.field_1724.method_23318() < 0.0) {
-            this.passedChunks.add(mc.field_1724.method_31476().method_8324());
+         if (mc.player != null && mc.player.getY() < 0.0) {
+            this.passedChunks.add(mc.player.chunkPosition().toLong());
          }
 
          this.forgetOldLamps();
-         this.refreshShown(mc.field_1687);
+         this.refreshShown(mc.level);
       }
    }
 
-   private void refreshShown(class_638 level) {
+   private void refreshShown(ClientLevel level) {
       this.shownChunks.clear();
       LongListIterator var2 = this.flaggedChunks.iterator();
 
       while (var2.hasNext()) {
          long key = (Long)var2.next();
-         if (LevelUtil.isLoaded(level, class_1923.method_8325(key), class_1923.method_8332(key))) {
+         if (LevelUtil.isLoaded(level, ChunkPos.getX(key), ChunkPos.getZ(key))) {
             this.shownChunks.add(key);
          }
       }
@@ -203,11 +203,11 @@ public final class PrimeChunkFinderModule extends ClientModule {
 
    @EventHandler
    public void onRender3D(Render3DEvent event) {
-      if (!this.shownChunks.isEmpty() && class_310.method_1551().field_1687 != null) {
+      if (!this.shownChunks.isEmpty() && Minecraft.getInstance().level != null) {
          int fill = this.chunkColor.argb();
          this.chunkOverlay.draw(this.shownChunks, fill, event.partialTick);
          if (this.tracers.get()) {
-            this.chunkAreas.drawTracers(this.shownChunks, 63.0, class_9848.method_61334(fill));
+            this.chunkAreas.drawTracers(this.shownChunks, 63.0, ARGB.opaque(fill));
          }
       }
    }
@@ -222,16 +222,16 @@ public final class PrimeChunkFinderModule extends ClientModule {
    }
 
    private void snapshotLoadedChunks() {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 != null && mc.field_1724 != null) {
-         int centerX = mc.field_1724.method_31477() >> 4;
-         int centerZ = mc.field_1724.method_31479() >> 4;
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level != null && mc.player != null) {
+         int centerX = mc.player.getBlockX() >> 4;
+         int centerZ = mc.player.getBlockZ() >> 4;
 
          for (int chunkX = centerX - 32; chunkX <= centerX + 32; chunkX++) {
             for (int chunkZ = centerZ - 32; chunkZ <= centerZ + 32; chunkZ++) {
                Map<Integer, byte[]> sections = this.snapshotChunk(chunkX, chunkZ);
                if (sections != null) {
-                  this.chunkLight.put(class_1923.method_8331(chunkX, chunkZ), sections);
+                  this.chunkLight.put(ChunkPos.asLong(chunkX, chunkZ), sections);
                }
             }
          }
@@ -241,39 +241,39 @@ public final class PrimeChunkFinderModule extends ClientModule {
    }
 
    private Map<Integer, byte[]> snapshotChunk(int chunkX, int chunkZ) {
-      class_638 level = class_310.method_1551().field_1687;
+      ClientLevel level = Minecraft.getInstance().level;
       if (level == null) {
          return null;
       }
 
-      class_631 chunkSource = level.method_2935();
-      if (!chunkSource.method_12123(chunkX, chunkZ)) {
+      ClientChunkCache chunkSource = level.getChunkSource();
+      if (!chunkSource.hasChunk(chunkX, chunkZ)) {
          return null;
       }
 
-      class_3562 blockLight = chunkSource.method_12130().method_15562(class_1944.field_9282);
+      LayerLightEventListener blockLight = chunkSource.getLightEngine().getLayerListener(LightLayer.BLOCK);
       Map<Integer, byte[]> sections = this.createZeroedChunk();
 
       for (int sectionY = this.bottomSection(); sectionY <= this.topSection(); sectionY++) {
-         class_2804 layer = blockLight.method_15544(class_4076.method_18676(chunkX, sectionY, chunkZ));
-         if (layer != null && !layer.method_51379(0)) {
-            sections.put(sectionY, Arrays.copyOf(layer.method_12137(), 2048));
+         DataLayer layer = blockLight.getDataLayerData(SectionPos.of(chunkX, sectionY, chunkZ));
+         if (layer != null && !layer.isDefinitelyFilledWith(0)) {
+            sections.put(sectionY, Arrays.copyOf(layer.getData(), 2048));
          }
       }
 
       return sections;
    }
 
-   private void baselineChunk(int chunkX, int chunkZ, class_6606 data) {
+   private void baselineChunk(int chunkX, int chunkZ, ClientboundLightUpdatePacketData data) {
       Map<Integer, byte[]> sections = this.createZeroedChunk();
       this.applyInitializedSections(data, sections, chunkX, chunkZ, false, null);
       this.applyUninitializedSections(data, sections, chunkX, chunkZ, false, null);
-      this.chunkLight.put(class_1923.method_8331(chunkX, chunkZ), sections);
+      this.chunkLight.put(ChunkPos.asLong(chunkX, chunkZ), sections);
       this.trimChunkCache();
    }
 
-   private void detectChanges(int chunkX, int chunkZ, class_6606 data) {
-      long key = class_1923.method_8331(chunkX, chunkZ);
+   private void detectChanges(int chunkX, int chunkZ, ClientboundLightUpdatePacketData data) {
+      long key = ChunkPos.asLong(chunkX, chunkZ);
       this.checkedSections.clear();
       this.amethystSections.clear();
       this.oreSections.clear();
@@ -297,24 +297,24 @@ public final class PrimeChunkFinderModule extends ClientModule {
          this.flagChunk(key);
          if (this.notificationsOn()) {
             ChallengeToast.addOrUpdate(
-               new class_1799(class_1802.field_8733), this.name(), class_2561.method_43470(summary.x + ", " + summary.y + ", " + summary.z), this.sound.get()
+               new ItemStack(Items.EMERALD_BLOCK), this.name(), Component.literal(summary.x + ", " + summary.y + ", " + summary.z), this.sound.get()
             );
          }
       }
    }
 
-   private void rememberGoneLamp(class_2338 pos, class_2680 previous, class_2680 state) {
+   private void rememberGoneLamp(BlockPos pos, BlockState previous, BlockState state) {
       if (isLamp(previous)) {
-         int light = previous.method_26213();
-         if (!isLamp(state) || state.method_26213() < light) {
-            this.goneLamps.put(pos.method_10063(), class_156.method_658() + 5000L << 4 | light);
+         int light = previous.getLightEmission();
+         if (!isLamp(state) || state.getLightEmission() < light) {
+            this.goneLamps.put(pos.asLong(), Util.getMillis() + 5000L << 4 | light);
          }
       }
    }
 
    private void forgetOldLamps() {
       if (!this.goneLamps.isEmpty()) {
-         long now = class_156.method_658();
+         long now = Util.getMillis();
          LongIterator it = this.goneLamps.values().iterator();
 
          while (it.hasNext()) {
@@ -325,18 +325,18 @@ public final class PrimeChunkFinderModule extends ClientModule {
       }
    }
 
-   private void detectRedstone(class_2338 pos, class_2680 previous, class_2680 state) {
-      if (!(pos.method_10264() >= 0.0) && (isRedstone(state) || isRedstone(previous))) {
-         long key = class_1923.method_8331(pos.method_10263() >> 4, pos.method_10260() >> 4);
+   private void detectRedstone(BlockPos pos, BlockState previous, BlockState state) {
+      if (!(pos.getY() >= 0.0) && (isRedstone(state) || isRedstone(previous))) {
+         long key = ChunkPos.asLong(pos.getX() >> 4, pos.getZ() >> 4);
          if (!this.isOwnChunk(key)) {
             this.flagChunk(key);
-            long now = class_156.method_658();
+            long now = Util.getMillis();
             if (this.notificationsOn() && now - this.redstoneNotified.get(key) >= 15000L) {
                this.redstoneNotified.put(key, now);
                ChallengeToast.addOrUpdate(
-                  new class_1799(class_1802.field_8725),
+                  new ItemStack(Items.REDSTONE),
                   this.name(),
-                  class_2561.method_43470("Redstone " + pos.method_10263() + ", " + pos.method_10264() + ", " + pos.method_10260()),
+                  Component.literal("Redstone " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ()),
                   this.sound.get()
                );
             }
@@ -344,27 +344,27 @@ public final class PrimeChunkFinderModule extends ClientModule {
       }
    }
 
-   private static boolean isRedstone(class_2680 state) {
-      class_2248 block = state.method_26204();
-      return block instanceof class_2457
-         || block instanceof class_2312
-         || block instanceof class_2459
-         || block instanceof class_2453
-         || block instanceof class_2426
-         || block instanceof class_2665
-         || block instanceof class_2671
-         || block instanceof class_2667
-         || block instanceof class_2315
-         || block instanceof class_2377
-         || block instanceof class_2428
-         || block instanceof class_2309
-         || block instanceof class_2401
-         || block instanceof class_2269
-         || block instanceof class_2231
-         || block instanceof class_2537
-         || block instanceof class_4850
-         || block instanceof class_8886
-         || block instanceof class_2436;
+   private static boolean isRedstone(BlockState state) {
+      Block block = state.getBlock();
+      return block instanceof RedStoneWireBlock
+         || block instanceof DiodeBlock
+         || block instanceof RedstoneTorchBlock
+         || block instanceof RedstoneLampBlock
+         || block instanceof ObserverBlock
+         || block instanceof PistonBaseBlock
+         || block instanceof PistonHeadBlock
+         || block instanceof MovingPistonBlock
+         || block instanceof DispenserBlock
+         || block instanceof HopperBlock
+         || block instanceof NoteBlock
+         || block instanceof DaylightDetectorBlock
+         || block instanceof LeverBlock
+         || block instanceof ButtonBlock
+         || block instanceof BasePressurePlateBlock
+         || block instanceof TripWireHookBlock
+         || block instanceof TargetBlock
+         || block instanceof CrafterBlock
+         || block instanceof PoweredBlock;
    }
 
    private boolean isOwnChunk(long key) {
@@ -372,15 +372,15 @@ public final class PrimeChunkFinderModule extends ClientModule {
          return true;
       }
 
-      class_310 mc = class_310.method_1551();
-      return mc.field_1724 != null && mc.field_1724.method_31476().method_8324() == key;
+      Minecraft mc = Minecraft.getInstance();
+      return mc.player != null && mc.player.chunkPosition().toLong() == key;
    }
 
    private void applyInitializedSections(
-      class_6606 data, Map<Integer, byte[]> sections, int chunkX, int chunkZ, boolean compare, PrimeChunkFinderModule.ChangeSummary summary
+      ClientboundLightUpdatePacketData data, Map<Integer, byte[]> sections, int chunkX, int chunkZ, boolean compare, PrimeChunkFinderModule.ChangeSummary summary
    ) {
-      BitSet mask = data.method_38608();
-      List<byte[]> updates = data.method_38610();
+      BitSet mask = data.getBlockYMask();
+      List<byte[]> updates = data.getBlockUpdates();
       int next = 0;
 
       for (int bit = mask.nextSetBit(0); bit >= 0 && next < updates.size(); bit = mask.nextSetBit(bit + 1)) {
@@ -393,9 +393,9 @@ public final class PrimeChunkFinderModule extends ClientModule {
    }
 
    private void applyUninitializedSections(
-      class_6606 data, Map<Integer, byte[]> sections, int chunkX, int chunkZ, boolean compare, PrimeChunkFinderModule.ChangeSummary summary
+      ClientboundLightUpdatePacketData data, Map<Integer, byte[]> sections, int chunkX, int chunkZ, boolean compare, PrimeChunkFinderModule.ChangeSummary summary
    ) {
-      BitSet empty = data.method_38609();
+      BitSet empty = data.getEmptyBlockYMask();
 
       for (int bit = empty.nextSetBit(0); bit >= 0; bit = empty.nextSetBit(bit + 1)) {
          int sectionY = this.lightSectionY(bit);
@@ -446,7 +446,7 @@ public final class PrimeChunkFinderModule extends ClientModule {
          return false;
       }
 
-      class_638 level = class_310.method_1551().field_1687;
+      ClientLevel level = Minecraft.getInstance().level;
       if (level == null) {
          return false;
       }
@@ -469,7 +469,7 @@ public final class PrimeChunkFinderModule extends ClientModule {
          }
       }
 
-      long now = class_156.method_658();
+      long now = Util.getMillis();
       ObjectIterator var19 = this.goneLamps.long2LongEntrySet().iterator();
 
       while (var19.hasNext()) {
@@ -477,7 +477,7 @@ public final class PrimeChunkFinderModule extends ClientModule {
          long packed = gone.getLongValue();
          if (packed >>> 4 >= now) {
             long pos = gone.getLongKey();
-            int distance = Math.abs(class_2338.method_10061(pos) - x) + Math.abs(class_2338.method_10071(pos) - y) + Math.abs(class_2338.method_10083(pos) - z);
+            int distance = Math.abs(BlockPos.getX(pos) - x) + Math.abs(BlockPos.getY(pos) - y) + Math.abs(BlockPos.getZ(pos) - z);
             if (distance <= (int)(packed & 15L) - value) {
                return true;
             }
@@ -487,8 +487,8 @@ public final class PrimeChunkFinderModule extends ClientModule {
       return false;
    }
 
-   private int[] lamps(class_638 level, int sectionX, int sectionY, int sectionZ) {
-      long key = class_4076.method_18685(sectionX, sectionY, sectionZ);
+   private int[] lamps(ClientLevel level, int sectionX, int sectionY, int sectionZ) {
+      long key = SectionPos.asLong(sectionX, sectionY, sectionZ);
       int[] cached = (int[])this.lampSections.get(key);
       if (cached != null) {
          return cached;
@@ -499,21 +499,21 @@ public final class PrimeChunkFinderModule extends ClientModule {
       return found;
    }
 
-   private static int[] scanLamps(class_638 level, int sectionX, int sectionY, int sectionZ) {
-      if (sectionY >= level.method_32891() && sectionY <= level.method_31597()) {
-         class_2818 chunk = level.method_2935().method_2857(sectionX, sectionZ, class_2806.field_12803, false);
+   private static int[] scanLamps(ClientLevel level, int sectionX, int sectionY, int sectionZ) {
+      if (sectionY >= level.getMinSectionY() && sectionY <= level.getMaxSectionY()) {
+         LevelChunk chunk = level.getChunkSource().getChunk(sectionX, sectionZ, ChunkStatus.FULL, false);
          if (chunk == null) {
             return NO_LAMPS;
          }
 
-         class_2826 section = chunk.method_38259(chunk.method_31603(sectionY));
-         if (!section.method_38292() && section.method_12265().method_19526(PrimeChunkFinderModule::isLamp)) {
+         LevelChunkSection section = chunk.getSection(chunk.getSectionIndexFromSectionY(sectionY));
+         if (!section.hasOnlyAir() && section.getStates().maybeHas(PrimeChunkFinderModule::isLamp)) {
             IntArrayList lamps = new IntArrayList();
 
             for (int index = 0; index < 4096; index++) {
-               class_2680 state = section.method_12254(index & 15, index >>> 8, index >>> 4 & 15);
+               BlockState state = section.getBlockState(index & 15, index >>> 8, index >>> 4 & 15);
                if (isLamp(state)) {
-                  lamps.add(index << 4 | state.method_26213());
+                  lamps.add(index << 4 | state.getLightEmission());
                }
             }
 
@@ -526,14 +526,14 @@ public final class PrimeChunkFinderModule extends ClientModule {
       }
    }
 
-   private static boolean isLamp(class_2680 state) {
-      return state.method_27852(class_2246.field_10336)
-         || state.method_27852(class_2246.field_10099)
-         || state.method_27852(class_2246.field_22092)
-         || state.method_27852(class_2246.field_22093)
-         || state.method_27852(class_2246.field_61902)
-         || state.method_27852(class_2246.field_61903)
-         || class_5803.method_33618(state);
+   private static boolean isLamp(BlockState state) {
+      return state.is(Blocks.TORCH)
+         || state.is(Blocks.WALL_TORCH)
+         || state.is(Blocks.SOUL_TORCH)
+         || state.is(Blocks.SOUL_WALL_TORCH)
+         || state.is(Blocks.COPPER_TORCH)
+         || state.is(Blocks.COPPER_WALL_TORCH)
+         || CaveVines.hasGlowBerries(state);
    }
 
    private boolean fromAmethyst(int x, int y, int z, int oldValue, int newValue) {
@@ -541,7 +541,7 @@ public final class PrimeChunkFinderModule extends ClientModule {
          return false;
       }
 
-      class_638 level = class_310.method_1551().field_1687;
+      ClientLevel level = Minecraft.getInstance().level;
       if (level != null && this.amethystSectionNear(level, x, y, z)) {
          for (int dx = -5; dx <= 5; dx++) {
             int restX = 5 - Math.abs(dx);
@@ -550,7 +550,7 @@ public final class PrimeChunkFinderModule extends ClientModule {
                int restY = restX - Math.abs(dy);
 
                for (int dz = -restY; dz <= restY; dz++) {
-                  if (isAmethyst(level.method_8320(this.cursor.method_10103(x + dx, y + dy, z + dz)))) {
+                  if (isAmethyst(level.getBlockState(this.cursor.set(x + dx, y + dy, z + dz)))) {
                      return true;
                   }
                }
@@ -563,11 +563,11 @@ public final class PrimeChunkFinderModule extends ClientModule {
       }
    }
 
-   private boolean amethystSectionNear(class_638 level, int x, int y, int z) {
+   private boolean amethystSectionNear(ClientLevel level, int x, int y, int z) {
       for (int sx = x - 5 >> 4; sx <= x + 5 >> 4; sx++) {
          for (int sy = y - 5 >> 4; sy <= y + 5 >> 4; sy++) {
             for (int sz = z - 5 >> 4; sz <= z + 5 >> 4; sz++) {
-               long key = class_4076.method_18685(sx, sy, sz);
+               long key = SectionPos.asLong(sx, sy, sz);
                if (this.checkedSections.add(key) && sectionHasAmethyst(level, sx, sy, sz)) {
                   this.amethystSections.add(key);
                }
@@ -582,15 +582,15 @@ public final class PrimeChunkFinderModule extends ClientModule {
       return false;
    }
 
-   private static boolean sectionHasAmethyst(class_638 level, int sectionX, int sectionY, int sectionZ) {
-      if (sectionY >= level.method_32891() && sectionY <= level.method_31597()) {
-         class_2818 chunk = level.method_2935().method_2857(sectionX, sectionZ, class_2806.field_12803, false);
+   private static boolean sectionHasAmethyst(ClientLevel level, int sectionX, int sectionY, int sectionZ) {
+      if (sectionY >= level.getMinSectionY() && sectionY <= level.getMaxSectionY()) {
+         LevelChunk chunk = level.getChunkSource().getChunk(sectionX, sectionZ, ChunkStatus.FULL, false);
          if (chunk == null) {
             return false;
          }
 
-         class_2826 section = chunk.method_38259(chunk.method_31603(sectionY));
-         return !section.method_38292() && section.method_12265().method_19526(PrimeChunkFinderModule::isAmethyst);
+         LevelChunkSection section = chunk.getSection(chunk.getSectionIndexFromSectionY(sectionY));
+         return !section.hasOnlyAir() && section.getStates().maybeHas(PrimeChunkFinderModule::isAmethyst);
       } else {
          return false;
       }
@@ -601,7 +601,7 @@ public final class PrimeChunkFinderModule extends ClientModule {
          return false;
       }
 
-      class_638 level = class_310.method_1551().field_1687;
+      ClientLevel level = Minecraft.getInstance().level;
       if (level == null) {
          return false;
       }
@@ -612,9 +612,9 @@ public final class PrimeChunkFinderModule extends ClientModule {
          for (int sy = y - reach >> 4; sy <= y + reach >> 4; sy++) {
             for (int sz = z - reach >> 4; sz <= z + reach >> 4; sz++) {
                for (long ore : this.exposedOres(level, sx, sy, sz)) {
-                  int distance = Math.abs(class_2338.method_10061(ore) - x)
-                     + Math.abs(class_2338.method_10071(ore) - y)
-                     + Math.abs(class_2338.method_10083(ore) - z);
+                  int distance = Math.abs(BlockPos.getX(ore) - x)
+                     + Math.abs(BlockPos.getY(ore) - y)
+                     + Math.abs(BlockPos.getZ(ore) - z);
                   if (distance <= reach) {
                      return true;
                   }
@@ -626,8 +626,8 @@ public final class PrimeChunkFinderModule extends ClientModule {
       return false;
    }
 
-   private long[] exposedOres(class_638 level, int sectionX, int sectionY, int sectionZ) {
-      long key = class_4076.method_18685(sectionX, sectionY, sectionZ);
+   private long[] exposedOres(ClientLevel level, int sectionX, int sectionY, int sectionZ) {
+      long key = SectionPos.asLong(sectionX, sectionY, sectionZ);
       long[] cached = (long[])this.oreSections.get(key);
       if (cached != null) {
          return cached;
@@ -638,26 +638,26 @@ public final class PrimeChunkFinderModule extends ClientModule {
       return found;
    }
 
-   private long[] scanExposedOres(class_638 level, int sectionX, int sectionY, int sectionZ) {
-      if (sectionY >= level.method_32891() && sectionY <= level.method_31597()) {
-         class_2818 chunk = level.method_2935().method_2857(sectionX, sectionZ, class_2806.field_12803, false);
+   private long[] scanExposedOres(ClientLevel level, int sectionX, int sectionY, int sectionZ) {
+      if (sectionY >= level.getMinSectionY() && sectionY <= level.getMaxSectionY()) {
+         LevelChunk chunk = level.getChunkSource().getChunk(sectionX, sectionZ, ChunkStatus.FULL, false);
          if (chunk == null) {
             return NO_ORES;
          }
 
-         class_2826 section = chunk.method_38259(chunk.method_31603(sectionY));
-         if (!section.method_38292() && section.method_12265().method_19526(PrimeChunkFinderModule::isRedstoneOre)) {
+         LevelChunkSection section = chunk.getSection(chunk.getSectionIndexFromSectionY(sectionY));
+         if (!section.hasOnlyAir() && section.getStates().maybeHas(PrimeChunkFinderModule::isRedstoneOre)) {
             LongArrayList ores = new LongArrayList();
 
             for (int ly = 0; ly < 16; ly++) {
                for (int lz = 0; lz < 16; lz++) {
                   for (int lx = 0; lx < 16; lx++) {
-                     if (isRedstoneOre(section.method_12254(lx, ly, lz))) {
+                     if (isRedstoneOre(section.getBlockState(lx, ly, lz))) {
                         int wx = (sectionX << 4) + lx;
                         int wy = (sectionY << 4) + ly;
                         int wz = (sectionZ << 4) + lz;
                         if (this.exposed(level, wx, wy, wz)) {
-                           ores.add(class_2338.method_10064(wx, wy, wz));
+                           ores.add(BlockPos.asLong(wx, wy, wz));
                         }
                      }
                   }
@@ -673,12 +673,12 @@ public final class PrimeChunkFinderModule extends ClientModule {
       }
    }
 
-   private boolean exposed(class_638 level, int x, int y, int z) {
-      for (class_2350 direction : class_2350.values()) {
-         class_2680 neighbour = level.method_8320(
-            this.cursor.method_10103(x + direction.method_10148(), y + direction.method_10164(), z + direction.method_10165())
+   private boolean exposed(ClientLevel level, int x, int y, int z) {
+      for (Direction direction : Direction.values()) {
+         BlockState neighbour = level.getBlockState(
+            this.cursor.set(x + direction.getStepX(), y + direction.getStepY(), z + direction.getStepZ())
          );
-         if (neighbour.method_26215() || !neighbour.method_26225()) {
+         if (neighbour.isAir() || !neighbour.canOcclude()) {
             return true;
          }
       }
@@ -686,17 +686,17 @@ public final class PrimeChunkFinderModule extends ClientModule {
       return false;
    }
 
-   private static boolean isRedstoneOre(class_2680 state) {
-      return state.method_27852(class_2246.field_10080) || state.method_27852(class_2246.field_29030);
+   private static boolean isRedstoneOre(BlockState state) {
+      return state.is(Blocks.REDSTONE_ORE) || state.is(Blocks.DEEPSLATE_REDSTONE_ORE);
    }
 
-   private static boolean isAmethyst(class_2680 state) {
-      return state.method_27852(class_2246.field_27161)
-         || state.method_27852(class_2246.field_27162)
-         || state.method_27852(class_2246.field_27163)
-         || state.method_27852(class_2246.field_27164)
-         || state.method_27852(class_2246.field_27160)
-         || state.method_27852(class_2246.field_27159);
+   private static boolean isAmethyst(BlockState state) {
+      return state.is(Blocks.AMETHYST_CLUSTER)
+         || state.is(Blocks.LARGE_AMETHYST_BUD)
+         || state.is(Blocks.MEDIUM_AMETHYST_BUD)
+         || state.is(Blocks.SMALL_AMETHYST_BUD)
+         || state.is(Blocks.BUDDING_AMETHYST)
+         || state.is(Blocks.AMETHYST_BLOCK);
    }
 
    private Map<Integer, byte[]> createZeroedChunk() {
@@ -710,16 +710,16 @@ public final class PrimeChunkFinderModule extends ClientModule {
    }
 
    private int lightSectionY(int index) {
-      class_638 level = class_310.method_1551().field_1687;
-      return level == null ? Integer.MIN_VALUE : level.method_2935().method_12130().method_31929() + index;
+      ClientLevel level = Minecraft.getInstance().level;
+      return level == null ? Integer.MIN_VALUE : level.getChunkSource().getLightEngine().getMinLightSection() + index;
    }
 
    private int bottomSection() {
-      return class_310.method_1551().field_1687.method_32891();
+      return Minecraft.getInstance().level.getMinSectionY();
    }
 
    private int topSection() {
-      return class_310.method_1551().field_1687.method_31597();
+      return Minecraft.getInstance().level.getMaxSectionY();
    }
 
    private boolean isWorldSection(int sectionY) {

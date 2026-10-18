@@ -5,22 +5,22 @@ import java.util.Arrays;
 import java.util.List;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_1301;
-import net.minecraft.class_1937;
-import net.minecraft.class_2350;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_3486;
-import net.minecraft.class_3532;
-import net.minecraft.class_3610;
-import net.minecraft.class_3726;
-import net.minecraft.class_3959;
-import net.minecraft.class_3965;
-import net.minecraft.class_2338.class_2339;
-import net.minecraft.class_239.class_240;
-import net.minecraft.class_3959.class_242;
-import net.minecraft.class_3959.class_3960;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySelector;
+import net.minecraft.world.level.Level;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos.MutableBlockPos;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.level.ClipContext.Block;
 
 @Environment(EnvType.CLIENT)
 public final class Ballistics {
@@ -71,8 +71,8 @@ public final class Ballistics {
       private int ticks;
       private double length;
       private Ballistics.Outcome outcome = Ballistics.Outcome.OPEN;
-      private class_2350 face = class_2350.field_11036;
-      private class_1297 struck;
+      private Direction face = Direction.UP;
+      private Entity struck;
       private Ballistics.Body body = Ballistics.Body.ARROW;
       private double px;
       private double py;
@@ -86,23 +86,23 @@ public final class Ballistics {
       private boolean wet;
       private int age;
       private int lifetime = 240;
-      private class_1297 shooter;
-      private class_1297 self;
+      private Entity shooter;
+      private Entity self;
       private boolean leftShooter;
-      private class_1297 shooterRoot;
-      private final List<class_238> shooterBoxes = new ArrayList<>();
-      private final class_2339 cursor = new class_2339();
+      private Entity shooterRoot;
+      private final List<AABB> shooterBoxes = new ArrayList<>();
+      private final MutableBlockPos cursor = new MutableBlockPos();
       private double near;
       private double far;
 
-      public Ballistics.Flight launch(Ballistics.Body body, class_243 from, class_243 motion) {
+      public Ballistics.Flight launch(Ballistics.Body body, Vec3 from, Vec3 motion) {
          this.body = body;
-         this.px = from.field_1352;
-         this.py = from.field_1351;
-         this.pz = from.field_1350;
-         this.vx = motion.field_1352;
-         this.vy = motion.field_1351;
-         this.vz = motion.field_1350;
+         this.px = from.x;
+         this.py = from.y;
+         this.pz = from.z;
+         this.vx = motion.x;
+         this.vy = motion.y;
+         this.vz = motion.z;
          this.gravity = body.gravity;
          this.width = body.size;
          this.height = body.size;
@@ -141,7 +141,7 @@ public final class Ballistics {
          return this;
       }
 
-      public Ballistics.Flight ignoring(class_1297 shooter, class_1297 self) {
+      public Ballistics.Flight ignoring(Entity shooter, Entity self) {
          this.shooter = shooter;
          this.self = self;
          return this;
@@ -152,11 +152,11 @@ public final class Ballistics {
          return this;
       }
 
-      public Ballistics.Flight solve(class_1937 level) {
+      public Ballistics.Flight solve(Level level) {
          this.size = 0;
          this.struck = null;
          this.outcome = Ballistics.Outcome.OPEN;
-         this.face = class_2350.field_11036;
+         this.face = Direction.UP;
          this.trace(level);
          this.strike(level);
          this.measure();
@@ -196,21 +196,21 @@ public final class Ballistics {
          return this.zs[i];
       }
 
-      public class_243 point(int i) {
-         return new class_243(this.xs[i], this.ys[i], this.zs[i]);
+      public Vec3 point(int i) {
+         return new Vec3(this.xs[i], this.ys[i], this.zs[i]);
       }
 
-      public class_243 impact() {
+      public Vec3 impact() {
          return this.point(this.size - 1);
       }
 
-      public class_243 heading() {
+      public Vec3 heading() {
          if (this.size < 2) {
-            return class_243.field_1353;
+            return Vec3.ZERO;
          }
 
          int last = this.size - 1;
-         return new class_243(this.xs[last] - this.xs[last - 1], this.ys[last] - this.ys[last - 1], this.zs[last] - this.zs[last - 1]);
+         return new Vec3(this.xs[last] - this.xs[last - 1], this.ys[last] - this.ys[last - 1], this.zs[last] - this.zs[last - 1]);
       }
 
       public int ticks() {
@@ -225,11 +225,11 @@ public final class Ballistics {
          return this.outcome;
       }
 
-      public class_2350 face() {
+      public Direction face() {
          return this.face;
       }
 
-      public class_1297 struck() {
+      public Entity struck() {
          return this.struck;
       }
 
@@ -237,9 +237,9 @@ public final class Ballistics {
          return this.leftShooter;
       }
 
-      private void trace(class_1937 level) {
-         class_3726 context = this.self != null ? class_3726.method_16195(this.self) : class_3726.method_16194();
-         double floor = level.method_31607() - 64.0;
+      private void trace(Level level) {
+         CollisionContext context = this.self != null ? CollisionContext.of(this.self) : CollisionContext.empty();
+         double floor = level.getMinY() - 64.0;
          double x = this.px;
          double y = this.py;
          double z = this.pz;
@@ -263,13 +263,13 @@ public final class Ballistics {
             double nx = x + mx;
             double ny = y + my;
             double nz = z + mz;
-            class_3965 hit = level.method_61717(
-               new class_3959(new class_243(x, y, z), new class_243(nx, ny, nz), class_3960.field_17558, class_242.field_1348, context)
+            BlockHitResult hit = level.clipIncludingBorder(
+               new ClipContext(new Vec3(x, y, z), new Vec3(nx, ny, nz), Block.COLLIDER, Fluid.NONE, context)
             );
-            if (hit.method_17783() != class_240.field_1333) {
-               class_243 at = hit.method_17784();
-               this.push(at.field_1352, at.field_1351, at.field_1350);
-               this.face = hit.method_17780();
+            if (hit.getType() != Type.MISS) {
+               Vec3 at = hit.getLocation();
+               this.push(at.x, at.y, at.z);
+               this.face = hit.getDirection();
                this.outcome = Ballistics.Outcome.BLOCK;
                this.ticks = tick;
                return;
@@ -294,7 +294,7 @@ public final class Ballistics {
          }
       }
 
-      private void strike(class_1937 level) {
+      private void strike(Level level) {
          if (this.size >= 2) {
             boolean clear = this.leftShooter || this.departs();
             this.leftShooter = clear;
@@ -314,8 +314,8 @@ public final class Ballistics {
                maxZ = Math.max(maxZ, this.zs[i]);
             }
 
-            class_238 span = new class_238(minX, minY, minZ, maxX, maxY, maxZ).method_1014(1.3);
-            List<class_1297> candidates = level.method_8333(this.self, span, this::canStrike);
+            AABB span = new AABB(minX, minY, minZ, maxX, maxY, maxZ).inflate(1.3);
+            List<Entity> candidates = level.getEntities(this.self, span, this::canStrike);
             if (!candidates.isEmpty()) {
                for (int i = 1; i < this.size; i++) {
                   if (!clear && i > 1) {
@@ -328,14 +328,14 @@ public final class Ballistics {
                   double dx = this.xs[i] - ax;
                   double dy = this.ys[i] - ay;
                   double dz = this.zs[i] - az;
-                  double margin = class_3532.method_15350((this.age + i - 2) / 20.0, 0.0, 0.3);
+                  double margin = Mth.clamp((this.age + i - 2) / 20.0, 0.0, 0.3);
                   double best = Double.MAX_VALUE;
-                  class_1297 victim = null;
+                  Entity victim = null;
 
                   for (int c = 0; c < candidates.size(); c++) {
-                     class_1297 entity = candidates.get(c);
-                     if (clear || entity.method_5668() != this.shooterRoot) {
-                        class_238 box = entity.method_5829();
+                     Entity entity = candidates.get(c);
+                     if (clear || entity.getRootVehicle() != this.shooterRoot) {
+                        AABB box = entity.getBoundingBox();
                         double t = this.entry(ax, ay, az, dx, dy, dz, box, margin);
                         if (t < best) {
                            best = t;
@@ -359,24 +359,24 @@ public final class Ballistics {
          }
       }
 
-      private boolean canStrike(class_1297 entity) {
-         return !entity.method_7325() && entity.method_49108();
+      private boolean canStrike(Entity entity) {
+         return !entity.isSpectator() && entity.canBeHitByProjectile();
       }
 
       private boolean departs() {
-         this.shooterRoot = this.shooter != null ? this.shooter.method_5668() : null;
+         this.shooterRoot = this.shooter != null ? this.shooter.getRootVehicle() : null;
          if (this.shooterRoot == null) {
             return true;
          }
 
          this.shooterBoxes.clear();
-         if (class_1301.field_52443.test(this.shooterRoot)) {
-            this.shooterBoxes.add(this.shooterRoot.method_5829());
+         if (EntitySelector.CAN_BE_PICKED.test(this.shooterRoot)) {
+            this.shooterBoxes.add(this.shooterRoot.getBoundingBox());
          }
 
-         for (class_1297 rider : this.shooterRoot.method_5736()) {
-            if (class_1301.field_52443.test(rider)) {
-               this.shooterBoxes.add(rider.method_5829());
+         for (Entity rider : this.shooterRoot.getIndirectPassengers()) {
+            if (EntitySelector.CAN_BE_PICKED.test(rider)) {
+               this.shooterBoxes.add(rider.getBoundingBox());
             }
          }
 
@@ -399,7 +399,7 @@ public final class Ballistics {
          double maxZ = z + half + Math.max(dz, 0.0) + 1.0;
 
          for (int b = 0; b < this.shooterBoxes.size(); b++) {
-            if (this.shooterBoxes.get(b).method_1003(minX, minY, minZ, maxX, maxY, maxZ)) {
+            if (this.shooterBoxes.get(b).intersects(minX, minY, minZ, maxX, maxY, maxZ)) {
                return false;
             }
          }
@@ -407,14 +407,14 @@ public final class Ballistics {
          return true;
       }
 
-      private double entry(double ax, double ay, double az, double dx, double dy, double dz, class_238 box, double margin) {
+      private double entry(double ax, double ay, double az, double dx, double dy, double dz, AABB box, double margin) {
          this.near = 0.0;
          this.far = 1.0;
-         if (!this.slab(ax, dx, box.field_1323 - margin, box.field_1320 + margin)) {
+         if (!this.slab(ax, dx, box.minX - margin, box.maxX + margin)) {
             return Double.MAX_VALUE;
-         } else if (!this.slab(ay, dy, box.field_1322 - margin, box.field_1325 + margin)) {
+         } else if (!this.slab(ay, dy, box.minY - margin, box.maxY + margin)) {
             return Double.MAX_VALUE;
-         } else if (!this.slab(az, dz, box.field_1321 - margin, box.field_1324 + margin)) {
+         } else if (!this.slab(az, dz, box.minZ - margin, box.maxZ + margin)) {
             return Double.MAX_VALUE;
          } else {
             return this.near > 0.0 ? this.near : Double.MAX_VALUE;
@@ -445,21 +445,21 @@ public final class Ballistics {
          }
       }
 
-      private boolean submerged(class_1937 level, double x, double y, double z) {
+      private boolean submerged(Level level, double x, double y, double z) {
          double half = this.width * 0.5 - 0.001;
          double bottom = y + 0.001;
-         int x0 = class_3532.method_15357(x - half);
-         int x1 = class_3532.method_15357(x + half);
-         int y0 = class_3532.method_15357(bottom);
-         int y1 = class_3532.method_15357(y + this.height - 0.001);
-         int z0 = class_3532.method_15357(z - half);
-         int z1 = class_3532.method_15357(z + half);
+         int x0 = Mth.floor(x - half);
+         int x1 = Mth.floor(x + half);
+         int y0 = Mth.floor(bottom);
+         int y1 = Mth.floor(y + this.height - 0.001);
+         int z0 = Mth.floor(z - half);
+         int z1 = Mth.floor(z + half);
 
          for (int bx = x0; bx <= x1; bx++) {
             for (int by = y0; by <= y1; by++) {
                for (int bz = z0; bz <= z1; bz++) {
-                  class_3610 fluid = level.method_8316(this.cursor.method_10103(bx, by, bz));
-                  if (fluid.method_15767(class_3486.field_15517) && by + fluid.method_15763(level, this.cursor) >= bottom) {
+                  FluidState fluid = level.getFluidState(this.cursor.set(bx, by, bz));
+                  if (fluid.is(FluidTags.WATER) && by + fluid.getHeight(level, this.cursor) >= bottom) {
                      return true;
                   }
                }

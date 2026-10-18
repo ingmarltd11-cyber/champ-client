@@ -12,20 +12,20 @@ import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.util.MobilePerformance;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_1309;
-import net.minecraft.class_1657;
-import net.minecraft.class_238;
-import net.minecraft.class_2390;
-import net.minecraft.class_2394;
-import net.minecraft.class_2398;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_3966;
-import net.minecraft.class_5819;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.util.RandomSource;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class HitParticlesModule extends ClientModule {
@@ -57,7 +57,7 @@ public final class HitParticlesModule extends ClientModule {
    private final ModeSetting dustColorMode = this.addSetting("dust-color-mode", new ModeSetting("Color", "Accent", "Custom", "Accent"));
    private final ColorSetting dustColor = this.addSetting("dust-color", new ColorSetting("Custom Color", -657929));
    private final NumberSetting dustSize = this.addSetting("dust-size", new NumberSetting("Dust Size", 1.0F, 0.5F, 2.0F).step(0.1F));
-   private final class_5819 random = class_5819.method_43047();
+   private final RandomSource random = RandomSource.create();
 
    public HitParticlesModule() {
       super("hit-particles", "Hit Particles", "Spawns particles where your hits land.", ModuleCategory.VISUALS);
@@ -72,13 +72,13 @@ public final class HitParticlesModule extends ClientModule {
    }
 
    private void onAttack(PlayerAttackEntityEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.method_18854()) {
-         class_746 player = mc.field_1724;
-         class_638 level = mc.field_1687;
-         class_1297 target = event.target;
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.isSameThread()) {
+         LocalPlayer player = mc.player;
+         ClientLevel level = mc.level;
+         Entity target = event.target;
          if (player != null && level != null && target != null && target != player) {
-            if (target.method_5732() && this.accepts(target)) {
+            if (target.isAttackable() && this.accepts(target)) {
                if (!this.onlyCrits.get() || isCritical(player, target)) {
                   this.spawnBurst(mc, level, player, target);
                }
@@ -87,68 +87,68 @@ public final class HitParticlesModule extends ClientModule {
       }
    }
 
-   private boolean accepts(class_1297 target) {
+   private boolean accepts(Entity target) {
       return switch (this.targets.get()) {
-         case "Players" -> target instanceof class_1657;
+         case "Players" -> target instanceof Player;
          case "All" -> true;
-         default -> target instanceof class_1309;
+         default -> target instanceof LivingEntity;
       };
    }
 
-   private static boolean isCritical(class_746 player, class_1297 target) {
-      return player.method_7261(0.5F) > 0.9F
-         && player.field_6017 > 0.0
-         && !player.method_24828()
-         && !player.method_6101()
-         && !player.method_5799()
-         && !player.method_74025()
-         && !player.method_5765()
-         && !player.method_5624()
-         && target instanceof class_1309;
+   private static boolean isCritical(LocalPlayer player, Entity target) {
+      return player.getAttackStrengthScale(0.5F) > 0.9F
+         && player.fallDistance > 0.0
+         && !player.onGround()
+         && !player.onClimbable()
+         && !player.isInWater()
+         && !player.isMobilityRestricted()
+         && !player.isPassenger()
+         && !player.isSprinting()
+         && target instanceof LivingEntity;
    }
 
-   private void spawnBurst(class_310 mc, class_638 level, class_746 player, class_1297 target) {
+   private void spawnBurst(Minecraft mc, ClientLevel level, LocalPlayer player, Entity target) {
       HitParticlesModule.Burst burst = this.burst();
-      class_238 box = target.method_5829();
-      class_243 center = box.method_1005();
+      AABB box = target.getBoundingBox();
+      Vec3 center = box.getCenter();
       boolean body = this.origin.is("Body");
-      class_243 impact = body ? null : impactPoint(mc, player, target, box);
-      class_243 fallbackOut = player.method_5720().method_22882();
+      Vec3 impact = body ? null : impactPoint(mc, player, target, box);
+      Vec3 fallbackOut = player.getLookAngle().reverse();
       double spreadScale = this.spread.get();
       double jitter = burst.jitter() * spreadScale;
       int count = MobilePerformance.particles(this.amount.getInt(), 3);
 
       for (int i = 0; i < count; i++) {
-         class_243 from = body ? this.randomPointIn(box) : impact;
-         class_243 out = from.method_1020(center);
-         out = out.method_1027() < 1.0E-6 ? fallbackOut : out.method_1029();
-         class_243 dir = out.method_1021(0.8).method_1019(this.randomUnit()).method_1031(0.0, 0.25, 0.0).method_1029();
-         double speed = burst.speed() * spreadScale * (0.6 + 0.4 * this.random.method_43058());
-         level.method_8466(
+         Vec3 from = body ? this.randomPointIn(box) : impact;
+         Vec3 out = from.subtract(center);
+         out = out.lengthSqr() < 1.0E-6 ? fallbackOut : out.normalize();
+         Vec3 dir = out.scale(0.8).add(this.randomUnit()).add(0.0, 0.25, 0.0).normalize();
+         double speed = burst.speed() * spreadScale * (0.6 + 0.4 * this.random.nextDouble());
+         level.addParticle(
             burst.particle(),
             true,
             false,
-            from.field_1352 + this.random.method_43059() * jitter,
-            from.field_1351 + this.random.method_43059() * jitter,
-            from.field_1350 + this.random.method_43059() * jitter,
-            dir.field_1352 * speed,
-            dir.field_1351 * speed,
-            dir.field_1350 * speed
+            from.x + this.random.nextGaussian() * jitter,
+            from.y + this.random.nextGaussian() * jitter,
+            from.z + this.random.nextGaussian() * jitter,
+            dir.x * speed,
+            dir.y * speed,
+            dir.z * speed
          );
       }
    }
 
    private HitParticlesModule.Burst burst() {
       return switch (this.type.get()) {
-         case "Magic Crit" -> new HitParticlesModule.Burst(class_2398.field_11208, 0.8, 0.1);
-         case "Spark" -> new HitParticlesModule.Burst(class_2398.field_29644, 0.16, 0.1);
-         case "Flame" -> new HitParticlesModule.Burst(class_2398.field_11240, 0.035, 0.12);
-         case "Soul Flame" -> new HitParticlesModule.Burst(class_2398.field_22246, 0.035, 0.12);
-         case "End Rod" -> new HitParticlesModule.Burst(class_2398.field_11207, 0.09, 0.1);
-         case "Totem" -> new HitParticlesModule.Burst(class_2398.field_11220, 0.45, 0.1);
-         case "Heart" -> new HitParticlesModule.Burst(class_2398.field_11201, 0.0, 0.35);
-         case "Dust" -> new HitParticlesModule.Burst(new class_2390(this.dustRgb(), this.dustSize.get()), 1.0, 0.3);
-         default -> new HitParticlesModule.Burst(class_2398.field_11205, 0.8, 0.1);
+         case "Magic Crit" -> new HitParticlesModule.Burst(ParticleTypes.ENCHANTED_HIT, 0.8, 0.1);
+         case "Spark" -> new HitParticlesModule.Burst(ParticleTypes.ELECTRIC_SPARK, 0.16, 0.1);
+         case "Flame" -> new HitParticlesModule.Burst(ParticleTypes.FLAME, 0.035, 0.12);
+         case "Soul Flame" -> new HitParticlesModule.Burst(ParticleTypes.SOUL_FIRE_FLAME, 0.035, 0.12);
+         case "End Rod" -> new HitParticlesModule.Burst(ParticleTypes.END_ROD, 0.09, 0.1);
+         case "Totem" -> new HitParticlesModule.Burst(ParticleTypes.TOTEM_OF_UNDYING, 0.45, 0.1);
+         case "Heart" -> new HitParticlesModule.Burst(ParticleTypes.HEART, 0.0, 0.35);
+         case "Dust" -> new HitParticlesModule.Burst(new DustParticleOptions(this.dustRgb(), this.dustSize.get()), 1.0, 0.3);
+         default -> new HitParticlesModule.Burst(ParticleTypes.CRIT, 0.8, 0.1);
       };
    }
 
@@ -157,33 +157,33 @@ public final class HitParticlesModule extends ClientModule {
       return argb & 16777215;
    }
 
-   private static class_243 impactPoint(class_310 mc, class_746 player, class_1297 target, class_238 box) {
-      if (mc.field_1765 instanceof class_3966 hit && hit.method_17782() == target) {
-         return hit.method_17784();
+   private static Vec3 impactPoint(Minecraft mc, LocalPlayer player, Entity target, AABB box) {
+      if (mc.hitResult instanceof EntityHitResult hit && hit.getEntity() == target) {
+         return hit.getLocation();
       } else {
-         class_243 eye = player.method_33571();
-         return new class_243(
-            class_3532.method_15350(eye.field_1352, box.field_1323, box.field_1320),
-            class_3532.method_15350(eye.field_1351, box.field_1322, box.field_1325),
-            class_3532.method_15350(eye.field_1350, box.field_1321, box.field_1324)
+         Vec3 eye = player.getEyePosition();
+         return new Vec3(
+            Mth.clamp(eye.x, box.minX, box.maxX),
+            Mth.clamp(eye.y, box.minY, box.maxY),
+            Mth.clamp(eye.z, box.minZ, box.maxZ)
          );
       }
    }
 
-   private class_243 randomPointIn(class_238 box) {
-      return new class_243(
-         box.field_1323 + box.method_17939() * (0.1 + 0.8 * this.random.method_43058()),
-         box.field_1322 + box.method_17940() * (0.1 + 0.8 * this.random.method_43058()),
-         box.field_1321 + box.method_17941() * (0.1 + 0.8 * this.random.method_43058())
+   private Vec3 randomPointIn(AABB box) {
+      return new Vec3(
+         box.minX + box.getXsize() * (0.1 + 0.8 * this.random.nextDouble()),
+         box.minY + box.getYsize() * (0.1 + 0.8 * this.random.nextDouble()),
+         box.minZ + box.getZsize() * (0.1 + 0.8 * this.random.nextDouble())
       );
    }
 
-   private class_243 randomUnit() {
-      class_243 v = new class_243(this.random.method_43059(), this.random.method_43059(), this.random.method_43059());
-      return v.method_1027() < 1.0E-9 ? new class_243(0.0, 1.0, 0.0) : v.method_1029();
+   private Vec3 randomUnit() {
+      Vec3 v = new Vec3(this.random.nextGaussian(), this.random.nextGaussian(), this.random.nextGaussian());
+      return v.lengthSqr() < 1.0E-9 ? new Vec3(0.0, 1.0, 0.0) : v.normalize();
    }
 
    @Environment(EnvType.CLIENT)
-   private record Burst(class_2394 particle, double speed, double jitter) {
+   private record Burst(ParticleOptions particle, double speed, double jitter) {
    }
 }

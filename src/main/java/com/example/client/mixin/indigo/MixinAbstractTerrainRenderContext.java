@@ -5,8 +5,8 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.impl.client.indigo.renderer.mesh.MutableQuadViewImpl;
 import net.fabricmc.fabric.impl.client.indigo.renderer.render.AbstractTerrainRenderContext;
-import net.minecraft.class_11515;
-import net.minecraft.class_9848;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import net.minecraft.util.ARGB;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -20,10 +20,10 @@ public abstract class MixinAbstractTerrainRenderContext {
       if (XrayModule.active != null) {
          float alpha = XrayModule.CURRENT_ALPHA.get()[0];
          if (!(alpha <= 0.0F) && !(alpha >= 1.0F)) {
-            quad.renderLayer(class_11515.field_60926);
+            quad.renderLayer(ChunkSectionLayer.TRANSLUCENT);
 
             for (int vertex = 0; vertex < 4; vertex++) {
-               quad.color(vertex, class_9848.method_75601(quad.color(vertex), alpha));
+               quad.color(vertex, ARGB.multiplyAlpha(quad.color(vertex), alpha));
             }
          }
       }

@@ -24,24 +24,24 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1304;
-import net.minecraft.class_1802;
-import net.minecraft.class_2338;
-import net.minecraft.class_243;
-import net.minecraft.class_2680;
-import net.minecraft.class_2708;
-import net.minecraft.class_2848;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_3959;
-import net.minecraft.class_3965;
-import net.minecraft.class_746;
-import net.minecraft.class_9334;
-import net.minecraft.class_239.class_240;
-import net.minecraft.class_2828.class_5911;
-import net.minecraft.class_2848.class_2849;
-import net.minecraft.class_3959.class_242;
-import net.minecraft.class_3959.class_3960;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.Items;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.phys.HitResult.Type;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.StatusOnly;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action;
+import net.minecraft.world.level.ClipContext.Fluid;
+import net.minecraft.world.level.ClipContext.Block;
 
 @Environment(EnvType.CLIENT)
 public final class ElytraFlyModule extends ClientModule {
@@ -98,7 +98,7 @@ public final class ElytraFlyModule extends ClientModule {
    private boolean modeRequestedDisable;
    private volatile boolean positionPacketReceived;
    private boolean moveIsVelocity;
-   private class_746 recastPlayer;
+   private LocalPlayer recastPlayer;
    private boolean previousGliding;
    private ListenerHandle<PlayerMoveEvent> groundListener;
    private ListenerHandle<TickEvent> instaDropListener;
@@ -155,8 +155,8 @@ public final class ElytraFlyModule extends ClientModule {
 
    @Override
    protected void onEnable() {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       if (player == null) {
          this.requestDisable();
       } else {
@@ -166,13 +166,13 @@ public final class ElytraFlyModule extends ClientModule {
          this.positionPacketReceived = false;
          this.moveIsVelocity = false;
          this.recastPlayer = player;
-         this.previousGliding = player.method_6128();
+         this.previousGliding = player.isFallFlying();
          this.modeType = ElytraFlightModes.valueOf(this.flightMode.get());
          this.currentMode = this.createMode(this.modeType);
          this.currentMode.onActivate();
          if (!this.modeRequestedDisable) {
             if ((this.chestSwap.is("Always") || this.chestSwap.is("WaitForGround"))
-               && player.method_6118(class_1304.field_6174).method_7909() != class_1802.field_8833) {
+               && player.getItemBySlot(EquipmentSlot.CHEST).getItem() != Items.ELYTRA) {
                ElytraFlyInventory.chestSwap();
             }
 
@@ -189,24 +189,24 @@ public final class ElytraFlyModule extends ClientModule {
 
    @Override
    protected void onDisable() {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       ElytraFlightMode mode = this.currentMode;
       this.currentMode = null;
 
       try {
          if (player != null && mode != null) {
             if (this.autoPilot.get()) {
-               mc.field_1690.field_1894.method_23481(false);
+               mc.options.keyUp.setDown(false);
             }
 
-            if (this.chestSwap.is("Always") && player.method_6118(class_1304.field_6174).method_7909() == class_1802.field_8833) {
+            if (this.chestSwap.is("Always") && player.getItemBySlot(EquipmentSlot.CHEST).getItem() == Items.ELYTRA) {
                ElytraFlyInventory.chestSwap();
             } else if (this.chestSwap.is("WaitForGround")) {
                this.enableGroundListener();
             }
 
-            if (player.method_6128() && this.instaDrop.get()) {
+            if (player.isFallFlying() && this.instaDrop.get()) {
                this.enableInstaDropListener();
             }
          }
@@ -246,8 +246,8 @@ public final class ElytraFlyModule extends ClientModule {
    }
 
    private void onPreTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null && mc.field_1687 != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.level != null) {
          ElytraFlightMode mode = this.currentMode;
          if (mode != null) {
             if (this.positionPacketReceived) {
@@ -265,54 +265,54 @@ public final class ElytraFlyModule extends ClientModule {
 
    private void onPostTick(TickEvent event) {
       ElytraFlightMode mode = this.currentMode;
-      if (class_310.method_1551().field_1724 != null && mode != null) {
+      if (Minecraft.getInstance().player != null && mode != null) {
          mode.onTick();
       }
    }
 
    private void onPacketSend(PacketSendEvent event) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       ElytraFlightMode mode = this.currentMode;
-      if (mc.method_18854() && mc.field_1724 != null && mode != null) {
+      if (mc.isSameThread() && mc.player != null && mode != null) {
          mode.onPacketSend(event.packet);
       }
    }
 
    private void onPacketReceive(PacketReceiveNettyEvent event) {
-      if (event.packet instanceof class_2708) {
+      if (event.packet instanceof ClientboundPlayerPositionPacket) {
          this.positionPacketReceived = true;
       }
    }
 
    private void captureMoveAliasing(PlayerMoveEvent event) {
-      class_746 player = class_310.method_1551().field_1724;
+      LocalPlayer player = Minecraft.getInstance().player;
       if (player == null) {
          this.moveIsVelocity = false;
       } else {
-         class_243 velocity = player.method_18798();
-         this.moveIsVelocity = velocity.field_1352 == event.x && velocity.field_1351 == event.y && velocity.field_1350 == event.z;
+         Vec3 velocity = player.getDeltaMovement();
+         this.moveIsVelocity = velocity.x == event.x && velocity.y == event.y && velocity.z == event.z;
       }
    }
 
    private void onPlayerMove(PlayerMoveEvent event) {
       boolean aliased = this.moveIsVelocity;
       this.moveIsVelocity = false;
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       ElytraFlightMode mode = this.currentMode;
-      if (player != null && mc.field_1687 != null && mode != null) {
-         if (player.method_6118(class_1304.field_6174).method_57826(class_9334.field_54197)) {
+      if (player != null && mc.level != null && mode != null) {
+         if (player.getItemBySlot(EquipmentSlot.CHEST).has(DataComponents.GLIDER)) {
             mode.autoTakeoff();
             boolean bounce = this.modeType == ElytraFlightModes.Bounce;
-            if (player.method_6128()) {
+            if (player.isFallFlying()) {
                if (!bounce) {
                   mode.velX = 0.0;
                   mode.velY = event.y;
                   mode.velZ = 0.0;
-                  mode.forward = class_243.method_1030(0.0F, player.method_36454()).method_1021(0.1);
-                  mode.right = class_243.method_1030(0.0F, player.method_36454() + 90.0F).method_1021(0.1);
-                  if (player.method_5799() && this.stopInWater.get()) {
-                     player.field_3944.method_52787(new class_2848(player, class_2849.field_12982));
+                  mode.forward = Vec3.directionFromRotation(0.0F, player.getYRot()).scale(0.1);
+                  mode.right = Vec3.directionFromRotation(0.0F, player.getYRot() + 90.0F).scale(0.1);
+                  if (player.isInWater() && this.stopInWater.get()) {
+                     player.connection.send(new ServerboundPlayerCommandPacket(player, Action.START_FALL_FLYING));
                      return;
                   }
 
@@ -323,10 +323,10 @@ public final class ElytraFlyModule extends ClientModule {
                   mode.handleVerticalSpeed(event);
                }
 
-               int chunkX = (int)((player.method_23317() + mode.velX) / 16.0);
-               int chunkZ = (int)((player.method_23321() + mode.velZ) / 16.0);
+               int chunkX = (int)((player.getX() + mode.velX) / 16.0);
+               int chunkZ = (int)((player.getZ() + mode.velZ) / 16.0);
                if (this.dontGoIntoUnloadedChunks.get()) {
-                  if (mc.field_1687.method_2935().method_12123(chunkX, chunkZ)) {
+                  if (mc.level.getChunkSource().hasChunk(chunkX, chunkZ)) {
                      if (!bounce) {
                         setMovement(player, aliased, event, mode.velX, mode.velY, mode.velZ);
                      }
@@ -342,45 +342,45 @@ public final class ElytraFlyModule extends ClientModule {
                   mode.onPlayerMove();
                }
             } else if (mode.lastForwardPressed && !bounce) {
-               mc.field_1690.field_1894.method_23481(false);
+               mc.options.keyUp.setDown(false);
                mode.lastForwardPressed = false;
             }
 
-            if (this.noCrash.get() && player.method_6128() && !bounce) {
-               class_243 position = player.method_73189();
-               class_243 lookAheadPos = position.method_1019(player.method_18798().method_1029().method_1021(this.crashLookAhead.getInt()));
-               class_3959 context = new class_3959(
+            if (this.noCrash.get() && player.isFallFlying() && !bounce) {
+               Vec3 position = player.position();
+               Vec3 lookAheadPos = position.add(player.getDeltaMovement().normalize().scale(this.crashLookAhead.getInt()));
+               ClipContext context = new ClipContext(
                   position,
-                  new class_243(lookAheadPos.field_1352, player.method_23318(), lookAheadPos.field_1350),
-                  class_3960.field_17558,
-                  class_242.field_1348,
+                  new Vec3(lookAheadPos.x, player.getY(), lookAheadPos.z),
+                  Block.COLLIDER,
+                  Fluid.NONE,
                   player
                );
-               class_3965 hitResult = mc.field_1687.method_17742(context);
-               if (hitResult != null && hitResult.method_17783() == class_240.field_1332) {
+               BlockHitResult hitResult = mc.level.clip(context);
+               if (hitResult != null && hitResult.getType() == Type.BLOCK) {
                   setMovement(player, aliased, event, 0.0, mode.velY, 0.0);
                }
             }
 
-            if (this.autoHover.get() && player.field_3913.field_54155.comp_3164() && !isFreecamActive() && player.method_6128() && !bounce) {
-               class_2338 below = player.method_24515().method_10074();
-               class_2680 underState = mc.field_1687.method_8320(below);
-               class_2680 under2State = mc.field_1687.method_8320(below.method_10074());
-               boolean underCollidable = ((AccessorElytraFlyBlockBehaviour)underState.method_26204()).champ$elytraFlyHasCollision()
-                  || !underState.method_26227().method_15769();
-               boolean under2Collidable = ((AccessorElytraFlyBlockBehaviour)under2State.method_26204()).champ$elytraFlyHasCollision()
-                  || !under2State.method_26227().method_15769();
+            if (this.autoHover.get() && player.input.keyPresses.comp_3164() && !isFreecamActive() && player.isFallFlying() && !bounce) {
+               BlockPos below = player.blockPosition().below();
+               BlockState underState = mc.level.getBlockState(below);
+               BlockState under2State = mc.level.getBlockState(below.below());
+               boolean underCollidable = ((AccessorElytraFlyBlockBehaviour)underState.getBlock()).champ$elytraFlyHasCollision()
+                  || !underState.getFluidState().isEmpty();
+               boolean under2Collidable = ((AccessorElytraFlyBlockBehaviour)under2State.getBlock()).champ$elytraFlyHasCollision()
+                  || !under2State.getFluidState().isEmpty();
                if (!underCollidable && under2Collidable) {
                   setMovement(player, aliased, event, event.x, -0.1F, event.z);
-                  player.method_36457(class_3532.method_15363(player.method_61414(0.0F), -50.0F, 20.0F));
+                  player.setXRot(Mth.clamp(player.getXRot(0.0F), -50.0F, 20.0F));
                }
 
                if (underCollidable) {
                   setMovement(player, aliased, event, event.x, -0.03F, event.z);
-                  player.method_36457(class_3532.method_15363(player.method_61414(0.0F), -50.0F, 20.0F));
-                  if (player.method_73189().field_1351 <= below.method_10264() + 1.34F) {
+                  player.setXRot(Mth.clamp(player.getXRot(0.0F), -50.0F, 20.0F));
+                  if (player.position().y <= below.getY() + 1.34F) {
                      setMovement(player, aliased, event, event.x, 0.0, event.z);
-                     player.method_5660(false);
+                     player.setShiftKeyDown(false);
                   }
                }
             }
@@ -388,22 +388,22 @@ public final class ElytraFlyModule extends ClientModule {
       }
    }
 
-   private static void setMovement(class_746 player, boolean aliased, PlayerMoveEvent event, double x, double y, double z) {
+   private static void setMovement(LocalPlayer player, boolean aliased, PlayerMoveEvent event, double x, double y, double z) {
       event.x = x;
       event.y = y;
       event.z = z;
       if (aliased) {
-         player.method_18800(x, y, z);
+         player.setDeltaMovement(x, y, z);
       }
    }
 
-   public boolean canPacketEfly(class_746 player) {
+   public boolean canPacketEfly(LocalPlayer player) {
       return this.modeType == ElytraFlightModes.Packet
-         && player.method_6118(class_1304.field_6174).method_57826(class_9334.field_54197)
-         && !player.method_24828();
+         && player.getItemBySlot(EquipmentSlot.CHEST).has(DataComponents.GLIDER)
+         && !player.onGround();
    }
 
-   public boolean modifyFallFlying(class_746 player, boolean original) {
+   public boolean modifyFallFlying(LocalPlayer player, boolean original) {
       boolean gliding = original || this.canPacketEfly(player);
       if (player != this.recastPlayer) {
          this.recastPlayer = player;
@@ -418,8 +418,8 @@ public final class ElytraFlyModule extends ClientModule {
    private void enableGroundListener() {
       if (this.groundListener == null) {
          this.groundListener = PlayerMoveEvent.TYPE.listen(this, Stage.PRE, EventPriority.NORMAL, event -> {
-            class_746 player = class_310.method_1551().field_1724;
-            if (player != null && player.method_24828() && player.method_6118(class_1304.field_6174).method_7909() == class_1802.field_8833) {
+            LocalPlayer player = Minecraft.getInstance().player;
+            if (player != null && player.onGround() && player.getItemBySlot(EquipmentSlot.CHEST).getItem() == Items.ELYTRA) {
                ElytraFlyInventory.chestSwap();
                this.cancelGroundListener();
             }
@@ -437,10 +437,10 @@ public final class ElytraFlyModule extends ClientModule {
    private void enableInstaDropListener() {
       if (this.instaDropListener == null) {
          this.instaDropListener = TickEvent.TYPE.listen(this, Stage.POST, EventPriority.NORMAL, event -> {
-            class_746 player = class_310.method_1551().field_1724;
-            if (player != null && player.method_6128()) {
-               player.method_18800(0.0, 0.0, 0.0);
-               player.field_3944.method_52787(new class_5911(true, player.field_5976));
+            LocalPlayer player = Minecraft.getInstance().player;
+            if (player != null && player.isFallFlying()) {
+               player.setDeltaMovement(0.0, 0.0, 0.0);
+               player.connection.send(new StatusOnly(true, player.horizontalCollision));
             } else {
                this.cancelInstaDropListener();
             }

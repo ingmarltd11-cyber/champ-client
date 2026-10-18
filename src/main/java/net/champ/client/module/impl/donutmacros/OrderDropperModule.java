@@ -7,11 +7,11 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1713;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,8 +49,8 @@ public final class OrderDropperModule extends ClientModule {
 
    @Override
    protected void onEnable() {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null && mc.method_1562() != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.getConnection() != null) {
          int slot = this.orderSlot.getInt();
          int wanted = this.pages.getInt();
          long delayMs = (long)(this.delay.get() * 1000.0F);
@@ -74,7 +74,7 @@ public final class OrderDropperModule extends ClientModule {
       }
    }
 
-   private void finish(class_310 mc) {
+   private void finish(Minecraft mc) {
       mc.execute(() -> {
          if (this.running && this.isEnabled()) {
             this.setEnabled(false);
@@ -87,9 +87,9 @@ public final class OrderDropperModule extends ClientModule {
       boolean wasRunning = this.running;
       this.running = false;
       this.worker.stop();
-      class_746 player = class_310.method_1551().field_1724;
-      if (wasRunning && player != null && player.field_7512 != player.field_7498) {
-         player.method_7346();
+      LocalPlayer player = Minecraft.getInstance().player;
+      if (wasRunning && player != null && player.containerMenu != player.inventoryMenu) {
+         player.closeContainer();
       }
    }
 
@@ -107,7 +107,7 @@ public final class OrderDropperModule extends ClientModule {
 
          for (int flips = 0; state[0] == 0 && state[2] >= 0 && flips < 2; flips++) {
             String beforeNext = gui.fingerprint();
-            gui.click(state[2], 0, class_1713.field_7790);
+            gui.click(state[2], 0, ClickType.PICKUP);
             gui.waitChange(beforeNext, 4000L);
             this.worker.sleep(250L);
             state = this.worker.call(OrderDropperModule::pageState);
@@ -123,7 +123,7 @@ public final class OrderDropperModule extends ClientModule {
          }
 
          String before = gui.fingerprint();
-         gui.click(state[1], 0, class_1713.field_7790);
+         gui.click(state[1], 0, ClickType.PICKUP);
          dropped++;
          items += state[0];
          if (page < wanted - 1) {
@@ -150,36 +150,36 @@ public final class OrderDropperModule extends ClientModule {
          throw new AuctionHouse.Problem("Could not open Your Orders");
       }
 
-      class_1799 order = this.worker.call(() -> Gui.slotNow(slot));
+      ItemStack order = this.worker.call(() -> Gui.slotNow(slot));
       if (OrdersNav.isPane(order)) {
          throw new AuctionHouse.Problem("There is no order in slot " + slot);
       }
 
-      String name = order.method_7964().getString();
+      String name = order.getHoverName().getString();
       String before = gui.fingerprint();
-      gui.click(slot, 0, class_1713.field_7790);
+      gui.click(slot, 0, ClickType.PICKUP);
       if (!this.worker.waitFor(() -> Gui.containerOpenNow() && !OrdersNav.isYourOrdersNow() && !Gui.fingerprintNow().equals(before), 5000L)) {
          throw new AuctionHouse.Problem("The order in slot " + slot + " did not open");
       }
 
       this.worker.sleep(300L);
       int collect = this.worker.call(() -> {
-         List<class_1799> stacks = Gui.containerNow();
+         List<ItemStack> stacks = Gui.containerNow();
 
          for (int i = 0; i < stacks.size(); i++) {
-            if (!stacks.get(i).method_7960() && Gui.nameOf(stacks.get(i)).contains("collect")) {
+            if (!stacks.get(i).isEmpty() && Gui.nameOf(stacks.get(i)).contains("collect")) {
                return i;
             }
          }
 
-         return stacks.size() > 13 && !stacks.get(13).method_7960() ? 13 : -1;
+         return stacks.size() > 13 && !stacks.get(13).isEmpty() ? 13 : -1;
       });
       if (collect < 0) {
          throw new AuctionHouse.Problem("No Collect button in the order");
       }
 
       String beforeCollect = gui.fingerprint();
-      gui.click(collect, 0, class_1713.field_7790);
+      gui.click(collect, 0, ClickType.PICKUP);
       if (!this.worker.waitFor(() -> Gui.containerOpenNow() && !Gui.fingerprintNow().equals(beforeCollect) && dropButton(Gui.containerNow()) >= 0, 5000L)) {
          throw new AuctionHouse.Problem("The collect menu did not open");
       }
@@ -189,36 +189,36 @@ public final class OrderDropperModule extends ClientModule {
    }
 
    private static int[] pageState() {
-      List<class_1799> stacks = Gui.containerNow();
+      List<ItemStack> stacks = Gui.containerNow();
       int count = 0;
 
       for (int i = 0; i < 45 && i < stacks.size(); i++) {
-         count += stacks.get(i).method_7947();
+         count += stacks.get(i).getCount();
       }
 
       return new int[]{count, dropButton(stacks), nextButton(stacks)};
    }
 
-   private static int nextButton(List<class_1799> stacks) {
+   private static int nextButton(List<ItemStack> stacks) {
       for (int i = 45; i < stacks.size(); i++) {
-         class_1799 stack = stacks.get(i);
-         if (!stack.method_7960() && Gui.nameOf(stack).contains("next")) {
+         ItemStack stack = stacks.get(i);
+         if (!stack.isEmpty() && Gui.nameOf(stack).contains("next")) {
             return i;
          }
       }
 
-      return stacks.size() > 53 && stacks.get(53).method_31574(class_1802.field_8107) ? 53 : -1;
+      return stacks.size() > 53 && stacks.get(53).is(Items.ARROW) ? 53 : -1;
    }
 
-   private static int dropButton(List<class_1799> stacks) {
+   private static int dropButton(List<ItemStack> stacks) {
       for (int i = 45; i < stacks.size(); i++) {
-         class_1799 stack = stacks.get(i);
-         if (!stack.method_7960() && (stack.method_31574(class_1802.field_8878) || Gui.nameOf(stack).equals("drop"))) {
+         ItemStack stack = stacks.get(i);
+         if (!stack.isEmpty() && (stack.is(Items.DROPPER) || Gui.nameOf(stack).equals("drop"))) {
             return i;
          }
       }
 
-      return stacks.size() > 52 && stacks.get(52).method_31574(class_1802.field_8878) ? 52 : -1;
+      return stacks.size() > 52 && stacks.get(52).is(Items.DROPPER) ? 52 : -1;
    }
 
    private void say(ModuleChat.Body body) {

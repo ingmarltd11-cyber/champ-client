@@ -3,9 +3,9 @@ package net.champ.client.module.impl.render;
 import java.util.Arrays;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_4588;
-import net.minecraft.class_4608;
-import net.minecraft.class_4587.class_4665;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
 
 @Environment(EnvType.CLIENT)
 final class KnifeMesh {
@@ -32,7 +32,7 @@ final class KnifeMesh {
       this.shineTo = shineTo;
    }
 
-   void emit(class_4665 pose, class_4588 out, int[] palette, int light, KnifeMesh.Shine shine) {
+   void emit(Pose pose, VertexConsumer out, int[] palette, int light, KnifeMesh.Shine shine) {
       boolean shining = shine.gain() > 0.004F;
 
       for (int q = 0; q < this.quads; q++) {
@@ -53,17 +53,17 @@ final class KnifeMesh {
                bright += shine.gain() * 1.5F * this.profile(x, shine);
             }
 
-            out.method_56824(pose, x, y, z)
-               .method_39415(tint(argb, bright))
-               .method_22913((x + z) * 0.09F, y * 0.09F)
-               .method_22922(class_4608.field_21444)
-               .method_60803(light)
-               .method_60831(pose, nx, ny, nz);
+            out.addVertex(pose, x, y, z)
+               .setColor(tint(argb, bright))
+               .setUv((x + z) * 0.09F, y * 0.09F)
+               .setOverlay(OverlayTexture.NO_OVERLAY)
+               .setLight(light)
+               .setNormal(pose, nx, ny, nz);
          }
       }
    }
 
-   void emitGlow(class_4665 pose, class_4588 out, int rgb, KnifeMesh.Shine shine) {
+   void emitGlow(Pose pose, VertexConsumer out, int rgb, KnifeMesh.Shine shine) {
       int r = rgb >> 16 & 0xFF;
       int g = rgb >> 8 & 0xFF;
       int b = rgb & 0xFF;
@@ -85,12 +85,12 @@ final class KnifeMesh {
 
                for (int v = 0; v < 4; v++) {
                   int p = q * 12 + v * 3;
-                  out.method_56824(pose, this.pos[p], this.pos[p + 1], this.pos[p + 2])
-                     .method_1336(r, g, b, Math.round(alpha[v] * 255.0F))
-                     .method_22913(0.5F, 0.5F)
-                     .method_22922(class_4608.field_21444)
-                     .method_60803(15728880)
-                     .method_60831(pose, nx, ny, nz);
+                  out.addVertex(pose, this.pos[p], this.pos[p + 1], this.pos[p + 2])
+                     .setColor(r, g, b, Math.round(alpha[v] * 255.0F))
+                     .setUv(0.5F, 0.5F)
+                     .setOverlay(OverlayTexture.NO_OVERLAY)
+                     .setLight(15728880)
+                     .setNormal(pose, nx, ny, nz);
                }
             }
          }

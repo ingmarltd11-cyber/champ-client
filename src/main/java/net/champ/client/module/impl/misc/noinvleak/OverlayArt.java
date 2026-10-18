@@ -8,13 +8,13 @@ import java.io.Reader;
 import java.util.Optional;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1011;
-import net.minecraft.class_2561;
-import net.minecraft.class_2583;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_3298;
-import net.minecraft.class_5348;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.network.chat.FormattedText;
 
 @Environment(EnvType.CLIENT)
 final class OverlayArt {
@@ -70,17 +70,17 @@ final class OverlayArt {
    }
 
    private static OverlayArt.Image image(String path) {
-      class_3298 resource = (class_3298)class_310.method_1551().method_1478().method_14486(class_2960.method_60656(path)).orElse(null);
+      Resource resource = (Resource)Minecraft.getInstance().getResourceManager().getResource(Identifier.withDefaultNamespace(path)).orElse(null);
       if (resource == null) {
          return null;
       }
 
-      try (InputStream in = resource.method_14482()) {
-         class_1011 image = class_1011.method_4309(in);
+      try (InputStream in = resource.open()) {
+         NativeImage image = NativeImage.read(in);
 
          OverlayArt.Image var13;
          try {
-            int[] abgr = image.method_48463();
+            int[] abgr = image.getPixelsABGR();
             int[] out = new int[abgr.length];
 
             for (int i = 0; i < abgr.length; i++) {
@@ -88,7 +88,7 @@ final class OverlayArt {
                out[i] = Canvas.premultiply(a << 24 | (abgr[i] & 0xFF) << 16 | (abgr[i] >>> 8 & 0xFF) << 8 | abgr[i] >>> 16 & 0xFF, a);
             }
 
-            var13 = new OverlayArt.Image(out, image.method_4307(), image.method_4323());
+            var13 = new OverlayArt.Image(out, image.getWidth(), image.getHeight());
          } catch (Throwable var10) {
             if (image != null) {
                try {
@@ -117,9 +117,9 @@ final class OverlayArt {
          return null;
       }
 
-      class_3298 meta = (class_3298)class_310.method_1551().method_1478().method_14486(class_2960.method_60656(path + ".mcmeta")).orElse(null);
+      Resource meta = (Resource)Minecraft.getInstance().getResourceManager().getResource(Identifier.withDefaultNamespace(path + ".mcmeta")).orElse(null);
       if (meta != null) {
-         try (Reader reader = meta.method_43039()) {
+         try (Reader reader = meta.openAsReader()) {
             JsonObject scaling = JsonParser.parseReader(reader).getAsJsonObject().getAsJsonObject("gui").getAsJsonObject("scaling");
             if (scaling.has("border")) {
                border = scaling.get("border").getAsInt();
@@ -177,19 +177,19 @@ final class OverlayArt {
       return b + (stretch ? into * inner / Math.max(middle, 1) : into % inner);
    }
 
-   static void text(Canvas canvas, class_2561 text, int x, int y, int scale, int argb, boolean shadow) {
+   static void text(Canvas canvas, Component text, int x, int y, int scale, int argb, boolean shadow) {
       load();
       if (glyphs != null) {
          int[] cursor = new int[]{x};
-         text.method_27658((style, piece) -> {
-            int color = style.method_10973() != null ? argb & 0xFF000000 | style.method_10973().method_27716() : argb;
+         text.visit((style, piece) -> {
+            int color = style.getColor() != null ? argb & 0xFF000000 | style.getColor().getValue() : argb;
             int i = 0;
 
             while (i < piece.length()) {
                int cp = piece.codePointAt(i);
                i += Character.charCount(cp);
                int advance = advance(cp, style);
-               if (cp < 128 && cp > 32 && !style.method_10987()) {
+               if (cp < 128 && cp > 32 && !style.isObfuscated()) {
                   if (shadow) {
                      glyph(canvas, cp, cursor[0] + 1, y + 1, scale, color & 0xFF000000 | (color & 16579836) >> 2, style);
                   }
@@ -197,11 +197,11 @@ final class OverlayArt {
                   glyph(canvas, cp, cursor[0], y, scale, color, style);
                }
 
-               if (style.method_10986()) {
+               if (style.isStrikethrough()) {
                   canvas.rect(cursor[0] * scale, (y + 4) * scale, advance * scale, scale, color);
                }
 
-               if (style.method_10965()) {
+               if (style.isUnderlined()) {
                   canvas.rect(cursor[0] * scale, (y + 8) * scale, advance * scale, scale, color);
                }
 
@@ -209,21 +209,21 @@ final class OverlayArt {
             }
 
             return Optional.empty();
-         }, class_2583.field_24360);
+         }, Style.EMPTY);
       }
    }
 
-   private static int advance(int cp, class_2583 style) {
-      return class_310.method_1551().field_1772.method_27525(class_5348.method_29431(new String(Character.toChars(cp)), style));
+   private static int advance(int cp, Style style) {
+      return Minecraft.getInstance().font.width(FormattedText.of(new String(Character.toChars(cp)), style));
    }
 
-   private static void glyph(Canvas canvas, int cp, int x, int y, int scale, int argb, class_2583 style) {
+   private static void glyph(Canvas canvas, int cp, int x, int y, int scale, int argb, Style style) {
       int cellX = cp % 16 * 8;
       int cellY = cp / 16 * 8;
       int stride = 128;
 
       for (int row = 0; row < 8; row++) {
-         int shear = style.method_10966() && row < 4 ? 1 : 0;
+         int shear = style.isItalic() && row < 4 ? 1 : 0;
          int col = 0;
 
          while (col < 8) {
@@ -237,7 +237,7 @@ final class OverlayArt {
                }
 
                canvas.rect((x + start + shear) * scale, (y + row) * scale, (col - start) * scale, scale, argb);
-               if (style.method_10984()) {
+               if (style.isBold()) {
                   canvas.rect((x + start + shear + 1) * scale, (y + row) * scale, (col - start) * scale, scale, argb);
                }
             }

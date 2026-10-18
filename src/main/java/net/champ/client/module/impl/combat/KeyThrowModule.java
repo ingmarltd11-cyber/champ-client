@@ -18,15 +18,15 @@ import net.champ.client.util.pvp.Rotation;
 import net.champ.client.util.pvp.ServerRotation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1268;
-import net.minecraft.class_1661;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
-import net.minecraft.class_1269.class_9860;
-import net.minecraft.class_1269.class_9861;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.InteractionResult.Success;
+import net.minecraft.world.InteractionResult.SwingSource;
 
 @Environment(EnvType.CLIENT)
 public final class KeyThrowModule extends ClientModule {
@@ -34,7 +34,7 @@ public final class KeyThrowModule extends ClientModule {
    private final KeySetting pearlKey = this.addSetting("pearl-key", new KeySetting("Pearl Key", -1));
    private final KeySetting windChargeKey = this.addSetting("wind-charge-key", new KeySetting("Wind Charge Key", -1));
    private final SlotReturn slots = new SlotReturn(this);
-   private class_1792 pending;
+   private Item pending;
    private int pendingTicks;
 
    public KeyThrowModule() {
@@ -52,7 +52,7 @@ public final class KeyThrowModule extends ClientModule {
    @Override
    protected void onDisable() {
       this.pending = null;
-      this.slots.drop(class_310.method_1551(), true);
+      this.slots.drop(Minecraft.getInstance(), true);
    }
 
    private void onKey(KeyInputEvent event) {
@@ -69,9 +69,9 @@ public final class KeyThrowModule extends ClientModule {
 
    private void onPress(int pressed) {
       if (ModuleKeybinds.isBindable(pressed)) {
-         class_1792 item = pressed == this.pearlKey.value() ? class_1802.field_8634 : (pressed == this.windChargeKey.value() ? class_1802.field_49098 : null);
-         class_310 mc = class_310.method_1551();
-         if (item != null && mc.field_1755 == null && mc.field_1724 != null) {
+         Item item = pressed == this.pearlKey.value() ? Items.ENDER_PEARL : (pressed == this.windChargeKey.value() ? Items.WIND_CHARGE : null);
+         Minecraft mc = Minecraft.getInstance();
+         if (item != null && mc.screen == null && mc.player != null) {
             this.pending = item;
             this.pendingTicks = 0;
          }
@@ -79,46 +79,46 @@ public final class KeyThrowModule extends ClientModule {
    }
 
    private void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       this.slots.tick(mc, true);
-      if (mc.field_1724 == null) {
+      if (mc.player == null) {
          this.pending = null;
       } else if (this.pending != null) {
-         this.tryThrow(mc, mc.field_1724);
+         this.tryThrow(mc, mc.player);
       }
    }
 
-   private void tryThrow(class_310 mc, class_746 player) {
+   private void tryThrow(Minecraft mc, LocalPlayer player) {
       if (++this.pendingTicks > 10) {
          this.pending = null;
       } else if (MeleeAttacks.canAct(mc) && MeleeAttacks.handsFree(mc, player) && !MeleeAttacks.actedThisTick(player)) {
          if (!CombatMacroLock.heldByOther(this) && !AutoInvTotemModule.wantsHotbar()) {
-            class_1661 inventory = player.method_31548();
-            boolean offhand = player.method_6079().method_31574(this.pending);
-            int slot = player.method_6047().method_31574(this.pending) ? inventory.method_67532() : Crystals.hotbarSlotOf(inventory, this.pending);
+            Inventory inventory = player.getInventory();
+            boolean offhand = player.getOffhandItem().is(this.pending);
+            int slot = player.getMainHandItem().is(this.pending) ? inventory.getSelectedSlot() : Crystals.hotbarSlotOf(inventory, this.pending);
             if (!offhand && slot < 0) {
                this.pending = null;
             } else {
-               class_1799 stack = offhand ? player.method_6079() : inventory.method_5438(slot);
-               if (!player.method_7357().method_7904(stack)) {
-                  boolean windCharge = this.pending == class_1802.field_49098;
+               ItemStack stack = offhand ? player.getOffhandItem() : inventory.getItem(slot);
+               if (!player.getCooldowns().isOnCooldown(stack)) {
+                  boolean windCharge = this.pending == Items.WIND_CHARGE;
                   if (!ServerRotation.pending() && (!windCharge || ServerRotation.canRotate(player))) {
                      if (offhand || this.slots.take(player, slot)) {
                         this.pending = null;
                         if (windCharge) {
-                           ServerRotation.request(new Rotation(player.method_36454(), 90.0F));
-                           if (player.method_24828()) {
+                           ServerRotation.request(new Rotation(player.getYRot(), 90.0F));
+                           if (player.onGround()) {
                               InputControl.jump();
                            }
                         }
 
-                        class_1268 hand = offhand ? class_1268.field_5810 : class_1268.field_5808;
-                        if (mc.field_1761.method_2919(player, hand) instanceof class_9860 success) {
-                           if (success.comp_2909() == class_9861.field_52427) {
-                              player.method_6104(hand);
+                        InteractionHand hand = offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+                        if (mc.gameMode.useItem(player, hand) instanceof Success success) {
+                           if (success.comp_2909() == SwingSource.CLIENT) {
+                              player.swing(hand);
                            }
 
-                           mc.field_1773.field_4012.method_3215(hand);
+                           mc.gameRenderer.itemInHandRenderer.itemUsed(hand);
                         }
 
                         MeleeAttacks.claimTick(mc);

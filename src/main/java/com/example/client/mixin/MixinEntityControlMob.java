@@ -4,14 +4,14 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import net.champ.client.module.impl.movement.EntityControlModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1308;
+import net.minecraft.world.entity.Mob;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_1308.class)
+@Mixin(Mob.class)
 public abstract class MixinEntityControlMob {
-   @ModifyReturnValue(method = "method_66672", at = @At("RETURN"))
+   @ModifyReturnValue(method = "isSaddled", at = @At("RETURN"))
    private boolean champ$entityControlSpoofSaddle(boolean original) {
       return original || EntityControlModule.spoofSaddle();
    }

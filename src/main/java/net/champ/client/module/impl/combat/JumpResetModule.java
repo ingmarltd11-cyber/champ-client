@@ -8,10 +8,10 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.util.pvp.InputControl;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_243;
-import net.minecraft.class_2743;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class JumpResetModule extends ClientModule {
@@ -29,11 +29,11 @@ public final class JumpResetModule extends ClientModule {
 
    @EventHandler
    public void onPacketApplied(PacketAppliedEvent event) {
-      if (event.packet instanceof class_2743 motion) {
-         class_746 player = class_310.method_1551().field_1724;
-         if (player != null && motion.method_11818() == player.method_5628()) {
-            class_243 knockback = motion.method_73085();
-            if (knockback.method_37267() >= 0.1 && knockback.field_1351 > 0.0) {
+      if (event.packet instanceof ClientboundSetEntityMotionPacket motion) {
+         LocalPlayer player = Minecraft.getInstance().player;
+         if (player != null && motion.getId() == player.getId()) {
+            Vec3 knockback = motion.getMovement();
+            if (knockback.horizontalDistance() >= 0.1 && knockback.y > 0.0) {
                this.pending = true;
             }
          }
@@ -44,11 +44,11 @@ public final class JumpResetModule extends ClientModule {
    public void onTick(TickEvent event) {
       if (this.pending) {
          this.pending = false;
-         class_310 mc = class_310.method_1551();
-         class_746 player = mc.field_1724;
-         if (player != null && mc.field_1755 == null) {
-            if (player.method_24828() && player.method_5624() && player.field_3913.field_54155.comp_3159()) {
-               if (!player.method_5799() && !player.method_5771() && !player.method_6101() && !player.method_5765() && !player.method_6128()) {
+         Minecraft mc = Minecraft.getInstance();
+         LocalPlayer player = mc.player;
+         if (player != null && mc.screen == null) {
+            if (player.onGround() && player.isSprinting() && player.input.keyPresses.comp_3159()) {
+               if (!player.isInWater() && !player.isInLava() && !player.onClimbable() && !player.isPassenger() && !player.isFallFlying()) {
                   InputControl.jump();
                }
             }

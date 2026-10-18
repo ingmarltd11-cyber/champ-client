@@ -4,29 +4,29 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import net.champ.client.module.impl.misc.NameProtectModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2561;
-import net.minecraft.class_8113.class_8123;
-import net.minecraft.class_8113.class_8123.class_8125;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Display.TextDisplay;
+import net.minecraft.world.entity.Display.TextDisplay.CachedInfo;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_8123.class)
+@Mixin(TextDisplay.class)
 public abstract class MixinNameProtectTextDisplay {
    @Unique
    private int champ$nameProtectGeneration;
 
    @ModifyExpressionValue(
-      method = "method_48905",
+      method = "cacheDisplay",
       at = @At(
          value = "FIELD",
          opcode = 180,
          ordinal = 0,
-         target = "Lnet/minecraft/class_8113$class_8123;field_42442:Lnet/minecraft/class_8113$class_8123$class_8125;"
+         target = "Lnet/minecraft/world/entity/Display$TextDisplay;clientDisplayCache:Lnet/minecraft/world/entity/Display$TextDisplay$CachedInfo;"
       )
    )
-   private class_8125 champ$nameProtectRefresh(class_8125 cached) {
+   private CachedInfo champ$nameProtectRefresh(CachedInfo cached) {
       int generation = NameProtectModule.generation();
       if (generation == this.champ$nameProtectGeneration) {
          return cached;
@@ -37,10 +37,10 @@ public abstract class MixinNameProtectTextDisplay {
    }
 
    @ModifyExpressionValue(
-      method = "method_48905",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/class_8113$class_8123$class_8230;comp_1334()Lnet/minecraft/class_2561;")
+      method = "cacheDisplay",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Display$TextDisplay$TextRenderState;comp_1334()Lnet/minecraft/network/chat/Component;")
    )
-   private class_2561 champ$nameProtectText(class_2561 text) {
+   private Component champ$nameProtectText(Component text) {
       return NameProtectModule.protect(text);
    }
 }

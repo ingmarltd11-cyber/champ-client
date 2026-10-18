@@ -8,21 +8,21 @@ import com.mojang.blaze3d.pipeline.RenderPipeline.Builder;
 import com.mojang.blaze3d.pipeline.RenderPipeline.Snippet;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.systems.RenderSystem.class_5590;
-import com.mojang.blaze3d.vertex.VertexFormat.class_5596;
+import com.mojang.blaze3d.systems.RenderSystem.AutoStorageIndexBuffer;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10799;
-import net.minecraft.class_276;
-import net.minecraft.class_287;
-import net.minecraft.class_290;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_4587;
-import net.minecraft.class_9799;
-import net.minecraft.class_9801;
+import net.minecraft.client.renderer.RenderPipelines;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.MeshData;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
@@ -32,11 +32,11 @@ import org.joml.Vector4f;
 final class SkyMesh {
    static final RenderPipeline GLOW = pipeline("sky_glow", BlendFunction.LIGHTNING);
    static final RenderPipeline PAINT = pipeline("sky_paint", null);
-   private static final int VERTEX_SIZE = class_290.field_1576.getVertexSize();
+   private static final int VERTEX_SIZE = DefaultVertexFormat.POSITION_COLOR.getVertexSize();
    private final String label;
    private final RenderPipeline pipeline;
    private final int maxQuads;
-   private class_9799 bytes;
+   private ByteBufferBuilder bytes;
    private GpuBuffer buffer;
    private int indexCount;
    private boolean built;
@@ -48,27 +48,27 @@ final class SkyMesh {
    }
 
    private static RenderPipeline pipeline(String name, BlendFunction blend) {
-      Builder builder = RenderPipeline.builder(new Snippet[]{class_10799.field_60125})
-         .withLocation(class_2960.method_60655("champ", "pipeline/" + name))
+      Builder builder = RenderPipeline.builder(new Snippet[]{RenderPipelines.MATRICES_PROJECTION_SNIPPET})
+         .withLocation(Identifier.fromNamespaceAndPath("champ", "pipeline/" + name))
          .withVertexShader("core/position_color")
          .withFragmentShader("core/position_color")
          .withDepthWrite(false)
          .withCull(false)
-         .withVertexFormat(class_290.field_1576, class_5596.field_27382);
+         .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, Mode.QUADS);
       return (blend == null ? builder.withoutBlend() : builder.withBlend(blend)).build();
    }
 
-   class_287 begin() {
+   BufferBuilder begin() {
       if (this.bytes == null) {
-         this.bytes = new class_9799(this.maxQuads * 4 * VERTEX_SIZE);
+         this.bytes = new ByteBufferBuilder(this.maxQuads * 4 * VERTEX_SIZE);
       }
 
-      return new class_287(this.bytes, class_5596.field_27382, class_290.field_1576);
+      return new BufferBuilder(this.bytes, Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
    }
 
-   void upload(class_287 builder) {
+   void upload(BufferBuilder builder) {
       this.built = true;
-      class_9801 mesh = builder.method_60794();
+      MeshData mesh = builder.build();
 
       label47: {
          try {
@@ -81,8 +81,8 @@ final class SkyMesh {
                this.buffer = RenderSystem.getDevice().createBuffer(() -> this.label, 40, this.maxQuads * 4L * VERTEX_SIZE);
             }
 
-            RenderSystem.getDevice().createCommandEncoder().writeToBuffer(this.buffer.slice(0L, mesh.method_60818().remaining()), mesh.method_60818());
-            this.indexCount = mesh.method_60822().comp_751();
+            RenderSystem.getDevice().createCommandEncoder().writeToBuffer(this.buffer.slice(0L, mesh.vertexBuffer().remaining()), mesh.vertexBuffer());
+            this.indexCount = mesh.drawState().comp_751();
          } catch (Throwable var6) {
             if (mesh != null) {
                try {
@@ -111,20 +111,20 @@ final class SkyMesh {
       return this.built;
    }
 
-   void draw(class_4587 pose, float alpha) {
+   void draw(PoseStack pose, float alpha) {
       if (this.indexCount != 0 && !(alpha <= 0.002F)) {
-         class_5590 indices = RenderSystem.getSequentialBuffer(class_5596.field_27382);
+         AutoStorageIndexBuffer indices = RenderSystem.getSequentialBuffer(Mode.QUADS);
          Matrix4fStack modelView = RenderSystem.getModelViewStack();
          modelView.pushMatrix();
 
          try {
-            modelView.mul(pose.method_23760().method_23761());
+            modelView.mul(pose.last().pose());
             GpuBufferSlice transforms = RenderSystem.getDynamicUniforms()
-               .method_71106(modelView, new Vector4f(1.0F, 1.0F, 1.0F, alpha), new Vector3f(), new Matrix4f());
-            class_276 target = class_310.method_1551().method_1522();
+               .writeTransform(modelView, new Vector4f(1.0F, 1.0F, 1.0F, alpha), new Vector3f(), new Matrix4f());
+            RenderTarget target = Minecraft.getInstance().getMainRenderTarget();
             RenderPass pass = RenderSystem.getDevice()
                .createCommandEncoder()
-               .createRenderPass(() -> this.label, target.method_71639(), OptionalInt.empty(), target.method_71640(), OptionalDouble.empty());
+               .createRenderPass(() -> this.label, target.getColorTextureView(), OptionalInt.empty(), target.getDepthTextureView(), OptionalDouble.empty());
 
             try {
                pass.setPipeline(this.pipeline);
@@ -169,7 +169,7 @@ final class SkyMesh {
       this.built = false;
    }
 
-   static void vertex(class_287 builder, float x, float y, float z, int argb) {
-      builder.method_22912(x, y, z).method_39415(argb);
+   static void vertex(BufferBuilder builder, float x, float y, float z, int argb) {
+      builder.addVertex(x, y, z).setColor(argb);
    }
 }

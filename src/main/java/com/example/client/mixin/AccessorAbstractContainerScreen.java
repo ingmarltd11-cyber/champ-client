@@ -2,15 +2,15 @@ package com.example.client.mixin;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1703;
-import net.minecraft.class_1735;
-import net.minecraft.class_465;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_465.class)
-public interface AccessorAbstractContainerScreen<T extends class_1703> {
-   @Accessor("field_2787")
-   class_1735 champ$getHoveredSlot();
+@Mixin(AbstractContainerScreen.class)
+public interface AccessorAbstractContainerScreen<T extends AbstractContainerMenu> {
+   @Accessor("hoveredSlot")
+   Slot champ$getHoveredSlot();
 }

@@ -2,23 +2,23 @@ package com.example.client.mixin;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_368;
-import net.minecraft.class_368.class_369;
+import net.minecraft.client.gui.components.toasts.Toast;
+import net.minecraft.client.gui.components.toasts.Toast.Visibility;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Environment(EnvType.CLIENT)
-@Mixin(targets = "net/minecraft/class_374$class_375")
+@Mixin(targets = "net/minecraft/client/gui/components/toasts/ToastManager$ToastInstance")
 public interface AccessorHudToastInstance {
-   @Accessor("field_2241")
-   class_368 champ$hudToast();
+   @Accessor("toast")
+   Toast champ$hudToast();
 
-   @Accessor("field_52787")
+   @Accessor("firstSlotIndex")
    int champ$hudFirstSlot();
 
-   @Accessor("field_2244")
-   class_369 champ$hudVisibility();
+   @Accessor("visibility")
+   Visibility champ$hudVisibility();
 
-   @Accessor("field_52789")
+   @Accessor("visiblePortion")
    float champ$hudVisiblePortion();
 }

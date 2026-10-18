@@ -9,7 +9,7 @@ import java.util.Arrays;
 import java.util.List;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2338;
+import net.minecraft.core.BlockPos;
 
 @Environment(EnvType.CLIENT)
 public final class ChunkDecoration {
@@ -69,7 +69,7 @@ public final class ChunkDecoration {
       ChunkDecoration.Builder builder = new ChunkDecoration.Builder(this.chunkX, this.chunkZ);
 
       for (int i = 0; i < this.keys.length; i++) {
-         int y = class_2338.method_10071(this.keys[i]);
+         int y = BlockPos.getY(this.keys[i]);
          boolean inBand = y >= minY && y <= maxY;
 
          for (int n = this.first[i]; n < this.first[i + 1]; n++) {

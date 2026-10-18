@@ -16,10 +16,10 @@ import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.module.setting.StringSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_3544;
-import net.minecraft.class_408;
-import net.minecraft.class_634;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.StringUtil;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import org.apache.commons.lang3.StringUtils;
 
 @Environment(EnvType.CLIENT)
@@ -83,8 +83,8 @@ public final class ChatMacroModule extends ClientModule {
 
    private void onPress(int pressed) {
       if (ModuleKeybinds.isBindable(pressed) && this.pendingSlot == -1) {
-         class_310 mc = class_310.method_1551();
-         if (mc.field_1755 == null && mc.field_1724 != null) {
+         Minecraft mc = Minecraft.getInstance();
+         if (mc.screen == null && mc.player != null) {
             int count = this.slotCount();
 
             for (int i = 0; i < count; i++) {
@@ -101,13 +101,13 @@ public final class ChatMacroModule extends ClientModule {
       int slot = this.pendingSlot;
       if (slot >= 0) {
          this.pendingSlot = -1;
-         class_310 mc = class_310.method_1551();
-         class_634 connection = mc.method_1562();
-         if (mc.field_1724 != null && connection != null && mc.field_1755 == null) {
+         Minecraft mc = Minecraft.getInstance();
+         ClientPacketListener connection = mc.getConnection();
+         if (mc.player != null && connection != null && mc.screen == null) {
             String text = normalize(this.texts[slot].get());
             if (!text.isEmpty() && !text.equals("/")) {
                if (this.pressAction.is("Open in Chat")) {
-                  mc.method_1507(new class_408(text, false));
+                  mc.setScreen(new ChatScreen(text, false));
                } else {
                   long now = System.nanoTime();
                   long left = (long)(this.cooldown.get() * 1.0E9) - (now - this.lastSendNanos);
@@ -119,11 +119,11 @@ public final class ChatMacroModule extends ClientModule {
                   } else {
                      this.lastSendNanos = now;
                      this.sentAny = true;
-                     mc.field_1705.method_1743().method_1803(text);
+                     mc.gui.getChat().addRecentChat(text);
                      if (text.startsWith("/")) {
-                        connection.method_45730(text.substring(1));
+                        connection.sendCommand(text.substring(1));
                      } else {
-                        connection.method_45729(text);
+                        connection.sendChat(text);
                      }
                   }
                }
@@ -133,8 +133,8 @@ public final class ChatMacroModule extends ClientModule {
    }
 
    static String normalize(String raw) {
-      String allowed = class_3544.method_57180(raw);
-      return class_3544.method_43681(StringUtils.normalizeSpace(allowed.trim()));
+      String allowed = StringUtil.filterText(raw);
+      return StringUtil.trimChatMessage(StringUtils.normalizeSpace(allowed.trim()));
    }
 
    private int slotCount() {

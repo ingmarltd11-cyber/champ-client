@@ -6,7 +6,7 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class MotionBlurModule extends ClientModule {
@@ -28,7 +28,7 @@ public final class MotionBlurModule extends ClientModule {
       if (RenderSystem.isOnRenderThread()) {
          MotionBlurPass.release();
       } else {
-         class_310.method_1551().execute(MotionBlurModule::releaseIfOff);
+         Minecraft.getInstance().execute(MotionBlurModule::releaseIfOff);
       }
    }
 

@@ -30,16 +30,16 @@ import net.champ.client.webhook.WebhookPayloadBuilder;
 import net.champ.client.webhook.WebhookService;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2535;
-import net.minecraft.class_2561;
-import net.minecraft.class_310;
-import net.minecraft.class_370;
-import net.minecraft.class_634;
-import net.minecraft.class_638;
-import net.minecraft.class_642;
-import net.minecraft.class_742;
-import net.minecraft.class_746;
-import net.minecraft.class_370.class_9037;
+import net.minecraft.network.Connection;
+import net.minecraft.network.chat.Component;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.toasts.SystemToast;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,7 +50,7 @@ public final class PlayerDetectionModule extends ClientModule {
    private static final long DISCONNECT_DELAY_MS = 500L;
    private static final String WEBHOOK_TITLE = "\ud83d\udea8 Player Detection Alert";
    private static final int WEBHOOK_COLOR = 15158332;
-   private static final class_9037 TOAST_ID = new class_9037();
+   private static final SystemToastId TOAST_ID = new SystemToastId();
    private static final ExecutorService WEBHOOK_EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
       Thread thread = new Thread(runnable, "Champ-PlayerDetection-Webhook");
       thread.setDaemon(true);
@@ -69,7 +69,7 @@ public final class PlayerDetectionModule extends ClientModule {
    private final StringSetting panicPayTarget = this.addSetting("target-player", new StringSetting("Target Player", ""));
    private final StringSetting panicPayAmount = this.addSetting("amount", new StringSetting("Amount", ""));
    private final Set<String> detectedPlayers = new HashSet<>();
-   private class_638 lastLevel;
+   private ClientLevel lastLevel;
    private String whitelistRaw;
    private Set<String> whitelist = Set.of();
 
@@ -105,23 +105,23 @@ public final class PlayerDetectionModule extends ClientModule {
    }
 
    private void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 self = mc.field_1724;
-      class_638 level = mc.field_1687;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer self = mc.player;
+      ClientLevel level = mc.level;
       if (self != null && level != null) {
          if (level != this.lastLevel) {
             this.detectedPlayers.clear();
             this.lastLevel = level;
          }
 
-         String selfName = self.method_7334().name();
-         UUID selfId = self.method_5667();
+         String selfName = self.getGameProfile().name();
+         UUID selfId = self.getUUID();
          Set<String> ignored = this.whitelist();
          Set<String> current = null;
 
-         for (class_742 player : level.method_18456()) {
-            if (player != self && !selfId.equals(player.method_5667())) {
-               String name = player.method_7334().name();
+         for (AbstractClientPlayer player : level.players()) {
+            if (player != self && !selfId.equals(player.getUUID())) {
+               String name = player.getGameProfile().name();
                if (name != null && !name.equals(selfName)) {
                   String key = name.toLowerCase(Locale.ROOT);
                   if (!PERMANENT_WHITELIST.contains(key) && !ignored.contains(key)) {
@@ -149,7 +149,7 @@ public final class PlayerDetectionModule extends ClientModule {
    }
 
    private void handlePlayerDetection(Set<String> players) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       switch (this.notificationMode.get()) {
          case "Chat":
             this.announceDetection(players);
@@ -202,8 +202,8 @@ public final class PlayerDetectionModule extends ClientModule {
       return body;
    }
 
-   private void showToast(class_310 mc) {
-      class_370.method_1990(mc.method_1566(), TOAST_ID, class_2561.method_43470(this.name()), class_2561.method_43470("Player Detected!"));
+   private void showToast(Minecraft mc) {
+      SystemToast.addOrUpdate(mc.getToastManager(), TOAST_ID, Component.literal(this.name()), Component.literal("Player Detected!"));
    }
 
    private List<ClientModule> resolveModulesToToggle() {
@@ -255,7 +255,7 @@ public final class PlayerDetectionModule extends ClientModule {
       return this.whitelist;
    }
 
-   private void panicPay(class_310 mc) {
+   private void panicPay(Minecraft mc) {
       String target = this.panicPayTarget.get().trim();
       String amount = this.panicPayAmount.get().trim();
       if (target.isEmpty()) {
@@ -263,28 +263,28 @@ public final class PlayerDetectionModule extends ClientModule {
       } else if (amount.isEmpty()) {
          ModuleChat.send(this, ModuleChat.body().text("Panic pay amount is ").warn("not set"));
       } else {
-         class_634 connection = mc.method_1562();
+         ClientPacketListener connection = mc.getConnection();
          if (connection != null) {
             String command = String.format("/pay %s %s", target, amount);
-            if (mc.field_1705 != null) {
-               mc.field_1705.method_1743().method_1803(command);
+            if (mc.gui != null) {
+               mc.gui.getChat().addRecentChat(command);
             }
 
-            connection.method_45730(command.substring(1));
+            connection.sendCommand(command.substring(1));
             ModuleChat.send(this, ModuleChat.body().text("Panic pay ").good("sent").text(": ").value(amount).text(" to ").name(target));
          }
       }
    }
 
-   private void sendWebhookNotification(class_310 mc, Set<String> players) {
+   private void sendWebhookNotification(Minecraft mc, Set<String> players) {
       String url = this.webhookUrl.get().trim();
       if (url.isEmpty()) {
          ModuleChat.send(this, ModuleChat.body().text("Webhook URL is ").warn("not set"));
       } else if (!isValidWebhookUrl(url)) {
          ModuleChat.send(this, ModuleChat.body().text("Webhook URL is ").danger("invalid"));
       } else {
-         class_642 server = mc.method_1558();
-         String serverName = server != null && server.field_3752 != null ? server.field_3752 : "Unknown Server";
+         ServerData server = mc.getCurrentServer();
+         String serverName = server != null && server.name != null ? server.name : "Unknown Server";
          String id = this.discordId.get().trim();
          String ping = this.selfPing.get() && !id.isEmpty() ? "<@" + id + ">" : "";
          String target = this.panicPayTarget.get().trim();
@@ -354,18 +354,18 @@ public final class PlayerDetectionModule extends ClientModule {
       return out.toString();
    }
 
-   private void scheduleDisconnect(class_310 mc, Set<String> players) {
-      class_634 listener = mc.method_1562();
+   private void scheduleDisconnect(Minecraft mc, Set<String> players) {
+      ClientPacketListener listener = mc.getConnection();
       if (listener != null) {
-         class_2535 session = listener.method_48296();
+         Connection session = listener.getConnection();
          CompletableFuture.delayedExecutor(500L, TimeUnit.MILLISECONDS, mc).execute(() -> this.disconnectFromServer(mc, session, players));
       }
    }
 
-   private void disconnectFromServer(class_310 mc, class_2535 session, Set<String> players) {
-      class_634 listener = mc.method_1562();
-      if (mc.field_1687 != null && listener != null && listener.method_48296() == session) {
-         session.method_10747(class_2561.method_43470("Player(s) detected: " + String.join(", ", players)));
+   private void disconnectFromServer(Minecraft mc, Connection session, Set<String> players) {
+      ClientPacketListener listener = mc.getConnection();
+      if (mc.level != null && listener != null && listener.getConnection() == session) {
+         session.disconnect(Component.literal("Player(s) detected: " + String.join(", ", players)));
          ModuleChat.send(
             this,
             names(

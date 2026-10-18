@@ -26,45 +26,45 @@ import net.champ.client.util.combat.CombatTarget;
 import net.champ.client.util.glyph.GlyphCanvas;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12178;
-import net.minecraft.class_12179;
-import net.minecraft.class_12180;
-import net.minecraft.class_1297;
-import net.minecraft.class_1309;
-import net.minecraft.class_1665;
-import net.minecraft.class_1676;
-import net.minecraft.class_1680;
-import net.minecraft.class_1681;
-import net.minecraft.class_1683;
-import net.minecraft.class_1684;
-import net.minecraft.class_1685;
-import net.minecraft.class_1686;
-import net.minecraft.class_1753;
-import net.minecraft.class_1764;
-import net.minecraft.class_1771;
-import net.minecraft.class_1776;
-import net.minecraft.class_1779;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_1811;
-import net.minecraft.class_1823;
-import net.minecraft.class_1835;
-import net.minecraft.class_1890;
-import net.minecraft.class_2350;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_4537;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
-import net.minecraft.class_9278;
-import net.minecraft.class_9284;
-import net.minecraft.class_9334;
-import net.minecraft.class_9701;
-import net.minecraft.class_9848;
-import net.minecraft.class_2350.class_2351;
+import net.minecraft.gizmos.GizmoProperties;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.Snowball;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEgg;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownExperienceBottle;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl;
+import net.minecraft.world.entity.projectile.arrow.ThrownTrident;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.AbstractThrownPotion;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.CrossbowItem;
+import net.minecraft.world.item.EggItem;
+import net.minecraft.world.item.EnderpearlItem;
+import net.minecraft.world.item.ExperienceBottleItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ProjectileWeaponItem;
+import net.minecraft.world.item.SnowballItem;
+import net.minecraft.world.item.TridentItem;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.item.ThrowablePotionItem;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.item.component.ChargedProjectiles;
+import net.minecraft.world.item.component.Fireworks;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.enchantment.EnchantmentEffectComponents;
+import net.minecraft.util.ARGB;
+import net.minecraft.core.Direction.Axis;
 
 @Environment(EnvType.CLIENT)
 public final class TrajectoriesModule extends ClientModule implements HudOverlayProvider {
@@ -173,13 +173,13 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
    private final TrajectoriesModule.Aim[] volley = new TrajectoriesModule.Aim[3];
    private int volleySize;
    private boolean volleyGhost;
-   private class_1792 aimItem;
+   private Item aimItem;
    private long aimSince = -1L;
    private long markerSince = -1L;
    private final Int2ObjectOpenHashMap<TrajectoriesModule.Track> tracks = new Int2ObjectOpenHashMap();
    private final ArrayDeque<TrajectoriesModule.Track> spareTracks = new ArrayDeque<>();
    private int sweep;
-   private class_638 level;
+   private ClientLevel level;
    private final GlyphCanvas canvas = new GlyphCanvas();
    private final List<TrajectoriesModule.Label> labels = new ArrayList<>();
    private long labelsAt;
@@ -192,7 +192,7 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
    private int plateTint;
    private int hitTint;
    private boolean onTop;
-   private class_243 camera = class_243.field_1353;
+   private Vec3 camera = Vec3.ZERO;
    private double strokeTotal;
    private double strokeSheen;
    private float strokeAlpha;
@@ -244,7 +244,7 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
       this.level = null;
    }
 
-   private void syncLevel(class_638 world) {
+   private void syncLevel(ClientLevel world) {
       if (world != this.level) {
          this.reset();
          this.level = world;
@@ -287,9 +287,9 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
 
    private void onTick(TickEvent event) {
       this.sweep++;
-      class_310 mc = class_310.method_1551();
-      class_638 world = mc.field_1687;
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      ClientLevel world = mc.level;
+      LocalPlayer player = mc.player;
       this.syncLevel(world);
       if (world != null && player != null && this.inFlight.get()) {
          double reach = this.range.get() * this.range.get();
@@ -297,37 +297,37 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
          boolean otherPearlsTaken = pearlModule != null && pearlToggle(pearlModule, "others-pearls");
          boolean others = this.othersShots.get();
          boolean captions = this.flightTime.get();
-         class_243 eye = player.method_33571();
+         Vec3 eye = player.getEyePosition();
          int budget = 24;
 
-         for (class_1297 entity : world.method_18112()) {
-            if (entity instanceof class_1676 shot && !shot.method_31481()) {
-               class_1297 owner = shot.method_24921();
+         for (Entity entity : world.entitiesForRendering()) {
+            if (entity instanceof Projectile shot && !shot.isRemoved()) {
+               Entity owner = shot.getOwner();
                boolean own = owner == player;
                if (own || others) {
                   boolean pearlTaken = pearlModule != null && (owner == null || own || otherPearlsTaken);
                   Ballistics.Body body = this.bodyOf(shot, pearlTaken);
-                  if (body != null && !(shot.method_5858(player) > reach)) {
-                     class_243 motion = shot.method_18798();
-                     if (!(motion.method_1027() < 1.0E-4) && !resting(shot)) {
+                  if (body != null && !(shot.distanceToSqr(player) > reach)) {
+                     Vec3 motion = shot.getDeltaMovement();
+                     if (!(motion.lengthSqr() < 1.0E-4) && !resting(shot)) {
                         if (budget-- == 0) {
                            break;
                         }
 
-                        TrajectoriesModule.Track track = (TrajectoriesModule.Track)this.tracks.get(shot.method_5628());
+                        TrajectoriesModule.Track track = (TrajectoriesModule.Track)this.tracks.get(shot.getId());
                         if (track == null) {
                            track = this.spareTracks.isEmpty() ? new TrajectoriesModule.Track() : this.spareTracks.pop();
-                           this.tracks.put(shot.method_5628(), track);
+                           this.tracks.put(shot.getId(), track);
                         }
 
                         track.shot = shot;
                         track.seen = this.sweep;
                         track.flight
-                           .launch(body, shot.method_73189(), motion)
-                           .bounds(shot.method_17681(), shot.method_17682())
-                           .gravity(shot.method_5740() ? 0.0 : body.gravity())
-                           .wet(shot.method_5799())
-                           .age(shot.field_6012)
+                           .launch(body, shot.position(), motion)
+                           .bounds(shot.getBbWidth(), shot.getBbHeight())
+                           .gravity(shot.isNoGravity() ? 0.0 : body.gravity())
+                           .wet(shot.isInWater())
+                           .age(shot.tickCount)
                            .lifetime(200)
                            .ignoring(owner, shot)
                            .leftShooter(track.departed)
@@ -357,27 +357,27 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
       return true;
    }
 
-   private static boolean resting(class_1676 shot) {
-      double dx = shot.method_23317() - shot.field_6014;
-      double dy = shot.method_23318() - shot.field_6036;
-      double dz = shot.method_23321() - shot.field_5969;
-      return shot.field_6012 > 1 && dx * dx + dy * dy + dz * dz < 1.0E-4;
+   private static boolean resting(Projectile shot) {
+      double dx = shot.getX() - shot.xo;
+      double dy = shot.getY() - shot.yo;
+      double dz = shot.getZ() - shot.zo;
+      return shot.tickCount > 1 && dx * dx + dy * dy + dz * dz < 1.0E-4;
    }
 
-   private Ballistics.Body bodyOf(class_1676 shot, boolean pearlsTaken) {
-      if (shot instanceof class_1685 trident) {
-         return this.tridents.get() && !trident.method_7441() ? Ballistics.Body.TRIDENT : null;
-      } else if (shot instanceof class_1665 arrow) {
-         return this.bows.get() && !arrow.method_7441() ? Ballistics.Body.ARROW : null;
-      } else if (!(shot instanceof class_1684)) {
+   private Ballistics.Body bodyOf(Projectile shot, boolean pearlsTaken) {
+      if (shot instanceof ThrownTrident trident) {
+         return this.tridents.get() && !trident.isNoPhysics() ? Ballistics.Body.TRIDENT : null;
+      } else if (shot instanceof AbstractArrow arrow) {
+         return this.bows.get() && !arrow.isNoPhysics() ? Ballistics.Body.ARROW : null;
+      } else if (!(shot instanceof ThrownEnderpearl)) {
          if (!this.throwables.get()) {
             return null;
-         } else if (shot instanceof class_1686) {
+         } else if (shot instanceof AbstractThrownPotion) {
             return Ballistics.Body.FLASK;
-         } else if (shot instanceof class_1683) {
+         } else if (shot instanceof ThrownExperienceBottle) {
             return Ballistics.Body.BOTTLE;
          } else {
-            return !(shot instanceof class_1680) && !(shot instanceof class_1681) ? null : Ballistics.Body.ORB;
+            return !(shot instanceof Snowball) && !(shot instanceof ThrownEgg) ? null : Ballistics.Body.ORB;
          }
       } else {
          return this.pearls.get() && !pearlsTaken ? Ballistics.Body.ORB : null;
@@ -401,9 +401,9 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
 
    private void onRender(Render3DEvent event) {
       this.labels.clear();
-      class_310 mc = class_310.method_1551();
-      class_638 world = mc.field_1687;
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      ClientLevel world = mc.level;
+      LocalPlayer player = mc.player;
       this.syncLevel(world);
       if (world != null && player != null) {
          long now = System.nanoTime();
@@ -412,9 +412,9 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
          float partialTick = event.partialTick;
          this.choosePalette();
          this.onTop = this.throughWalls.get();
-         this.canvas.begin(mc.field_1773.method_19418());
-         this.camera = mc.field_1773.method_19418().method_71156();
-         class_1309 focus = this.targetBox.get() ? CombatTarget.current(6000L) : null;
+         this.canvas.begin(mc.gameRenderer.getMainCamera());
+         this.camera = mc.gameRenderer.getMainCamera().position();
+         LivingEntity focus = this.targetBox.get() ? CombatTarget.current(6000L) : null;
          if (this.aimPreview.get()) {
             this.drawAim(world, player, partialTick, now, time, focus);
          } else if (this.aimItem != null || this.volleySize > 0) {
@@ -429,16 +429,16 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
       }
    }
 
-   private void drawTracks(class_746 player, float partialTick, float time, class_1309 focus) {
+   private void drawTracks(LocalPlayer player, float partialTick, float time, LivingEntity focus) {
       ObjectIterator var5 = this.tracks.values().iterator();
 
       while (var5.hasNext()) {
          TrajectoriesModule.Track track = (TrajectoriesModule.Track)var5.next();
-         class_1676 shot = track.shot;
-         if (shot != null && !shot.method_31481()) {
-            boolean own = shot.method_24921() == player;
+         Projectile shot = track.shot;
+         if (shot != null && !shot.isRemoved()) {
+            boolean own = shot.getOwner() == player;
             float alpha = own ? 1.0F : 0.7F;
-            this.drawPath(track.flight, shot.method_30950(partialTick), Double.MAX_VALUE, alpha * 0.85F, false, false, own, time);
+            this.drawPath(track.flight, shot.getPosition(partialTick), Double.MAX_VALUE, alpha * 0.85F, false, false, own, time);
             this.drawImpact(track.flight, 1.0F, alpha, time, partialTick, focus);
             this.addLabel(track);
          }
@@ -448,21 +448,21 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
    private void choosePalette() {
       boolean manual = this.colorMode.is("Manual");
       int base = manual ? this.pathColor.argb() : CosmeticAccent.argb();
-      this.headTint = class_9848.method_61319(0.35F, base, -1);
+      this.headTint = ARGB.srgbLerp(0.35F, base, -1);
       this.tailTint = base;
       this.haloTint = base;
       this.markTint = base;
       this.ringTint = this.headTint;
-      this.sheenTint = class_9848.method_61319(0.8F, base, -1);
-      this.plateTint = class_9848.method_61319(0.55F, base, -1);
-      this.hitTint = manual ? this.hitColor.argb() : class_9848.method_61319(0.5F, base, -1);
+      this.sheenTint = ARGB.srgbLerp(0.8F, base, -1);
+      this.plateTint = ARGB.srgbLerp(0.55F, base, -1);
+      this.hitTint = manual ? this.hitColor.argb() : ARGB.srgbLerp(0.5F, base, -1);
    }
 
-   private void drawAim(class_638 world, class_746 player, float partialTick, long now, float time, class_1309 focus) {
-      class_1799 stack = heldLauncher(player);
+   private void drawAim(ClientLevel world, LocalPlayer player, float partialTick, long now, float time, LivingEntity focus) {
+      ItemStack stack = heldLauncher(player);
       this.volleySize = 0;
       this.volleyGhost = false;
-      if (!stack.method_7960()) {
+      if (!stack.isEmpty()) {
          this.loadVolley(world, player, stack, partialTick);
       }
 
@@ -471,7 +471,7 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
             this.forgetAim();
          }
       } else {
-         class_1792 item = stack.method_7909();
+         Item item = stack.getItem();
          if (item != this.aimItem) {
             this.aimItem = item;
             this.aimSince = now;
@@ -503,69 +503,69 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
       }
    }
 
-   private static class_1799 heldLauncher(class_746 player) {
-      if (player.method_6115()) {
-         return player.method_6030();
+   private static ItemStack heldLauncher(LocalPlayer player) {
+      if (player.isUsingItem()) {
+         return player.getUseItem();
       }
 
-      class_1799 main = player.method_6047();
-      return launches(main.method_7909()) ? main : player.method_6079();
+      ItemStack main = player.getMainHandItem();
+      return launches(main.getItem()) ? main : player.getOffhandItem();
    }
 
-   private static boolean launches(class_1792 item) {
-      return item instanceof class_1811
-         || item instanceof class_1835
-         || item instanceof class_1823
-         || item instanceof class_1771
-         || item instanceof class_1776
-         || item instanceof class_4537
-         || item instanceof class_1779;
+   private static boolean launches(Item item) {
+      return item instanceof ProjectileWeaponItem
+         || item instanceof TridentItem
+         || item instanceof SnowballItem
+         || item instanceof EggItem
+         || item instanceof EnderpearlItem
+         || item instanceof ThrowablePotionItem
+         || item instanceof ExperienceBottleItem;
    }
 
-   private void loadVolley(class_638 world, class_746 player, class_1799 stack, float partialTick) {
-      class_1792 item = stack.method_7909();
-      boolean drawing = player.method_6115() && player.method_6030() == stack;
-      if (item instanceof class_1753) {
-         if (!this.bows.get() || player.method_18808(stack).method_7960() || !drawing && !this.ghostArc.get()) {
+   private void loadVolley(ClientLevel world, LocalPlayer player, ItemStack stack, float partialTick) {
+      Item item = stack.getItem();
+      boolean drawing = player.isUsingItem() && player.getUseItem() == stack;
+      if (item instanceof BowItem) {
+         if (!this.bows.get() || player.getProjectile(stack).isEmpty() || !drawing && !this.ghostArc.get()) {
             return;
          }
 
-         float pull = drawing ? bowPull(player.method_6048() + partialTick) : 1.0F;
+         float pull = drawing ? bowPull(player.getTicksUsingItem() + partialTick) : 1.0F;
          this.volleyGhost = !drawing || pull < 0.1F;
          this.aimed(world, player, partialTick, Ballistics.Body.ARROW, Math.max(pull, 0.1F) * 3.0F, 0.0F);
-      } else if (item instanceof class_1764) {
+      } else if (item instanceof CrossbowItem) {
          if (this.bows.get()) {
-            this.crossbowVolley(world, player, partialTick, (class_9278)stack.method_58695(class_9334.field_49649, class_9278.field_49298));
+            this.crossbowVolley(world, player, partialTick, (ChargedProjectiles)stack.getOrDefault(DataComponents.CHARGED_PROJECTILES, ChargedProjectiles.EMPTY));
          }
-      } else if (item instanceof class_1835) {
+      } else if (item instanceof TridentItem) {
          if (!this.tridents.get() || !drawing && !this.ghostArc.get()) {
             return;
          }
 
-         if (class_1890.method_60142(stack, class_9701.field_51651)) {
+         if (EnchantmentHelper.has(stack, EnchantmentEffectComponents.TRIDENT_SPIN_ATTACK_STRENGTH)) {
             return;
          }
 
-         this.volleyGhost = !drawing || player.method_6048() < 10;
+         this.volleyGhost = !drawing || player.getTicksUsingItem() < 10;
          this.aimed(world, player, partialTick, Ballistics.Body.TRIDENT, 2.5F, 0.0F);
-      } else if (item instanceof class_1776) {
+      } else if (item instanceof EnderpearlItem) {
          PearlTrajectoryModule pearlModule = activePearlModule();
          if (this.pearls.get() && (pearlModule == null || !pearlToggle(pearlModule, "predict"))) {
-            this.aimed(world, player, partialTick, Ballistics.Body.ORB, class_1776.field_55033, 0.0F);
+            this.aimed(world, player, partialTick, Ballistics.Body.ORB, EnderpearlItem.PROJECTILE_SHOOT_POWER, 0.0F);
          }
       } else if (this.throwables.get()) {
          this.lob(world, player, partialTick, item);
       }
    }
 
-   private void lob(class_638 world, class_746 player, float partialTick, class_1792 item) {
-      if (item instanceof class_1823) {
-         this.aimed(world, player, partialTick, Ballistics.Body.ORB, class_1823.field_55045, 0.0F);
-      } else if (item instanceof class_1771) {
+   private void lob(ClientLevel world, LocalPlayer player, float partialTick, Item item) {
+      if (item instanceof SnowballItem) {
+         this.aimed(world, player, partialTick, Ballistics.Body.ORB, SnowballItem.PROJECTILE_SHOOT_POWER, 0.0F);
+      } else if (item instanceof EggItem) {
          this.aimed(world, player, partialTick, Ballistics.Body.ORB, 1.5F, 0.0F);
-      } else if (item instanceof class_4537) {
-         this.aimed(world, player, partialTick, Ballistics.Body.FLASK, class_4537.field_55046, -20.0F);
-      } else if (item instanceof class_1779) {
+      } else if (item instanceof ThrowablePotionItem) {
+         this.aimed(world, player, partialTick, Ballistics.Body.FLASK, ThrowablePotionItem.PROJECTILE_SHOOT_POWER, -20.0F);
+      } else if (item instanceof ExperienceBottleItem) {
          this.aimed(world, player, partialTick, Ballistics.Body.BOTTLE, 0.7F, -20.0F);
       }
    }
@@ -575,33 +575,33 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
       return Math.min(1.0F, (seconds * seconds + seconds * 2.0F) / 3.0F);
    }
 
-   private void aimed(class_638 world, class_746 player, float partialTick, Ballistics.Body body, float speed, float tilt) {
-      float pitchDeg = player.method_5695(partialTick);
+   private void aimed(ClientLevel world, LocalPlayer player, float partialTick, Ballistics.Body body, float speed, float tilt) {
+      float pitchDeg = player.getViewXRot(partialTick);
       double pitch = Math.toRadians(pitchDeg);
-      double yaw = Math.toRadians(player.method_5705(partialTick));
+      double yaw = Math.toRadians(player.getViewYRot(partialTick));
       double lift = Math.toRadians(pitchDeg + tilt);
-      class_243 aim = new class_243(-Math.sin(yaw) * Math.cos(pitch), -Math.sin(lift), Math.cos(yaw) * Math.cos(pitch)).method_1029().method_1021(speed);
-      class_243 carried = player.method_60478();
-      class_243 motion = aim.method_1031(carried.field_1352, player.method_24828() ? 0.0 : carried.field_1351, carried.field_1350);
+      Vec3 aim = new Vec3(-Math.sin(yaw) * Math.cos(pitch), -Math.sin(lift), Math.cos(yaw) * Math.cos(pitch)).normalize().scale(speed);
+      Vec3 carried = player.getKnownMovement();
+      Vec3 motion = aim.add(carried.x, player.onGround() ? 0.0 : carried.y, carried.z);
       this.release(world, player, body, muzzle(player, partialTick, 0.1), motion, 240);
    }
 
-   private void crossbowVolley(class_638 world, class_746 player, float partialTick, class_9278 loaded) {
-      if (!loaded.method_57442()) {
-         List<class_1799> rounds = loaded.method_57437();
-         float speed = loaded.method_57438(class_1802.field_8639) ? 1.6F : 3.15F;
+   private void crossbowVolley(ClientLevel world, LocalPlayer player, float partialTick, ChargedProjectiles loaded) {
+      if (!loaded.isEmpty()) {
+         List<ItemStack> rounds = loaded.getItems();
+         float speed = loaded.contains(Items.FIREWORK_ROCKET) ? 1.6F : 3.15F;
          int count = rounds.size();
          float gap = count > 1 ? 20.0F / (count - 1) : 0.0F;
          float centre = (count - 1) % 2 * gap / 2.0F;
-         class_243 look = player.method_5828(partialTick);
-         class_243 up = player.method_18864(partialTick);
+         Vec3 look = player.getViewVector(partialTick);
+         Vec3 up = player.getUpVector(partialTick);
 
          for (int i = 0; i < count; i++) {
-            class_1799 round = rounds.get(i);
-            if (!round.method_7960()) {
+            ItemStack round = rounds.get(i);
+            if (!round.isEmpty()) {
                float offset = centre + ((i & 1) == 1 ? -1.0F : 1.0F) * ((i + 1) / 2) * gap;
-               class_243 motion = swing(look, up, offset).method_1029().method_1021(speed);
-               if (round.method_31574(class_1802.field_8639)) {
+               Vec3 motion = swing(look, up, offset).normalize().scale(speed);
+               if (round.is(Items.FIREWORK_ROCKET)) {
                   this.release(world, player, Ballistics.Body.ROCKET, muzzle(player, partialTick, 0.15), motion, rocketFuse(round));
                } else {
                   this.release(world, player, Ballistics.Body.ARROW, muzzle(player, partialTick, 0.1), motion, 240);
@@ -611,13 +611,13 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
       }
    }
 
-   private static int rocketFuse(class_1799 rocket) {
-      class_9284 fireworks = (class_9284)rocket.method_58694(class_9334.field_49616);
+   private static int rocketFuse(ItemStack rocket) {
+      Fireworks fireworks = (Fireworks)rocket.get(DataComponents.FIREWORKS);
       int flight = 1 + (fireworks != null ? fireworks.comp_2391() : 0);
       return 10 * flight + 6;
    }
 
-   private static class_243 swing(class_243 vector, class_243 axis, double degrees) {
+   private static Vec3 swing(Vec3 vector, Vec3 axis, double degrees) {
       if (degrees == 0.0) {
          return vector;
       }
@@ -625,16 +625,16 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
       double angle = Math.toRadians(degrees);
       double cos = Math.cos(angle);
       double sin = Math.sin(angle);
-      class_243 k = axis.method_1029();
-      return vector.method_1021(cos).method_1019(k.method_1036(vector).method_1021(sin)).method_1019(k.method_1021(k.method_1026(vector) * (1.0 - cos)));
+      Vec3 k = axis.normalize();
+      return vector.scale(cos).add(k.cross(vector).scale(sin)).add(k.scale(k.dot(vector) * (1.0 - cos)));
    }
 
-   private static class_243 muzzle(class_746 player, float partialTick, double drop) {
-      class_243 feet = player.method_30950(partialTick);
-      return new class_243(feet.field_1352, feet.field_1351 + player.method_5751() - drop, feet.field_1350);
+   private static Vec3 muzzle(LocalPlayer player, float partialTick, double drop) {
+      Vec3 feet = player.getPosition(partialTick);
+      return new Vec3(feet.x, feet.y + player.getEyeHeight() - drop, feet.z);
    }
 
-   private void release(class_638 world, class_746 player, Ballistics.Body body, class_243 from, class_243 motion, int life) {
+   private void release(ClientLevel world, LocalPlayer player, Ballistics.Body body, Vec3 from, Vec3 motion, int life) {
       if (this.volleySize != 3) {
          TrajectoriesModule.Aim aim = this.volley[this.volleySize++];
          if (!aim.matches(body, from, motion, life, this.sweep)) {
@@ -645,14 +645,14 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
       }
    }
 
-   private void drawPath(Ballistics.Flight flight, class_243 head, double reveal, float alpha, boolean aim, boolean shine, boolean glow, float time) {
+   private void drawPath(Ballistics.Flight flight, Vec3 head, double reveal, float alpha, boolean aim, boolean shine, boolean glow, float time) {
       int count = flight.size();
       if (count >= 2 && !(alpha < 0.02F)) {
          double total = flight.length();
          if (head != null) {
-            double hx = head.field_1352 - flight.x(0);
-            double hy = head.field_1351 - flight.y(0);
-            double hz = head.field_1350 - flight.z(0);
+            double hx = head.x - flight.x(0);
+            double hy = head.y - flight.y(0);
+            double hz = head.z - flight.z(0);
             total += Math.sqrt(hx * hx + hy * hy + hz * hz);
          }
 
@@ -677,9 +677,9 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
             double az;
             int next;
             if (head != null) {
-               ax = head.field_1352;
-               ay = head.field_1351;
-               az = head.field_1350;
+               ax = head.x;
+               ay = head.y;
+               az = head.z;
                next = 0;
             } else {
                ax = flight.x(0);
@@ -730,10 +730,10 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
    }
 
    private double beadLength(double ax, double ay, double az, double dx, double dy, double dz, double t) {
-      double px = ax + dx * t - this.camera.field_1352;
-      double py = ay + dy * t - this.camera.field_1351;
-      double pz = az + dz * t - this.camera.field_1350;
-      return class_3532.method_15350(Math.sqrt(px * px + py * py + pz * pz) * 0.011, 0.035, 0.2);
+      double px = ax + dx * t - this.camera.x;
+      double py = ay + dy * t - this.camera.y;
+      double pz = az + dz * t - this.camera.z;
+      return Mth.clamp(Math.sqrt(px * px + py * py + pz * pz) * 0.011, 0.035, 0.2);
    }
 
    private void stroke(double ax, double ay, double az, double dx, double dy, double dz, double t0, double t1, double along) {
@@ -744,11 +744,11 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
 
       if (!(alpha < 0.02F)) {
          float progress = (float)(along / this.strokeTotal);
-         int core = class_9848.method_61319(progress, this.headTint, this.tailTint);
+         int core = ARGB.srgbLerp(progress, this.headTint, this.tailTint);
          if (!Double.isNaN(this.strokeSheen)) {
             double glint = 1.0 - Math.abs(along - this.strokeSheen) / 1.6;
             if (glint > 0.0) {
-               core = class_9848.method_61319((float)(glint * 0.7), core, this.sheenTint);
+               core = ARGB.srgbLerp((float)(glint * 0.7), core, this.sheenTint);
             }
          }
 
@@ -761,18 +761,18 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
          if (this.strokeHalo) {
             float glow = alpha * 0.22F * this.haloFade(x0, y0, z0);
             if (glow > 0.0F) {
-               this.canvas.line(x0, y0, z0, x1, y1, z1, class_9848.method_75601(this.haloTint, glow), this.strokeWidth * 2.8F);
+               this.canvas.line(x0, y0, z0, x1, y1, z1, ARGB.multiplyAlpha(this.haloTint, glow), this.strokeWidth * 2.8F);
             }
          }
 
-         this.canvas.line(x0, y0, z0, x1, y1, z1, class_9848.method_75601(core, alpha), this.strokeWidth);
+         this.canvas.line(x0, y0, z0, x1, y1, z1, ARGB.multiplyAlpha(core, alpha), this.strokeWidth);
       }
    }
 
    private float haloFade(double x, double y, double z) {
-      double px = x - this.camera.field_1352;
-      double py = y - this.camera.field_1351;
-      double pz = z - this.camera.field_1350;
+      double px = x - this.camera.x;
+      double py = y - this.camera.y;
+      double pz = z - this.camera.z;
       double distanceSqr = px * px + py * py + pz * pz;
       if (distanceSqr <= 576.0) {
          return 1.0F;
@@ -781,7 +781,7 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
       }
    }
 
-   private void drawImpact(Ballistics.Flight flight, float grow, float alpha, float time, float partialTick, class_1309 focus) {
+   private void drawImpact(Ballistics.Flight flight, float grow, float alpha, float time, float partialTick, LivingEntity focus) {
       switch (flight.outcome()) {
          case ENTITY:
             if (this.targetBox.get()) {
@@ -798,28 +798,28 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
 
    private void drawMarker(Ballistics.Flight flight, float grow, float alpha, float time) {
       if (!this.marker.is("None") && !(grow <= 0.01F)) {
-         class_2350 face = flight.face();
-         class_243 normal = new class_243(face.method_10148(), face.method_10164(), face.method_10165());
-         class_243 up = new class_243(0.0, 1.0, 0.0);
-         if (face.method_10166() == class_2351.field_11052) {
-            class_243 heading = flight.heading();
-            up = heading.field_1352 * heading.field_1352 + heading.field_1350 * heading.field_1350 < 1.0E-8
-               ? new class_243(0.0, 0.0, 1.0)
-               : new class_243(heading.field_1352, 0.0, heading.field_1350).method_1029();
+         Direction face = flight.face();
+         Vec3 normal = new Vec3(face.getStepX(), face.getStepY(), face.getStepZ());
+         Vec3 up = new Vec3(0.0, 1.0, 0.0);
+         if (face.getAxis() == Axis.Y) {
+            Vec3 heading = flight.heading();
+            up = heading.x * heading.x + heading.z * heading.z < 1.0E-8
+               ? new Vec3(0.0, 0.0, 1.0)
+               : new Vec3(heading.x, 0.0, heading.z).normalize();
          }
 
-         class_243 right = up.method_1036(normal).method_1029();
-         class_243 centre = flight.impact().method_1019(normal.method_1021(0.025));
+         Vec3 right = up.cross(normal).normalize();
+         Vec3 centre = flight.impact().add(normal.scale(0.025));
          double scale = 0.5 * this.markerScale.get() * grow;
-         this.gx = centre.field_1352;
-         this.gy = centre.field_1351;
-         this.gz = centre.field_1350;
-         this.rx = right.field_1352 * scale;
-         this.ry = right.field_1351 * scale;
-         this.rz = right.field_1350 * scale;
-         this.ux = up.field_1352 * scale;
-         this.uy = up.field_1351 * scale;
-         this.uz = up.field_1350 * scale;
+         this.gx = centre.x;
+         this.gy = centre.y;
+         this.gz = centre.z;
+         this.rx = right.x * scale;
+         this.ry = right.y * scale;
+         this.rz = right.z * scale;
+         this.ux = up.x * scale;
+         this.uy = up.y * scale;
+         this.uz = up.z * scale;
          if (this.marker.is("Sun Disk")) {
             this.drawSunDisk(alpha, time);
          } else {
@@ -829,9 +829,9 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
    }
 
    private void drawAnkh(float alpha, float time) {
-      int gold = class_9848.method_75601(this.markTint, alpha);
-      this.disc(0.78, class_9848.method_75601(this.plateTint, alpha * 0.16F));
-      this.orbit(0.9, time * 0.6, class_9848.method_75601(this.ringTint, alpha * 0.85F), this.thickness.get() * 0.75F);
+      int gold = ARGB.multiplyAlpha(this.markTint, alpha);
+      this.disc(0.78, ARGB.multiplyAlpha(this.plateTint, alpha * 0.16F));
+      this.orbit(0.9, time * 0.6, ARGB.multiplyAlpha(this.ringTint, alpha * 0.85F), this.thickness.get() * 0.75F);
       this.facet(this.at(-0.06, 0.02), this.at(0.06, 0.02), this.at(0.15, -0.62), this.at(-0.15, -0.62), gold);
       this.facet(this.at(-0.06, 0.09), this.at(-0.06, -0.03), this.at(-0.37, -0.08), this.at(-0.37, 0.14), gold);
       this.facet(this.at(0.06, 0.09), this.at(0.06, -0.03), this.at(0.37, -0.08), this.at(0.37, 0.14), gold);
@@ -852,15 +852,15 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
    }
 
    private void drawSunDisk(float alpha, float time) {
-      int gold = class_9848.method_75601(this.markTint, alpha);
+      int gold = ARGB.multiplyAlpha(this.markTint, alpha);
       float width = this.thickness.get();
-      this.disc(0.95, class_9848.method_75601(this.plateTint, alpha * 0.12F));
+      this.disc(0.95, ARGB.multiplyAlpha(this.plateTint, alpha * 0.12F));
       this.disc(0.3, gold);
-      int ring = class_9848.method_75601(this.ringTint, alpha);
-      class_243 previous = this.at(0.42, 0.0);
+      int ring = ARGB.multiplyAlpha(this.ringTint, alpha);
+      Vec3 previous = this.at(0.42, 0.0);
 
       for (int k = 1; k <= 24; k++) {
-         class_243 point = this.at(0.42 * RIM_COS[k], 0.42 * RIM_SIN[k]);
+         Vec3 point = this.at(0.42 * RIM_COS[k], 0.42 * RIM_SIN[k]);
          this.line(previous, point, ring, width);
          previous = point;
       }
@@ -876,28 +876,28 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
       }
    }
 
-   private void drawBurst(class_243 centre, float grow, float alpha) {
-      int color = class_9848.method_75601(this.markTint, alpha);
+   private void drawBurst(Vec3 centre, float grow, float alpha) {
+      int color = ARGB.multiplyAlpha(this.markTint, alpha);
       double reach = 0.55 * this.markerScale.get() * grow;
       float width = this.thickness.get();
 
       for (double[] ray : BURST_RAYS) {
-         class_243 dir = new class_243(ray[0], ray[1], ray[2]);
-         this.line(centre.method_1019(dir.method_1021(reach * 0.25)), centre.method_1019(dir.method_1021(reach)), color, width);
+         Vec3 dir = new Vec3(ray[0], ray[1], ray[2]);
+         this.line(centre.add(dir.scale(reach * 0.25)), centre.add(dir.scale(reach)), color, width);
       }
    }
 
-   private void drawTargetBox(class_1297 entity, float alpha, float time, float partialTick, class_1309 focus) {
-      if (entity != null && !entity.method_31481()) {
-         class_243 shift = entity.method_30950(partialTick).method_1020(entity.method_73189());
-         class_238 box = entity.method_5829().method_997(shift).method_1014(0.06);
-         if (!box.method_1006(this.camera)) {
+   private void drawTargetBox(Entity entity, float alpha, float time, float partialTick, LivingEntity focus) {
+      if (entity != null && !entity.isRemoved()) {
+         Vec3 shift = entity.getPosition(partialTick).subtract(entity.position());
+         AABB box = entity.getBoundingBox().move(shift).inflate(0.06);
+         if (!box.contains(this.camera)) {
             boolean locked = entity == focus;
-            float pulse = locked ? 0.5F + 0.5F * class_3532.method_15374(time * 6.5F) : 0.0F;
-            int edge = class_9848.method_75601(locked ? class_9848.method_61319(0.35F * pulse, this.hitTint, -1) : this.hitTint, alpha);
-            class_12178 fill = class_12180.method_75541(box, class_12179.method_75539(class_9848.method_75601(edge, locked ? 0.14F + 0.12F * pulse : 0.1F)));
+            float pulse = locked ? 0.5F + 0.5F * Mth.sin(time * 6.5F) : 0.0F;
+            int edge = ARGB.multiplyAlpha(locked ? ARGB.srgbLerp(0.35F * pulse, this.hitTint, -1) : this.hitTint, alpha);
+            GizmoProperties fill = Gizmos.cuboid(box, GizmoStyle.fill(ARGB.multiplyAlpha(edge, locked ? 0.14F + 0.12F * pulse : 0.1F)));
             if (this.onTop) {
-               fill.method_75533();
+               fill.setAlwaysOnTop();
             }
 
             this.brackets(box, locked ? 0.34 + 0.06 * pulse : 0.26, edge, this.thickness.get() * (locked ? 1.2F : 1.0F));
@@ -905,27 +905,27 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
       }
    }
 
-   private void brackets(class_238 box, double reach, int color, float width) {
-      double lx = (box.field_1320 - box.field_1323) * reach;
-      double ly = (box.field_1325 - box.field_1322) * reach;
-      double lz = (box.field_1324 - box.field_1321) * reach;
+   private void brackets(AABB box, double reach, int color, float width) {
+      double lx = (box.maxX - box.minX) * reach;
+      double ly = (box.maxY - box.minY) * reach;
+      double lz = (box.maxZ - box.minZ) * reach;
 
       for (int corner = 0; corner < 8; corner++) {
          boolean east = (corner & 1) != 0;
          boolean top = (corner & 2) != 0;
          boolean south = (corner & 4) != 0;
-         double x = east ? box.field_1320 : box.field_1323;
-         double y = top ? box.field_1325 : box.field_1322;
-         double z = south ? box.field_1324 : box.field_1321;
-         class_243 tip = new class_243(x, y, z);
-         this.line(tip, new class_243(east ? x - lx : x + lx, y, z), color, width);
-         this.line(tip, new class_243(x, top ? y - ly : y + ly, z), color, width);
-         this.line(tip, new class_243(x, y, south ? z - lz : z + lz), color, width);
+         double x = east ? box.maxX : box.minX;
+         double y = top ? box.maxY : box.minY;
+         double z = south ? box.maxZ : box.minZ;
+         Vec3 tip = new Vec3(x, y, z);
+         this.line(tip, new Vec3(east ? x - lx : x + lx, y, z), color, width);
+         this.line(tip, new Vec3(x, top ? y - ly : y + ly, z), color, width);
+         this.line(tip, new Vec3(x, y, south ? z - lz : z + lz), color, width);
       }
    }
 
    private void disc(double radius, int color) {
-      class_243 centre = this.at(0.0, 0.0);
+      Vec3 centre = this.at(0.0, 0.0);
 
       for (int k = 0; k < 24; k++) {
          this.facet(centre, centre, this.at(radius * RIM_COS[k], radius * RIM_SIN[k]), this.at(radius * RIM_COS[k + 1], radius * RIM_SIN[k + 1]), color);
@@ -938,83 +938,83 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
 
       for (int k = 0; k < 10; k++) {
          double start = spin + k * slice;
-         class_243 previous = this.at(radius * Math.cos(start), radius * Math.sin(start));
+         Vec3 previous = this.at(radius * Math.cos(start), radius * Math.sin(start));
 
          for (int s = 1; s <= 3; s++) {
             double angle = start + span * s / 3.0;
-            class_243 point = this.at(radius * Math.cos(angle), radius * Math.sin(angle));
+            Vec3 point = this.at(radius * Math.cos(angle), radius * Math.sin(angle));
             this.line(previous, point, color, width);
             previous = point;
          }
       }
    }
 
-   private class_243 at(double x, double y) {
-      return new class_243(this.gx + this.rx * x + this.ux * y, this.gy + this.ry * x + this.uy * y, this.gz + this.rz * x + this.uz * y);
+   private Vec3 at(double x, double y) {
+      return new Vec3(this.gx + this.rx * x + this.ux * y, this.gy + this.ry * x + this.uy * y, this.gz + this.rz * x + this.uz * y);
    }
 
-   private void facet(class_243 a, class_243 b, class_243 c, class_243 d, int color) {
-      double ex = c.field_1352 - a.field_1352;
-      double ey = c.field_1351 - a.field_1351;
-      double ez = c.field_1350 - a.field_1350;
-      double fx = d.field_1352 - b.field_1352;
-      double fy = d.field_1351 - b.field_1351;
-      double fz = d.field_1350 - b.field_1350;
+   private void facet(Vec3 a, Vec3 b, Vec3 c, Vec3 d, int color) {
+      double ex = c.x - a.x;
+      double ey = c.y - a.y;
+      double ez = c.z - a.z;
+      double fx = d.x - b.x;
+      double fy = d.y - b.y;
+      double fz = d.z - b.z;
       double nx = ey * fz - ez * fy;
       double ny = ez * fx - ex * fz;
       double nz = ex * fy - ey * fx;
-      double facing = nx * (this.camera.field_1352 - a.field_1352)
-         + ny * (this.camera.field_1351 - a.field_1351)
-         + nz * (this.camera.field_1350 - a.field_1350);
+      double facing = nx * (this.camera.x - a.x)
+         + ny * (this.camera.y - a.y)
+         + nz * (this.camera.z - a.z);
       if (facing >= 0.0) {
          this.canvas
             .quad(
-               a.field_1352,
-               a.field_1351,
-               a.field_1350,
-               b.field_1352,
-               b.field_1351,
-               b.field_1350,
-               c.field_1352,
-               c.field_1351,
-               c.field_1350,
-               d.field_1352,
-               d.field_1351,
-               d.field_1350,
+               a.x,
+               a.y,
+               a.z,
+               b.x,
+               b.y,
+               b.z,
+               c.x,
+               c.y,
+               c.z,
+               d.x,
+               d.y,
+               d.z,
                color
             );
       } else {
          this.canvas
             .quad(
-               d.field_1352,
-               d.field_1351,
-               d.field_1350,
-               c.field_1352,
-               c.field_1351,
-               c.field_1350,
-               b.field_1352,
-               b.field_1351,
-               b.field_1350,
-               a.field_1352,
-               a.field_1351,
-               a.field_1350,
+               d.x,
+               d.y,
+               d.z,
+               c.x,
+               c.y,
+               c.z,
+               b.x,
+               b.y,
+               b.z,
+               a.x,
+               a.y,
+               a.z,
                color
             );
       }
    }
 
-   private void line(class_243 from, class_243 to, int color, float width) {
-      this.canvas.line(from.field_1352, from.field_1351, from.field_1350, to.field_1352, to.field_1351, to.field_1350, color, width);
+   private void line(Vec3 from, Vec3 to, int color, float width) {
+      this.canvas.line(from.x, from.y, from.z, to.x, to.y, to.z, color, width);
    }
 
    private void addLabel(TrajectoriesModule.Plot plot) {
       if (this.flightTime.get() && plot.seconds != null) {
          Ballistics.Flight flight = plot.flight;
-         class_243 impact = flight.impact();
-         class_1297 struck = flight.struck();
-         class_243 anchor = struck != null
-            ? new class_243(impact.field_1352, struck.method_5829().field_1325 + 0.35, impact.field_1350)
-            : impact.method_1031(0.0, 0.55, 0.0);
+         Vec3 impact = flight.impact();
+         Entity struck = flight.struck();
+         Vec3 anchor = struck != null
+            ? new Vec3(impact.x, struck.getBoundingBox().maxY + 0.35, impact.z)
+            : impact.add(0.0, 0.55, 0.0);
          this.labels.add(new TrajectoriesModule.Label(anchor, plot.seconds, plot.detail));
       }
    }
@@ -1027,7 +1027,7 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
    @Override
    public void renderHudOverlay(ImDrawList dl, float screenW, float screenH) {
       if (!this.labels.isEmpty() && System.nanoTime() - this.labelsAt <= 250000000L) {
-         class_310 mc = class_310.method_1551();
+         Minecraft mc = Minecraft.getInstance();
 
          for (TrajectoriesModule.Label label : this.labels) {
             float[] screen = WorldLabel.project(mc, label.pos(), screenW, screenH);
@@ -1039,7 +1039,7 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
    }
 
    private static float smooth(float t) {
-      t = class_3532.method_15363(t, 0.0F, 1.0F);
+      t = Mth.clamp(t, 0.0F, 1.0F);
       return t * t * (3.0F - 2.0F * t);
    }
 
@@ -1072,27 +1072,27 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
       int stamp;
       boolean held;
 
-      boolean matches(Ballistics.Body body, class_243 from, class_243 motion, int life, int stamp) {
+      boolean matches(Ballistics.Body body, Vec3 from, Vec3 motion, int life, int stamp) {
          return this.held
             && this.stamp == stamp
             && this.body == body
             && this.life == life
-            && Math.abs(this.x - from.field_1352) < 0.001
-            && Math.abs(this.y - from.field_1351) < 0.001
-            && Math.abs(this.z - from.field_1350) < 0.001
-            && Math.abs(this.vx - motion.field_1352) < 5.0E-4
-            && Math.abs(this.vy - motion.field_1351) < 5.0E-4
-            && Math.abs(this.vz - motion.field_1350) < 5.0E-4;
+            && Math.abs(this.x - from.x) < 0.001
+            && Math.abs(this.y - from.y) < 0.001
+            && Math.abs(this.z - from.z) < 0.001
+            && Math.abs(this.vx - motion.x) < 5.0E-4
+            && Math.abs(this.vy - motion.y) < 5.0E-4
+            && Math.abs(this.vz - motion.z) < 5.0E-4;
       }
 
-      void hold(Ballistics.Body body, class_243 from, class_243 motion, int life, int stamp) {
+      void hold(Ballistics.Body body, Vec3 from, Vec3 motion, int life, int stamp) {
          this.body = body;
-         this.x = from.field_1352;
-         this.y = from.field_1351;
-         this.z = from.field_1350;
-         this.vx = motion.field_1352;
-         this.vy = motion.field_1351;
-         this.vz = motion.field_1350;
+         this.x = from.x;
+         this.y = from.y;
+         this.z = from.z;
+         this.vx = motion.x;
+         this.vy = motion.y;
+         this.vz = motion.z;
          this.life = life;
          this.stamp = stamp;
          this.held = true;
@@ -1106,7 +1106,7 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
    }
 
    @Environment(EnvType.CLIENT)
-   private record Label(class_243 pos, String primary, String secondary) {
+   private record Label(Vec3 pos, String primary, String secondary) {
    }
 
    @Environment(EnvType.CLIENT)
@@ -1115,15 +1115,15 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
       String seconds;
       String detail;
 
-      void caption(class_243 from, boolean wanted) {
+      void caption(Vec3 from, boolean wanted) {
          this.seconds = null;
          this.detail = null;
          if (wanted && this.flight.outcome() != Ballistics.Outcome.OPEN && this.flight.size() >= 2) {
-            class_1297 struck = this.flight.struck();
+            Entity struck = this.flight.struck();
             this.seconds = String.format(Locale.ROOT, "%.2fs", this.flight.ticks() / 20.0F);
             this.detail = struck != null
-               ? NameProtectModule.protect(struck.method_5477()).getString()
-               : String.format(Locale.ROOT, "%.0fm", from.method_1022(this.flight.impact()));
+               ? NameProtectModule.protect(struck.getName()).getString()
+               : String.format(Locale.ROOT, "%.0fm", from.distanceTo(this.flight.impact()));
          }
       }
 
@@ -1136,7 +1136,7 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
 
    @Environment(EnvType.CLIENT)
    private static final class Track extends TrajectoriesModule.Plot {
-      class_1676 shot;
+      Projectile shot;
       int seen;
       boolean departed;
    }

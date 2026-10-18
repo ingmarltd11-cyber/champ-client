@@ -7,60 +7,60 @@ import java.util.List;
 import java.util.Set;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1937;
-import net.minecraft.class_2246;
-import net.minecraft.class_2248;
-import net.minecraft.class_2338;
-import net.minecraft.class_2596;
-import net.minecraft.class_2626;
-import net.minecraft.class_2637;
-import net.minecraft.class_2672;
-import net.minecraft.class_2680;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_5321;
-import net.minecraft.class_638;
-import net.minecraft.class_7134;
-import net.minecraft.class_7924;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.world.level.dimension.BuiltinDimensionTypes;
+import net.minecraft.core.registries.Registries;
 
 @Environment(EnvType.CLIENT)
 public final class NetheriteChunkTracker {
    static final int MAXIMUM_CANDIDATES = 512;
-   private static final int ANCIENT_STATE_ID = class_2248.method_9507(class_2246.field_22109.method_9564());
-   private static final class_5321<class_1937> DONUT_NETHER = class_5321.method_29179(class_7924.field_41223, class_2960.method_60655("worlds", "smp_nether"));
+   private static final int ANCIENT_STATE_ID = Block.getId(Blocks.ANCIENT_DEBRIS.defaultBlockState());
+   private static final ResourceKey<Level> DONUT_NETHER = ResourceKey.create(Registries.DIMENSION, Identifier.fromNamespaceAndPath("worlds", "smp_nether"));
    private static final Set<NetheriteChunkTracker.Candidate> CANDIDATES = new LinkedHashSet<>();
-   private static WeakReference<class_638> lastLevel = new WeakReference<>(null);
-   private static class_5321<class_1937> lastDimension;
+   private static WeakReference<ClientLevel> lastLevel = new WeakReference<>(null);
+   private static ResourceKey<Level> lastDimension;
    private static NetheriteChunkTracker.CandidateListener listener;
    private static NetheriteChunkTracker.RevealListener revealListener;
 
    private NetheriteChunkTracker() {
    }
 
-   public static void onPacketApplied(class_2596<?> packet) {
-      class_638 level = class_310.method_1551().field_1687;
+   public static void onPacketApplied(Packet<?> packet) {
+      ClientLevel level = Minecraft.getInstance().level;
       if (level != null && isNether(level)) {
-         if (packet instanceof class_2672 chunk) {
+         if (packet instanceof ClientboundLevelChunkWithLightPacket chunk) {
             trackLevel(level);
 
-            for (int sectionY : HiddenDebrisScanner.findHiddenSections(chunk.method_38598(), level.method_32890(), level.method_32891(), ANCIENT_STATE_ID)) {
-               add(new NetheriteChunkTracker.Candidate(chunk.method_11523(), chunk.method_11524(), sectionY));
+            for (int sectionY : HiddenDebrisScanner.findHiddenSections(chunk.getChunkData(), level.getSectionsCount(), level.getMinSectionY(), ANCIENT_STATE_ID)) {
+               add(new NetheriteChunkTracker.Candidate(chunk.getX(), chunk.getZ(), sectionY));
             }
-         } else if (packet instanceof class_2626 update) {
-            onBlockUpdate(update.method_11309(), update.method_11308());
-         } else if (packet instanceof class_2637 sectionUpdate) {
-            sectionUpdate.method_30621(NetheriteChunkTracker::onBlockUpdate);
+         } else if (packet instanceof ClientboundBlockUpdatePacket update) {
+            onBlockUpdate(update.getPos(), update.getBlockState());
+         } else if (packet instanceof ClientboundSectionBlocksUpdatePacket sectionUpdate) {
+            sectionUpdate.runUpdates(NetheriteChunkTracker::onBlockUpdate);
          }
       }
    }
 
-   private static void onBlockUpdate(class_2338 pos, class_2680 state) {
-      if (class_2248.method_9507(state) == ANCIENT_STATE_ID) {
+   private static void onBlockUpdate(BlockPos pos, BlockState state) {
+      if (Block.getId(state) == ANCIENT_STATE_ID) {
          if (revealListener != null) {
-            revealListener.onRevealed(pos.method_10062());
+            revealListener.onRevealed(pos.immutable());
          }
 
-         CANDIDATES.remove(new NetheriteChunkTracker.Candidate(pos.method_10263() >> 4, pos.method_10260() >> 4, pos.method_10264() >> 4));
+         CANDIDATES.remove(new NetheriteChunkTracker.Candidate(pos.getX() >> 4, pos.getZ() >> 4, pos.getY() >> 4));
       }
    }
 
@@ -79,8 +79,8 @@ public final class NetheriteChunkTracker {
       }
    }
 
-   private static void trackLevel(class_638 level) {
-      class_5321<class_1937> dimension = level.method_27983();
+   private static void trackLevel(ClientLevel level) {
+      ResourceKey<Level> dimension = level.dimension();
       if (level != lastLevel.get() || !dimension.equals(lastDimension)) {
          CANDIDATES.clear();
          lastLevel = new WeakReference<>(level);
@@ -88,13 +88,13 @@ public final class NetheriteChunkTracker {
       }
    }
 
-   public static boolean isNether(class_638 level) {
-      class_5321<class_1937> dimension = level.method_27983();
-      return dimension == class_1937.field_25180 || DONUT_NETHER.equals(dimension) || level.method_40134().method_40225(class_7134.field_37667);
+   public static boolean isNether(ClientLevel level) {
+      ResourceKey<Level> dimension = level.dimension();
+      return dimension == Level.NETHER || DONUT_NETHER.equals(dimension) || level.dimensionTypeRegistration().is(BuiltinDimensionTypes.NETHER);
    }
 
    public static List<NetheriteChunkTracker.Candidate> snapshot() {
-      return class_310.method_1551().field_1687 != lastLevel.get() ? List.of() : List.copyOf(CANDIDATES);
+      return Minecraft.getInstance().level != lastLevel.get() ? List.of() : List.copyOf(CANDIDATES);
    }
 
    public static void setListener(NetheriteChunkTracker.CandidateListener candidateListener) {
@@ -118,6 +118,6 @@ public final class NetheriteChunkTracker {
    @FunctionalInterface
    @Environment(EnvType.CLIENT)
    public interface RevealListener {
-      void onRevealed(class_2338 var1);
+      void onRevealed(BlockPos var1);
    }
 }

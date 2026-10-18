@@ -7,8 +7,8 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class HomeMetaModule extends ClientModule {
@@ -19,7 +19,7 @@ public final class HomeMetaModule extends ClientModule {
    private HomeMetaModule.Step step;
    private long nextAtMs;
    private long rtpDeadlineMs;
-   private class_243 rtpStart;
+   private Vec3 rtpStart;
    private int home;
 
    public HomeMetaModule() {
@@ -38,7 +38,7 @@ public final class HomeMetaModule extends ClientModule {
 
    @Override
    protected void onEnable() {
-      if (class_310.method_1551().field_1724 == null) {
+      if (Minecraft.getInstance().player == null) {
          this.requestDisable();
       } else {
          this.home = this.homeNumber.getInt();
@@ -49,8 +49,8 @@ public final class HomeMetaModule extends ClientModule {
 
    @EventHandler
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null && mc.method_1562() != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.getConnection() != null) {
          long now = System.currentTimeMillis();
          if (now >= this.nextAtMs) {
             long delayMs = (long)(this.delay.get() * 1000.0);
@@ -66,13 +66,13 @@ public final class HomeMetaModule extends ClientModule {
                   this.nextAtMs = now + delayMs;
                   break;
                case RTP:
-                  this.rtpStart = mc.field_1724.method_73189();
+                  this.rtpStart = mc.player.position();
                   command(mc, "rtp");
                   this.rtpDeadlineMs = now + (long)(this.rtpTimeout.get() * 1000.0);
                   this.step = HomeMetaModule.Step.WAIT_TELEPORT;
                   break;
                case WAIT_TELEPORT:
-                  boolean moved = mc.field_1724.method_73189().method_1025(this.rtpStart) > 25.0;
+                  boolean moved = mc.player.position().distanceToSqr(this.rtpStart) > 25.0;
                   if (moved || now >= this.rtpDeadlineMs) {
                      this.step = HomeMetaModule.Step.HOME;
                      this.nextAtMs = now + delayMs;
@@ -88,8 +88,8 @@ public final class HomeMetaModule extends ClientModule {
       }
    }
 
-   private static void command(class_310 mc, String command) {
-      mc.method_1562().method_45730(command);
+   private static void command(Minecraft mc, String command) {
+      mc.getConnection().sendCommand(command);
    }
 
    @Environment(EnvType.CLIENT)

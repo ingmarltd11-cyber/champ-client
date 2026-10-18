@@ -5,30 +5,30 @@ import net.champ.client.module.impl.render.EspModule;
 import net.champ.client.module.impl.render.ItemEspModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_1657;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_1297.class)
+@Mixin(Entity.class)
 public class MixinEntity {
-   @Inject(method = "method_5851", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "isCurrentlyGlowing", at = @At("HEAD"), cancellable = true)
    private void champ$isCurrentlyGlowing(CallbackInfoReturnable<Boolean> cir) {
-      class_1297 self = (class_1297)this;
-      if (self.method_73183().method_8608()) {
+      Entity self = (Entity)this;
+      if (self.level().isClientSide()) {
          if (EspModule.shouldGlow(self) || ItemEspModule.shouldGlow(self)) {
             cir.setReturnValue(true);
          }
       }
    }
 
-   @Inject(method = "method_22861", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "getTeamColor", at = @At("HEAD"), cancellable = true)
    private void champ$getTeamColor(CallbackInfoReturnable<Integer> cir) {
-      class_1297 self = (class_1297)this;
-      if (self.method_73183().method_8608()) {
+      Entity self = (Entity)this;
+      if (self.level().isClientSide()) {
          if (EspModule.shouldGlow(self)) {
             cir.setReturnValue(EspModule.glowColor(self));
          } else if (ItemEspModule.shouldGlow(self)) {
@@ -37,10 +37,10 @@ public class MixinEntity {
       }
    }
 
-   @Inject(method = "method_5756", at = @At("HEAD"), cancellable = true)
-   private void champ$freecamOwnBody(class_1657 viewer, CallbackInfoReturnable<Boolean> cir) {
+   @Inject(method = "isInvisibleTo", at = @At("HEAD"), cancellable = true)
+   private void champ$freecamOwnBody(Player viewer, CallbackInfoReturnable<Boolean> cir) {
       FreecamModule freecam = FreecamModule.active;
-      if (freecam != null && freecam.drawsSelf((class_1297)this, viewer)) {
+      if (freecam != null && freecam.drawsSelf((Entity)this, viewer)) {
          cir.setReturnValue(false);
       }
    }

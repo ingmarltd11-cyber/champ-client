@@ -15,23 +15,23 @@ import java.util.List;
 import net.champ.client.imgui.ImGuiManager;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10444;
-import net.minecraft.class_1047;
-import net.minecraft.class_1058;
-import net.minecraft.class_10725;
-import net.minecraft.class_10868;
-import net.minecraft.class_11515;
-import net.minecraft.class_1747;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_2246;
-import net.minecraft.class_2248;
-import net.minecraft.class_2338;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
-import net.minecraft.class_4696;
-import net.minecraft.class_811;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.data.AtlasIds;
+import com.mojang.blaze3d.opengl.GlTexture;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.ItemBlockRenderTypes;
+import net.minecraft.world.item.ItemDisplayContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +47,7 @@ final class BlockIcons {
    private static final Int2ObjectOpenHashMap<BlockIcons.Sheet> SHEETS = new Int2ObjectOpenHashMap();
    private static final ReferenceOpenHashSet<GpuTexture> CRISP = new ReferenceOpenHashSet();
    private static GpuTexture atlas;
-   private static final class_10444 ITEM = new class_10444();
+   private static final ItemStackRenderState ITEM = new ItemStackRenderState();
    private static int budgetFrame = -1;
    private static int rendersLeft;
    private static boolean itemsFailed;
@@ -60,7 +60,7 @@ final class BlockIcons {
    static void validate() {
       GpuTexture current;
       try {
-         current = class_310.method_1551().method_72703().method_73025(class_10725.field_56382).method_68004();
+         current = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS).getTexture();
       } catch (RuntimeException notLoaded) {
          current = null;
       }
@@ -112,7 +112,7 @@ final class BlockIcons {
       return Math.max(1, (int)(target / 16.0F)) * 16.0F;
    }
 
-   static void draw(ImDrawList dl, class_2248 block, float x, float y, float size) {
+   static void draw(ImDrawList dl, Block block, float x, float y, float size) {
       int px = Math.round(size);
       BlockIcons.Sheet sheet = sheet(px);
       BlockIcons.Icon icon = (BlockIcons.Icon)sheet.icons.get(block);
@@ -163,17 +163,17 @@ final class BlockIcons {
       ItemIcons.forgetVerdict();
    }
 
-   private static BlockIcons.Icon resolve(BlockIcons.Sheet sheet, class_2248 block) {
-      class_1792 item = block.method_8389();
-      class_2248 shown = block;
-      if (item == class_1802.field_8162) {
+   private static BlockIcons.Icon resolve(BlockIcons.Sheet sheet, Block block) {
+      Item item = block.asItem();
+      Block shown = block;
+      if (item == Items.AIR) {
          item = standIn(block);
-         if (item instanceof class_1747 placed) {
-            shown = placed.method_7711();
+         if (item instanceof BlockItem placed) {
+            shown = placed.getBlock();
          }
       }
 
-      if (item == class_1802.field_8162 || itemsFailed || sheet.cell > 256 || !ItemIcons.works()) {
+      if (item == Items.AIR || itemsFailed || sheet.cell > 256 || !ItemIcons.works()) {
          return sprite(block);
       }
 
@@ -181,21 +181,21 @@ final class BlockIcons {
          return null;
       }
 
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
 
       try {
-         mc.method_65386().method_65598(ITEM, new class_1799(item), class_811.field_4317, mc.field_1687, null, 0);
+         mc.getItemModelResolver().updateForTopItem(ITEM, new ItemStack(item), ItemDisplayContext.GUI, mc.level, null, 0);
       } catch (RuntimeException brokenModel) {
-         ITEM.method_65605();
+         ITEM.clear();
          return sprite(block);
       }
 
-      if (ITEM.method_65606()) {
+      if (ITEM.isEmpty()) {
          return sprite(block);
       }
 
       BlockIcons.Icon icon = new BlockIcons.Icon();
-      boolean seeThrough = class_4696.method_23679(shown.method_9564()) == class_11515.field_60926;
+      boolean seeThrough = ItemBlockRenderTypes.getChunkRenderType(shown.defaultBlockState()) == ChunkSectionLayer.TRANSLUCENT;
 
       try {
          renderItem(sheet, icon, seeThrough);
@@ -207,24 +207,24 @@ final class BlockIcons {
       }
    }
 
-   private static class_1792 standIn(class_2248 block) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 != null) {
+   private static Item standIn(Block block) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level != null) {
          try {
-            class_1799 picked = block.method_9564().method_65171(mc.field_1687, class_2338.field_10980, false);
-            if (!picked.method_7960()) {
-               return picked.method_7909();
+            ItemStack picked = block.defaultBlockState().getCloneItemStack(mc.level, BlockPos.ZERO, false);
+            if (!picked.isEmpty()) {
+               return picked.getItem();
             }
          } catch (RuntimeException var3) {
          }
       }
 
-      if (block == class_2246.field_10008) {
-         return class_1802.field_8249;
-      } else if (block == class_2246.field_10027) {
-         return class_1802.field_8449;
+      if (block == Blocks.MOVING_PISTON) {
+         return Items.PISTON;
+      } else if (block == Blocks.END_PORTAL) {
+         return Items.ENDER_EYE;
       } else {
-         return block == class_2246.field_10613 ? class_1802.field_8634 : class_1802.field_8162;
+         return block == Blocks.END_GATEWAY ? Items.ENDER_PEARL : Items.AIR;
       }
    }
 
@@ -260,14 +260,14 @@ final class BlockIcons {
       try {
          ItemIcons.render(ITEM, page, view, sheet.depth, sheet.depthView, x, y, cell);
       } finally {
-         ITEM.method_65605();
+         ITEM.clear();
       }
 
       if (seeThrough) {
          ItemIcons.straighten(page, x, glY, cell);
       }
 
-      icon.texture = ((class_10868)page).method_68427();
+      icon.texture = ((GlTexture)page).glId();
       icon.u0 = x / 1024.0F;
       icon.u1 = (x + cell) / 1024.0F;
       icon.v0 = (1024 - y) / 1024.0F;
@@ -288,18 +288,18 @@ final class BlockIcons {
       device.createCommandEncoder().clearColorAndDepthTextures(page, 0, sheet.depth, 1.0);
    }
 
-   private static BlockIcons.Icon sprite(class_2248 block) {
+   private static BlockIcons.Icon sprite(Block block) {
       BlockIcons.Icon icon = new BlockIcons.Icon();
-      class_310 mc = class_310.method_1551();
-      class_2680 state = block.method_9564();
+      Minecraft mc = Minecraft.getInstance();
+      BlockState state = block.defaultBlockState();
 
       try {
-         class_1058 sprite = mc.method_1554().method_4743().method_3339(state);
-         if (class_1047.method_4539().equals(sprite.method_45851().method_45816())) {
+         TextureAtlasSprite sprite = mc.getModelManager().getBlockModelShaper().getParticleIcon(state);
+         if (MissingTextureAtlasSprite.getLocation().equals(sprite.contents().name())) {
             return icon;
          }
 
-         if (!(mc.method_1531().method_4619(sprite.method_45852()).method_68004() instanceof class_10868 gl && !gl.isClosed())) {
+         if (!(mc.getTextureManager().getTexture(sprite.atlasLocation()).getTexture() instanceof GlTexture gl && !gl.isClosed())) {
             return icon;
          }
 
@@ -307,24 +307,24 @@ final class BlockIcons {
             ItemIcons.crisp(gl);
          }
 
-         icon.texture = gl.method_68427();
-         icon.u0 = sprite.method_4594();
-         icon.v0 = sprite.method_4593();
-         icon.u1 = sprite.method_4577();
-         icon.v1 = sprite.method_4575();
+         icon.texture = gl.glId();
+         icon.u0 = sprite.getU0();
+         icon.v0 = sprite.getV0();
+         icon.u1 = sprite.getU1();
+         icon.v1 = sprite.getV1();
       } catch (RuntimeException unavailable) {
          return icon;
       }
 
-      if (!state.method_27852(class_2246.field_10219)) {
+      if (!state.is(Blocks.GRASS_BLOCK)) {
          int rgb = -1;
 
          try {
-            rgb = mc.method_1505().method_1697(state, null, null, 0);
+            rgb = mc.getBlockColors().getColor(state, null, null, 0);
          } catch (RuntimeException var7) {
          }
 
-         if (rgb == -1 && (state.method_27852(class_2246.field_10382) || state.method_27852(class_2246.field_10422))) {
+         if (rgb == -1 && (state.is(Blocks.WATER) || state.is(Blocks.BUBBLE_COLUMN))) {
             rgb = 4159204;
          }
 
@@ -349,7 +349,7 @@ final class BlockIcons {
    @Environment(EnvType.CLIENT)
    private static final class Sheet {
       final int cell;
-      final Reference2ObjectOpenHashMap<class_2248, BlockIcons.Icon> icons = new Reference2ObjectOpenHashMap();
+      final Reference2ObjectOpenHashMap<Block, BlockIcons.Icon> icons = new Reference2ObjectOpenHashMap();
       final List<GpuTexture> pages = new ArrayList<>();
       final List<GpuTextureView> views = new ArrayList<>();
       GpuTexture depth;

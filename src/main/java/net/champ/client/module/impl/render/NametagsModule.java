@@ -16,17 +16,17 @@ import net.champ.client.util.NameFilter;
 import net.champ.client.util.StableTopK;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_1304;
-import net.minecraft.class_1542;
-import net.minecraft.class_1799;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_327;
-import net.minecraft.class_332;
-import net.minecraft.class_4184;
-import net.minecraft.class_640;
-import net.minecraft.class_742;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.Camera;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.AbstractClientPlayer;
 import org.joml.Matrix3x2fStack;
 
 @Environment(EnvType.CLIENT)
@@ -45,7 +45,7 @@ public class NametagsModule extends ClientModule {
    private static final int STATUS_BAD = -47814;
    private static final int ITEM_COUNT_COLOR = -10742;
    private static final float TEXT_GUARD_BELOW = 0.55F;
-   private static final class_1304[] ARMOR_SLOTS = new class_1304[]{class_1304.field_6169, class_1304.field_6174, class_1304.field_6172, class_1304.field_6166};
+   private static final EquipmentSlot[] ARMOR_SLOTS = new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
    private static final int PADDING = 4;
    private static final int ROW_GAP = 3;
    private static final int ICON_SIZE = 10;
@@ -83,12 +83,12 @@ public class NametagsModule extends ClientModule {
 
    @EventHandler
    public void onRender2D(Render2DEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 != null && mc.field_1724 != null && !mc.field_1690.field_1842) {
-         class_4184 camera = mc.field_1773.method_19418();
-         if (camera != null && camera.method_19332()) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level != null && mc.player != null && !mc.options.hideGui) {
+         Camera camera = mc.gameRenderer.getMainCamera();
+         if (camera != null && camera.isInitialized()) {
             float partialTick = event.partialTick;
-            class_243 eye = mc.field_1724.method_5836(partialTick);
+            Vec3 eye = mc.player.getEyePosition(partialTick);
             double range = Math.max(1.0F, this.sRange.get());
             double rangeSq = range * range;
             int budget = Math.max(1, Math.min(64, this.sMaxTags.getInt()));
@@ -105,9 +105,9 @@ public class NametagsModule extends ClientModule {
 
                List<NametagsModule.Nearby> players = mobile ? null : new ArrayList<>();
 
-               for (class_742 player : mc.field_1687.method_18456()) {
-                  if (player != mc.field_1724 && !player.method_31481() && !player.method_29504()) {
-                     double distanceSq = player.method_30950(partialTick).method_1025(eye);
+               for (AbstractClientPlayer player : mc.level.players()) {
+                  if (player != mc.player && !player.isRemoved() && !player.isDeadOrDying()) {
+                     double distanceSq = player.getPosition(partialTick).distanceToSqr(eye);
                      if (distanceSq <= rangeSq) {
                         if (mobile) {
                            offerNearest(this.mobilePlayers, player, distanceSq);
@@ -126,9 +126,9 @@ public class NametagsModule extends ClientModule {
 
                List<NametagsModule.Nearby> items = mobile ? this.mobileItems.result() : new ArrayList<>();
                if (this.sItems.get() && itemBudget > 0) {
-                  for (class_1297 entity : mc.field_1687.method_18112()) {
-                     if (entity instanceof class_1542 item && !item.method_31481() && !item.method_6983().method_7960()) {
-                        double distanceSq = item.method_30950(partialTick).method_1025(eye);
+                  for (Entity entity : mc.level.entitiesForRendering()) {
+                     if (entity instanceof ItemEntity item && !item.isRemoved() && !item.getItem().isEmpty()) {
+                        double distanceSq = item.getPosition(partialTick).distanceToSqr(eye);
                         if (distanceSq <= rangeSq) {
                            if (mobile) {
                               offerNearest(this.mobileItems, item, distanceSq);
@@ -143,11 +143,11 @@ public class NametagsModule extends ClientModule {
                }
 
                for (int i = items.size() - 1; i >= 0; i--) {
-                  this.renderItemTag(event.graphics, mc, camera, (class_1542)items.get(i).entity(), partialTick);
+                  this.renderItemTag(event.graphics, mc, camera, (ItemEntity)items.get(i).entity(), partialTick);
                }
 
                for (int i = players.size() - 1; i >= 0; i--) {
-                  this.renderTag(event.graphics, mc, camera, (class_742)players.get(i).entity(), partialTick);
+                  this.renderTag(event.graphics, mc, camera, (AbstractClientPlayer)players.get(i).entity(), partialTick);
                }
             } finally {
                if (mobile) {
@@ -172,7 +172,7 @@ public class NametagsModule extends ClientModule {
       this.mobileItems.reset(0);
    }
 
-   private static void offerNearest(StableTopK<NametagsModule.Nearby> nearest, class_1297 entity, double distanceSq) {
+   private static void offerNearest(StableTopK<NametagsModule.Nearby> nearest, Entity entity, double distanceSq) {
       NametagsModule.Nearby worst = nearest.worst();
       if (worst == null || Double.compare(distanceSq, worst.distanceSq()) < 0) {
          nearest.offer(new NametagsModule.Nearby(entity, distanceSq));
@@ -184,41 +184,41 @@ public class NametagsModule extends ClientModule {
       return candidates.size() <= limit ? candidates : candidates.subList(0, limit);
    }
 
-   private void renderTag(class_332 graphics, class_310 mc, class_4184 camera, class_742 player, float partialTick) {
-      class_243 anchor = player.method_30950(partialTick).method_1031(0.0, player.method_17682() + 0.15, 0.0);
-      float[] screen = WorldLabel.project(mc, anchor, graphics.method_51421(), graphics.method_51443());
+   private void renderTag(GuiGraphics graphics, Minecraft mc, Camera camera, AbstractClientPlayer player, float partialTick) {
+      Vec3 anchor = player.getPosition(partialTick).add(0.0, player.getBbHeight() + 0.15, 0.0);
+      float[] screen = WorldLabel.project(mc, anchor, graphics.guiWidth(), graphics.guiHeight());
       if (screen != null) {
-         class_327 font = mc.field_1772;
-         String name = NameFilter.apply(player.method_7334().name());
+         Font font = mc.font;
+         String name = NameFilter.apply(player.getGameProfile().name());
          String pingText = null;
          int pingColor = -6052949;
-         if (this.sPing.get() && mc.method_1562() != null) {
-            class_640 info = mc.method_1562().method_2871(player.method_5667());
+         if (this.sPing.get() && mc.getConnection() != null) {
+            PlayerInfo info = mc.getConnection().getPlayerInfo(player.getUUID());
             if (info != null) {
-               int latency = info.method_2959();
+               int latency = info.getLatency();
                pingText = latency + "ms";
                pingColor = latency < 60 ? -13577896 : (latency < 130 ? -10742 : -47814);
             }
          }
 
-         List<class_1799> hands = this.sHeldItems.get() ? heldItems(player) : List.of();
-         List<class_1799> armor = this.sArmor.get() ? wornArmor(player) : List.of();
+         List<ItemStack> hands = this.sHeldItems.get() ? heldItems(player) : List.of();
+         List<ItemStack> armor = this.sArmor.get() ? wornArmor(player) : List.of();
          String healthText = null;
          int healthColor = -13577896;
-         float health = player.method_6032() + player.method_6067();
+         float health = player.getHealth() + player.getAbsorptionAmount();
          if (this.sHealth.get() && Float.isFinite(health)) {
-            float fraction = Math.min(1.0F, health / Math.max(1.0F, player.method_6063()));
+            float fraction = Math.min(1.0F, health / Math.max(1.0F, player.getMaxHealth()));
             healthText = String.valueOf((int)Math.ceil(health));
             healthColor = fraction > 0.6F ? -13577896 : (fraction > 0.3F ? -10742 : -47814);
          }
 
-         double dist = anchor.method_1022(camera.method_71156());
+         double dist = anchor.distanceTo(camera.position());
          String distText = Math.round((float)dist) + "m";
          int handsW = iconsWidth(hands.size());
          int armorW = iconsWidth(armor.size());
-         int healthW = healthText != null ? font.method_1727(healthText) : 0;
-         int distW = font.method_1727(distText);
-         int row1W = font.method_1727(name) + (pingText != null ? 5 + font.method_1727(pingText) : 0);
+         int healthW = healthText != null ? font.width(healthText) : 0;
+         int distW = font.width(distText);
+         int row1W = font.width(name) + (pingText != null ? 5 + font.width(pingText) : 0);
          int row2W = extend(0, handsW, 0);
          row2W = extend(row2W, armorW, 7);
          row2W = extend(row2W, healthW, 4);
@@ -233,7 +233,7 @@ public class NametagsModule extends ClientModule {
          float surface = Math.max(0.0F, Math.min(1.0F, this.sBackgroundAlpha.get()));
          boolean guard = surface < 0.55F;
          float chrome = Math.min(1.0F, surface * 2.0F);
-         Matrix3x2fStack pose = graphics.method_51448();
+         Matrix3x2fStack pose = graphics.pose();
          pose.pushMatrix();
          pose.translate(screen[0], screen[1]);
          pose.scale(scale, scale);
@@ -242,9 +242,9 @@ public class NametagsModule extends ClientModule {
          drawPanel(graphics, x, y, x + panelW, y + panelH, surface, chrome);
          int left = x + 4;
          int textY = y + 4;
-         graphics.method_51433(font, name, left, textY, -1447442, guard);
+         graphics.drawString(font, name, left, textY, -1447442, guard);
          if (pingText != null) {
-            graphics.method_51433(font, pingText, left + font.method_1727(name) + 5, textY, pingColor, guard);
+            graphics.drawString(font, pingText, left + font.width(name) + 5, textY, pingColor, guard);
          }
 
          int rowY = y + 4 + 9 + 3;
@@ -259,7 +259,7 @@ public class NametagsModule extends ClientModule {
          if (!armor.isEmpty()) {
             if (placed) {
                int lineX = cursor + 3;
-               graphics.method_25294(lineX, rowY + 1, lineX + 1, rowY + 10 - 1, scaleAlpha(536870911, chrome));
+               graphics.fill(lineX, rowY + 1, lineX + 1, rowY + 10 - 1, scaleAlpha(536870911, chrome));
                cursor += 7;
             }
 
@@ -272,7 +272,7 @@ public class NametagsModule extends ClientModule {
                cursor += 4;
             }
 
-            graphics.method_51433(font, healthText, cursor, labelY, healthColor, guard);
+            graphics.drawString(font, healthText, cursor, labelY, healthColor, guard);
             cursor += healthW;
             placed = true;
          }
@@ -281,23 +281,23 @@ public class NametagsModule extends ClientModule {
             cursor += 4;
          }
 
-         graphics.method_51433(font, distText, cursor, labelY, -6052949, guard);
+         graphics.drawString(font, distText, cursor, labelY, -6052949, guard);
          pose.popMatrix();
       }
    }
 
-   private static List<class_1799> heldItems(class_742 player) {
-      class_1799 main = player.method_6047();
-      class_1799 off = player.method_6079();
-      return main.method_7960() && off.method_7960() ? List.of() : List.of(main, off);
+   private static List<ItemStack> heldItems(AbstractClientPlayer player) {
+      ItemStack main = player.getMainHandItem();
+      ItemStack off = player.getOffhandItem();
+      return main.isEmpty() && off.isEmpty() ? List.of() : List.of(main, off);
    }
 
-   private static List<class_1799> wornArmor(class_742 player) {
-      List<class_1799> worn = new ArrayList<>(ARMOR_SLOTS.length);
+   private static List<ItemStack> wornArmor(AbstractClientPlayer player) {
+      List<ItemStack> worn = new ArrayList<>(ARMOR_SLOTS.length);
 
-      for (class_1304 slot : ARMOR_SLOTS) {
-         class_1799 stack = player.method_6118(slot);
-         if (!stack.method_7960()) {
+      for (EquipmentSlot slot : ARMOR_SLOTS) {
+         ItemStack stack = player.getItemBySlot(slot);
+         if (!stack.isEmpty()) {
             worn.add(stack);
          }
       }
@@ -318,73 +318,73 @@ public class NametagsModule extends ClientModule {
    }
 
    private int drawIcons(
-      class_332 graphics, class_327 font, class_742 holder, List<class_1799> stacks, int seedOffset, int x, int y, boolean counts, float chrome
+      GuiGraphics graphics, Font font, AbstractClientPlayer holder, List<ItemStack> stacks, int seedOffset, int x, int y, boolean counts, float chrome
    ) {
       for (int i = 0; i < stacks.size(); i++) {
          if (i > 0) {
             x += 2;
          }
 
-         this.drawIcon(graphics, font, holder, stacks.get(i), holder.method_5628() * 8 + seedOffset + i, x, y, counts, chrome);
+         this.drawIcon(graphics, font, holder, stacks.get(i), holder.getId() * 8 + seedOffset + i, x, y, counts, chrome);
          x += 10;
       }
 
       return x;
    }
 
-   private void drawIcon(class_332 graphics, class_327 font, class_742 holder, class_1799 stack, int seed, int x, int y, boolean count, float chrome) {
-      if (stack.method_7960()) {
-         graphics.method_25294(x + 2, y + 2, x + 10 - 2, y + 10 - 2, scaleAlpha(452984831, chrome));
+   private void drawIcon(GuiGraphics graphics, Font font, AbstractClientPlayer holder, ItemStack stack, int seed, int x, int y, boolean count, float chrome) {
+      if (stack.isEmpty()) {
+         graphics.fill(x + 2, y + 2, x + 10 - 2, y + 10 - 2, scaleAlpha(452984831, chrome));
       } else {
-         Matrix3x2fStack pose = graphics.method_51448();
+         Matrix3x2fStack pose = graphics.pose();
          pose.pushMatrix();
          pose.translate(x, y);
          pose.scale(0.625F, 0.625F);
-         graphics.method_51423(holder, stack, 0, 0, seed);
-         if (this.sDurability.get() && stack.method_31578()) {
-            graphics.method_25294(2, 13, 15, 15, -16777216);
-            graphics.method_25294(2, 13, 2 + stack.method_31579(), 14, 0xFF000000 | stack.method_31580());
+         graphics.renderItem(holder, stack, 0, 0, seed);
+         if (this.sDurability.get() && stack.isBarVisible()) {
+            graphics.fill(2, 13, 15, 15, -16777216);
+            graphics.fill(2, 13, 2 + stack.getBarWidth(), 14, 0xFF000000 | stack.getBarColor());
          }
 
-         if (count && stack.method_7947() > 1) {
-            String text = String.valueOf(stack.method_7947());
-            graphics.method_51433(font, text, 17 - font.method_1727(text), 9, -657929, true);
+         if (count && stack.getCount() > 1) {
+            String text = String.valueOf(stack.getCount());
+            graphics.drawString(font, text, 17 - font.width(text), 9, -657929, true);
          }
 
          pose.popMatrix();
       }
    }
 
-   private void renderItemTag(class_332 graphics, class_310 mc, class_4184 camera, class_1542 item, float partialTick) {
-      class_243 anchor = item.method_30950(partialTick).method_1031(0.0, 0.35, 0.0);
-      float[] screen = WorldLabel.project(mc, anchor, graphics.method_51421(), graphics.method_51443());
+   private void renderItemTag(GuiGraphics graphics, Minecraft mc, Camera camera, ItemEntity item, float partialTick) {
+      Vec3 anchor = item.getPosition(partialTick).add(0.0, 0.35, 0.0);
+      float[] screen = WorldLabel.project(mc, anchor, graphics.guiWidth(), graphics.guiHeight());
       if (screen != null) {
-         class_1799 stack = item.method_6983();
-         String itemName = stack.method_7964().getString();
-         int count = stack.method_7947();
+         ItemStack stack = item.getItem();
+         String itemName = stack.getHoverName().getString();
+         int count = stack.getCount();
          String countText = count > 1 ? "x" + count : null;
-         class_327 font = mc.field_1772;
-         int nameW = font.method_1727(itemName);
-         int countW = countText != null ? font.method_1727(countText) : 0;
+         Font font = mc.font;
+         int nameW = font.width(itemName);
+         int countW = countText != null ? font.width(countText) : 0;
          int totalW = nameW + (countText != null ? 3 + countW : 0);
-         double dist = anchor.method_1022(camera.method_71156());
+         double dist = anchor.distanceTo(camera.position());
          float scale = (float)Math.min(1.0, Math.max(0.25, 6.0 / Math.max(1.0, dist)));
-         Matrix3x2fStack pose = graphics.method_51448();
+         Matrix3x2fStack pose = graphics.pose();
          pose.pushMatrix();
          pose.translate(screen[0], screen[1]);
          pose.scale(scale, scale);
          int tx = -totalW / 2;
          int ty = -9 / 2;
-         graphics.method_51433(font, itemName, tx, ty, -1447442, true);
+         graphics.drawString(font, itemName, tx, ty, -1447442, true);
          if (countText != null) {
-            graphics.method_51433(font, countText, tx + nameW + 3, ty, -10742, true);
+            graphics.drawString(font, countText, tx + nameW + 3, ty, -10742, true);
          }
 
          pose.popMatrix();
       }
    }
 
-   private static void drawPanel(class_332 g, int x1, int y1, int x2, int y2, float surface, float chrome) {
+   private static void drawPanel(GuiGraphics g, int x1, int y1, int x2, int y2, float surface, float chrome) {
       drawR4Rect(g, x1 - 1, y1 + 1, x2 + 1, y2 + 2, scaleAlpha(385875968, chrome));
       drawR4Rect(g, x1, y1 + 1, x2, y2 + 1, scaleAlpha(771751936, chrome));
       drawR4Rect(g, x1, y1, x2, y2, Math.round(surface * 255.0F) << 24 | 1447965);
@@ -396,36 +396,36 @@ public class NametagsModule extends ClientModule {
       return alpha << 24 | argb & 16777215;
    }
 
-   private static void drawR4Rect(class_332 g, int x1, int y1, int x2, int y2, int color) {
+   private static void drawR4Rect(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
       if (color >>> 24 != 0) {
-         g.method_25294(x1 + 4, y1, x2 - 4, y1 + 1, color);
-         g.method_25294(x1 + 2, y1 + 1, x2 - 2, y1 + 2, color);
-         g.method_25294(x1 + 1, y1 + 2, x2 - 1, y1 + 4, color);
-         g.method_25294(x1, y1 + 4, x2, y2 - 4, color);
-         g.method_25294(x1 + 1, y2 - 4, x2 - 1, y2 - 2, color);
-         g.method_25294(x1 + 2, y2 - 2, x2 - 2, y2 - 1, color);
-         g.method_25294(x1 + 4, y2 - 1, x2 - 4, y2, color);
+         g.fill(x1 + 4, y1, x2 - 4, y1 + 1, color);
+         g.fill(x1 + 2, y1 + 1, x2 - 2, y1 + 2, color);
+         g.fill(x1 + 1, y1 + 2, x2 - 1, y1 + 4, color);
+         g.fill(x1, y1 + 4, x2, y2 - 4, color);
+         g.fill(x1 + 1, y2 - 4, x2 - 1, y2 - 2, color);
+         g.fill(x1 + 2, y2 - 2, x2 - 2, y2 - 1, color);
+         g.fill(x1 + 4, y2 - 1, x2 - 4, y2, color);
       }
    }
 
-   private static void drawR4Border(class_332 g, int x1, int y1, int x2, int y2, int color) {
+   private static void drawR4Border(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
       if (color >>> 24 != 0) {
-         g.method_25294(x1 + 4, y1, x2 - 4, y1 + 1, color);
-         g.method_25294(x1 + 4, y2 - 1, x2 - 4, y2, color);
-         g.method_25294(x1, y1 + 4, x1 + 1, y2 - 4, color);
-         g.method_25294(x2 - 1, y1 + 4, x2, y2 - 4, color);
-         g.method_25294(x1 + 2, y1 + 1, x1 + 4, y1 + 2, color);
-         g.method_25294(x1 + 1, y1 + 2, x1 + 2, y1 + 4, color);
-         g.method_25294(x2 - 4, y1 + 1, x2 - 2, y1 + 2, color);
-         g.method_25294(x2 - 2, y1 + 2, x2 - 1, y1 + 4, color);
-         g.method_25294(x1 + 1, y2 - 4, x1 + 2, y2 - 2, color);
-         g.method_25294(x1 + 2, y2 - 2, x1 + 4, y2 - 1, color);
-         g.method_25294(x2 - 2, y2 - 4, x2 - 1, y2 - 2, color);
-         g.method_25294(x2 - 4, y2 - 2, x2 - 2, y2 - 1, color);
+         g.fill(x1 + 4, y1, x2 - 4, y1 + 1, color);
+         g.fill(x1 + 4, y2 - 1, x2 - 4, y2, color);
+         g.fill(x1, y1 + 4, x1 + 1, y2 - 4, color);
+         g.fill(x2 - 1, y1 + 4, x2, y2 - 4, color);
+         g.fill(x1 + 2, y1 + 1, x1 + 4, y1 + 2, color);
+         g.fill(x1 + 1, y1 + 2, x1 + 2, y1 + 4, color);
+         g.fill(x2 - 4, y1 + 1, x2 - 2, y1 + 2, color);
+         g.fill(x2 - 2, y1 + 2, x2 - 1, y1 + 4, color);
+         g.fill(x1 + 1, y2 - 4, x1 + 2, y2 - 2, color);
+         g.fill(x1 + 2, y2 - 2, x1 + 4, y2 - 1, color);
+         g.fill(x2 - 2, y2 - 4, x2 - 1, y2 - 2, color);
+         g.fill(x2 - 4, y2 - 2, x2 - 2, y2 - 1, color);
       }
    }
 
    @Environment(EnvType.CLIENT)
-   private record Nearby(class_1297 entity, double distanceSq) {
+   private record Nearby(Entity entity, double distanceSq) {
    }
 }

@@ -6,15 +6,15 @@ import net.champ.client.event.impl.PlayerAttackEntityEvent;
 import net.champ.client.event.impl.TickEvent;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1309;
-import net.minecraft.class_156;
-import net.minecraft.class_310;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.util.Util;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class CombatTarget {
    private static final Object OWNER = new Object();
    private static final long MEMORY_CAP_MS = 30000L;
-   private static class_1309 lastHit;
+   private static LivingEntity lastHit;
    private static long lastHitAt;
 
    private CombatTarget() {
@@ -22,11 +22,11 @@ public final class CombatTarget {
 
    public static void install() {
       PlayerAttackEntityEvent.TYPE.listen(OWNER, Stage.PRE, EventPriority.LOWEST, event -> {
-         if (!event.isCancelled() && event.target instanceof class_1309 living) {
-            class_310 mc = class_310.method_1551();
-            if (mc.method_18854() && living.method_73183() == mc.field_1687) {
+         if (!event.isCancelled() && event.target instanceof LivingEntity living) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.isSameThread() && living.level() == mc.level) {
                lastHit = living;
-               lastHitAt = class_156.method_658();
+               lastHitAt = Util.getMillis();
             }
          }
       });
@@ -34,29 +34,29 @@ public final class CombatTarget {
    }
 
    private static void forgetStale() {
-      class_1309 entity = lastHit;
+      LivingEntity entity = lastHit;
       if (entity != null) {
-         if (!entity.method_5805() || entity.method_73183() != class_310.method_1551().field_1687 || class_156.method_658() - lastHitAt > 30000L) {
+         if (!entity.isAlive() || entity.level() != Minecraft.getInstance().level || Util.getMillis() - lastHitAt > 30000L) {
             lastHit = null;
          }
       }
    }
 
-   public static class_1309 lastHit(long timeoutMs) {
-      class_1309 entity = lastHit;
-      if (entity != null && entity.method_5805() && entity.method_73183() == class_310.method_1551().field_1687) {
-         return class_156.method_658() - lastHitAt > timeoutMs ? null : entity;
+   public static LivingEntity lastHit(long timeoutMs) {
+      LivingEntity entity = lastHit;
+      if (entity != null && entity.isAlive() && entity.level() == Minecraft.getInstance().level) {
+         return Util.getMillis() - lastHitAt > timeoutMs ? null : entity;
       } else {
          return null;
       }
    }
 
-   public static class_1309 current(long timeoutMs) {
-      class_1309 hit = lastHit(timeoutMs);
+   public static LivingEntity current(long timeoutMs) {
+      LivingEntity hit = lastHit(timeoutMs);
       if (hit != null) {
          return hit;
       } else {
-         return class_310.method_1551().field_1692 instanceof class_1309 living && living.method_5805() ? living : null;
+         return Minecraft.getInstance().crosshairPickEntity instanceof LivingEntity living && living.isAlive() ? living : null;
       }
    }
 }

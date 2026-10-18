@@ -12,11 +12,11 @@ import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.util.pvp.ServerRotation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1747;
-import net.minecraft.class_1799;
-import net.minecraft.class_304;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class FastUseModule extends ClientModule {
@@ -30,10 +30,10 @@ public final class FastUseModule extends ClientModule {
 
    @EventHandler(priority = EventPriority.LOWEST)
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      if (player != null && mc.field_1755 == null && mc.field_1690.field_1904.method_1434()) {
-         if (!player.method_6115() && this.covers(player)) {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      if (player != null && mc.screen == null && mc.options.keyUse.isDown()) {
+         if (!player.isUsingItem() && this.covers(player)) {
             AccessorCombatMinecraft access = (AccessorCombatMinecraft)mc;
             int wait = access.champ$rightClickDelay();
             if (!ServerRotation.pending() && !MeleeAttacks.actedThisTick(player)) {
@@ -42,25 +42,25 @@ public final class FastUseModule extends ClientModule {
                }
             } else {
                access.champ$setRightClickDelay(Math.max(wait, 2));
-               class_304 use = mc.field_1690.field_1904;
+               KeyMapping use = mc.options.keyUse;
 
-               while (use.method_1436()) {
+               while (use.consumeClick()) {
                }
             }
          }
       }
    }
 
-   private boolean covers(class_746 player) {
-      class_1799 held = player.method_6047();
-      if (held.method_7960()) {
-         held = player.method_6079();
+   private boolean covers(LocalPlayer player) {
+      ItemStack held = player.getMainHandItem();
+      if (held.isEmpty()) {
+         held = player.getOffhandItem();
       }
 
-      if (held.method_7960()) {
+      if (held.isEmpty()) {
          return false;
       } else {
-         return held.method_7909() instanceof class_1747 ? this.blocks.get() : this.items.get();
+         return held.getItem() instanceof BlockItem ? this.blocks.get() : this.items.get();
       }
    }
 }

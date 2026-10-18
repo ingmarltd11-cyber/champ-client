@@ -3,12 +3,12 @@ package com.example.client.mixin;
 import net.champ.client.module.impl.render.AtmosphereModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1294;
-import net.minecraft.class_1309;
-import net.minecraft.class_4184;
-import net.minecraft.class_5636;
-import net.minecraft.class_638;
-import net.minecraft.class_758;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.client.Camera;
+import net.minecraft.world.level.material.FogType;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.fog.FogRenderer;
 import org.joml.Vector4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,12 +16,12 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_758.class)
+@Mixin(FogRenderer.class)
 public abstract class MixinAtmosphereFogRenderer {
-   @Inject(method = "method_62185", at = @At("RETURN"))
-   private void champ$fogColour(class_4184 camera, float partialTick, class_638 level, int renderDistance, float darkness, CallbackInfoReturnable<Vector4f> cir) {
-      if (camera.method_19334() == class_5636.field_27888 && !(darkness > 0.0F)) {
-         if (!(camera.method_19331() instanceof class_1309 living && (living.method_6059(class_1294.field_5919) || living.method_6059(class_1294.field_38092)))
+   @Inject(method = "computeFogColor", at = @At("RETURN"))
+   private void champ$fogColour(Camera camera, float partialTick, ClientLevel level, int renderDistance, float darkness, CallbackInfoReturnable<Vector4f> cir) {
+      if (camera.getFluidInCamera() == FogType.NONE && !(darkness > 0.0F)) {
+         if (!(camera.entity() instanceof LivingEntity living && (living.hasEffect(MobEffects.BLINDNESS) || living.hasEffect(MobEffects.DARKNESS)))
             )
           {
             AtmosphereModule atmosphere = AtmosphereModule.get();

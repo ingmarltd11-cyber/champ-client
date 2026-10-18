@@ -13,11 +13,11 @@ import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1316;
-import net.minecraft.class_2692;
-import net.minecraft.class_2833;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.PlayerRideableJumping;
+import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
+import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class BoatFlyModule extends ClientModule {
@@ -64,13 +64,13 @@ public final class BoatFlyModule extends ClientModule {
    }
 
    private void onPacketSend(PacketSendEvent event) {
-      if (this.antiKick.get() && event.packet instanceof class_2833 packet) {
+      if (this.antiKick.get() && event.packet instanceof ServerboundMoveVehiclePacket packet) {
          this.antiKicker.onPacketSend(packet, this.delay.getInt());
       }
    }
 
    private void onPacketReceive(PacketReceiveNettyEvent event) {
-      if (this.cancelServerPackets.get() && event.packet instanceof class_2692) {
+      if (this.cancelServerPackets.get() && event.packet instanceof ClientboundMoveVehiclePacket) {
          event.setCancelled(true);
       }
    }
@@ -84,13 +84,13 @@ public final class BoatFlyModule extends ClientModule {
    }
 
    public double verticalVelocity() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       double velY = 0.0;
-      if (EntityControlVehicleHook.isPhysicallyDown(mc.field_1690.field_1903)) {
+      if (EntityControlVehicleHook.isPhysicallyDown(mc.options.keyJump)) {
          velY += this.verticalSpeed.get() / 20.0;
       }
 
-      if (EntityControlVehicleHook.isPhysicallyDown(mc.field_1690.field_1867)) {
+      if (EntityControlVehicleHook.isPhysicallyDown(mc.options.keySprint)) {
          velY -= this.verticalSpeed.get() / 20.0;
       } else {
          velY -= this.fallSpeed.get() / 20.0;
@@ -99,7 +99,7 @@ public final class BoatFlyModule extends ClientModule {
       return velY;
    }
 
-   public static boolean cancelsMountJump(class_746 player) {
-      return active != null && player.method_5854() instanceof class_1316;
+   public static boolean cancelsMountJump(LocalPlayer player) {
+      return active != null && player.getVehicle() instanceof PlayerRideableJumping;
    }
 }

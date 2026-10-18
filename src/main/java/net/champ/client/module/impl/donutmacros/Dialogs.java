@@ -9,73 +9,73 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_11414;
-import net.minecraft.class_11419;
-import net.minecraft.class_11424;
-import net.minecraft.class_11426;
-import net.minecraft.class_11430;
-import net.minecraft.class_11432;
-import net.minecraft.class_11434;
-import net.minecraft.class_11435;
-import net.minecraft.class_11437;
-import net.minecraft.class_11444;
-import net.minecraft.class_11473;
-import net.minecraft.class_11519;
-import net.minecraft.class_11722;
-import net.minecraft.class_1799;
-import net.minecraft.class_2481;
-import net.minecraft.class_2520;
-import net.minecraft.class_2558;
-import net.minecraft.class_2561;
-import net.minecraft.class_2583;
-import net.minecraft.class_310;
-import net.minecraft.class_5251;
-import net.minecraft.class_11521.class_11522;
+import net.minecraft.server.dialog.ButtonListDialog;
+import net.minecraft.server.dialog.Dialog;
+import net.minecraft.server.dialog.Input;
+import net.minecraft.server.dialog.MultiActionDialog;
+import net.minecraft.server.dialog.SimpleDialog;
+import net.minecraft.server.dialog.body.DialogBody;
+import net.minecraft.server.dialog.body.ItemBody;
+import net.minecraft.server.dialog.body.PlainMessage;
+import net.minecraft.server.dialog.input.BooleanInput;
+import net.minecraft.server.dialog.input.TextInput;
+import net.minecraft.client.gui.screens.dialog.DialogScreen;
+import net.minecraft.server.dialog.ActionButton;
+import net.minecraft.network.chat.contents.ObjectContents;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.nbt.ByteTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.server.dialog.action.Action.ValueGetter;
 
 @Environment(EnvType.CLIENT)
 final class Dialogs {
    private Dialogs() {
    }
 
-   static Dialogs.View current(class_310 mc) {
-      if (!(mc.field_1755 instanceof class_11473<?> screen)) {
+   static Dialogs.View current(Minecraft mc) {
+      if (!(mc.screen instanceof DialogScreen<?> screen)) {
          return null;
       } else {
-         class_11419 dialog = ((AccessorOrderDialogScreen)screen).champ$dialog();
+         Dialog dialog = ((AccessorOrderDialogScreen)screen).champ$dialog();
          if (dialog == null) {
             return null;
          }
 
-         List<class_11519> raw = new ArrayList<>();
-         if (dialog instanceof class_11426 multi) {
+         List<ActionButton> raw = new ArrayList<>();
+         if (dialog instanceof MultiActionDialog multi) {
             raw.addAll(multi.comp_4317());
          }
 
-         if (dialog instanceof class_11430 simple) {
-            raw.addAll(simple.method_71698());
+         if (dialog instanceof SimpleDialog simple) {
+            raw.addAll(simple.mainActions());
          }
 
-         if (dialog instanceof class_11414 list) {
+         if (dialog instanceof ButtonListDialog list) {
             list.comp_4395().ifPresent(raw::add);
          }
 
          List<Dialogs.Button> buttons = new ArrayList<>(raw.size());
 
-         for (class_11519 button : raw) {
-            class_2561 label = button.comp_4390().comp_4298();
+         for (ActionButton button : raw) {
+            Component label = button.comp_4390().comp_4298();
             String text = visibleText(label);
             buttons.add(new Dialogs.Button(button, ServerText.normalize(text), ServerText.key(text), label));
          }
 
          List<String> body = new ArrayList<>();
-         List<class_1799> items = new ArrayList<>();
+         List<ItemStack> items = new ArrayList<>();
 
-         for (class_11432 part : dialog.comp_4305().comp_4304()) {
-            if (part instanceof class_11435 message) {
+         for (DialogBody part : dialog.comp_4305().comp_4304()) {
+            if (part instanceof PlainMessage message) {
                body.add(ServerText.normalize(visibleText(message.comp_4330())));
             }
 
-            if (part instanceof class_11434 item) {
+            if (part instanceof ItemBody item) {
                items.add(item.comp_4324());
                item.comp_4325().ifPresent(message -> body.add(ServerText.normalize(visibleText(message.comp_4330()))));
             }
@@ -83,8 +83,8 @@ final class Dialogs {
 
          List<String> textInputs = new ArrayList<>();
 
-         for (class_11424 input : dialog.comp_4305().comp_4394()) {
-            if (input.comp_4313() instanceof class_11444) {
+         for (Input input : dialog.comp_4305().comp_4394()) {
+            if (input.comp_4313() instanceof TextInput) {
                textInputs.add(input.comp_4312());
             }
          }
@@ -93,64 +93,64 @@ final class Dialogs {
       }
    }
 
-   static String visibleText(class_2561 component) {
+   static String visibleText(Component component) {
       StringBuilder out = new StringBuilder();
       appendVisible(component, out);
       return out.toString();
    }
 
-   private static void appendVisible(class_2561 component, StringBuilder out) {
-      if (!(component.method_10851() instanceof class_11722)) {
-         component.method_10851().method_27659(text -> {
+   private static void appendVisible(Component component, StringBuilder out) {
+      if (!(component.getContents() instanceof ObjectContents)) {
+         component.getContents().visit(text -> {
             out.append(text);
             return Optional.empty();
          });
       }
 
-      for (class_2561 sibling : component.method_10855()) {
+      for (Component sibling : component.getSiblings()) {
          appendVisible(sibling, out);
       }
    }
 
-   static boolean press(class_310 mc, Dialogs.View view, Dialogs.Button button, Map<String, String> text) {
-      if (mc.field_1755 instanceof class_11473<?> screen) {
+   static boolean press(Minecraft mc, Dialogs.View view, Dialogs.Button button, Map<String, String> text) {
+      if (mc.screen instanceof DialogScreen<?> screen) {
          if (((AccessorOrderDialogScreen)screen).champ$dialog() != view.dialog()) {
             return false;
          }
 
-         Map<String, class_11522> values = new HashMap<>();
+         Map<String, ValueGetter> values = new HashMap<>();
 
-         for (class_11424 input : view.dialog().comp_4305().comp_4394()) {
-            if (input.comp_4313() instanceof class_11444 textInput) {
-               values.put(input.comp_4312(), class_11522.method_72070(text.getOrDefault(input.comp_4312(), textInput.comp_4354())));
-            } else if (input.comp_4313() instanceof class_11437 bool) {
+         for (Input input : view.dialog().comp_4305().comp_4394()) {
+            if (input.comp_4313() instanceof TextInput textInput) {
+               values.put(input.comp_4312(), ValueGetter.of(text.getOrDefault(input.comp_4312(), textInput.comp_4354())));
+            } else if (input.comp_4313() instanceof BooleanInput bool) {
                values.put(input.comp_4312(), booleanValue(bool));
             }
          }
 
-         Optional<class_2558> event = button.raw().comp_4391().flatMap(action -> action.method_72068(values));
-         screen.method_72141(event);
+         Optional<ClickEvent> event = button.raw().comp_4391().flatMap(action -> action.createAction(values));
+         screen.runAction(event);
          return true;
       } else {
          return false;
       }
    }
 
-   static void close(class_310 mc) {
-      if (mc.field_1755 instanceof class_11473<?> screen) {
-         screen.method_25419();
+   static void close(Minecraft mc) {
+      if (mc.screen instanceof DialogScreen<?> screen) {
+         screen.onClose();
       }
    }
 
-   private static class_11522 booleanValue(class_11437 input) {
+   private static ValueGetter booleanValue(BooleanInput input) {
       final boolean value = input.comp_4333();
-      return new class_11522() {
+      return new ValueGetter() {
          public String method_72069() {
             return value ? input.comp_4334() : input.comp_4335();
          }
 
-         public class_2520 method_72073() {
-            return class_2481.method_23234(value);
+         public Tag method_72073() {
+            return ByteTag.valueOf(value);
          }
       };
    }
@@ -163,23 +163,23 @@ final class Dialogs {
    }
 
    @Environment(EnvType.CLIENT)
-   record Button(class_11519 raw, String label, String key, class_2561 component) {
+   record Button(ActionButton raw, String label, String key, Component component) {
       boolean green() {
          boolean[] found = new boolean[]{false};
-         this.component.method_27658((style, text) -> {
-            class_5251 color = style.method_10973();
-            if (!text.isBlank() && color != null && Dialogs.isGreen(color.method_27716())) {
+         this.component.visit((style, text) -> {
+            TextColor color = style.getColor();
+            if (!text.isBlank() && color != null && Dialogs.isGreen(color.getValue())) {
                found[0] = true;
             }
 
             return Optional.empty();
-         }, class_2583.field_24360);
+         }, Style.EMPTY);
          return found[0];
       }
    }
 
    @Environment(EnvType.CLIENT)
-   record View(class_11419 dialog, String title, List<Dialogs.Button> buttons, List<String> body, List<String> textInputs, List<class_1799> items) {
+   record View(Dialog dialog, String title, List<Dialogs.Button> buttons, List<String> body, List<String> textInputs, List<ItemStack> items) {
       Dialogs.Button find(Predicate<Dialogs.Button> test) {
          for (Dialogs.Button button : this.buttons) {
             if (test.test(button)) {

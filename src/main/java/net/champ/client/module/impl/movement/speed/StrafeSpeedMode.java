@@ -3,10 +3,10 @@ package net.champ.client.module.impl.movement.speed;
 import net.champ.client.module.impl.movement.SpeedModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_241;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class StrafeSpeedMode extends SpeedMode {
@@ -17,9 +17,9 @@ public final class StrafeSpeedMode extends SpeedMode {
    }
 
    @Override
-   public class_243 onMove(class_746 player, class_243 movement) {
+   public Vec3 onMove(LocalPlayer player, Vec3 movement) {
       boolean moving = SpeedModule.isMoving(player);
-      double y = movement.field_1351;
+      double y = movement.y;
       switch (this.stage) {
          case 0:
             if (moving) {
@@ -27,7 +27,7 @@ public final class StrafeSpeedMode extends SpeedMode {
                this.speed = 1.18F * this.getDefaultSpeed(player) - 0.01;
             }
          case 1:
-            if (moving && player.method_24828()) {
+            if (moving && player.onGround()) {
                y = this.getHop(player, 0.40123128);
                this.speed = this.speed * this.settings.strafeSpeed();
                this.stage++;
@@ -38,8 +38,8 @@ public final class StrafeSpeedMode extends SpeedMode {
             this.stage++;
             break;
          case 3:
-            if (!player.method_73183().method_18026(player.method_5829().method_989(0.0, player.method_18798().field_1351, 0.0))
-               || player.field_5992 && this.stage > 0) {
+            if (!player.level().noCollision(player.getBoundingBox().move(0.0, player.getDeltaMovement().y, 0.0))
+               || player.verticalCollision && this.stage > 0) {
                this.stage = 0;
             }
 
@@ -56,14 +56,14 @@ public final class StrafeSpeedMode extends SpeedMode {
       }
 
       double[] change = transformStrafe(player, this.speed);
-      return new class_243(change[0], y, change[1]);
+      return new Vec3(change[0], y, change[1]);
    }
 
-   private static double[] transformStrafe(class_746 player, double speed) {
-      class_241 input = player.field_3913.method_3128();
-      float forward = Math.signum(input.field_1342);
-      float side = Math.signum(input.field_1343);
-      float yaw = player.method_61415(class_310.method_1551().method_61966().method_60637(true));
+   private static double[] transformStrafe(LocalPlayer player, double speed) {
+      Vec2 input = player.input.getMoveVector();
+      float forward = Math.signum(input.y);
+      float side = Math.signum(input.x);
+      float yaw = player.getYRot(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true));
       if (forward == 0.0F && side == 0.0F) {
          return new double[2];
       }
@@ -83,9 +83,9 @@ public final class StrafeSpeedMode extends SpeedMode {
    }
 
    @Override
-   public void onTick(class_746 player) {
-      double dx = player.method_23317() - player.field_6014;
-      double dz = player.method_23321() - player.field_5969;
+   public void onTick(LocalPlayer player) {
+      double dx = player.getX() - player.xo;
+      double dz = player.getZ() - player.zo;
       this.distance = Math.sqrt(dx * dx + dz * dz);
    }
 }

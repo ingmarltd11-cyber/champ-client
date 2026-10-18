@@ -7,52 +7,52 @@ import com.llamalad7.mixinextras.sugar.Local;
 import net.champ.client.module.impl.misc.FakeStats;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2561;
-import net.minecraft.class_266;
-import net.minecraft.class_269;
-import net.minecraft.class_355;
-import net.minecraft.class_5348;
-import net.minecraft.class_640;
-import net.minecraft.class_9013;
-import net.minecraft.class_9015;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.client.gui.components.PlayerTabOverlay;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.world.scores.ReadOnlyScoreInfo;
+import net.minecraft.world.scores.ScoreHolder;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_355.class)
+@Mixin(PlayerTabOverlay.class)
 public abstract class MixinFakeStatsPlayerTabOverlay {
-   @ModifyReturnValue(method = "method_1918", at = @At("RETURN"))
-   private class_2561 champ$fakeStatsTabName(class_2561 original, @Local(argsOnly = true) class_640 info) {
-      return FakeStats.tabName(info.method_2966().id(), original);
+   @ModifyReturnValue(method = "getNameForDisplay", at = @At("RETURN"))
+   private Component champ$fakeStatsTabName(Component original, @Local(argsOnly = true) PlayerInfo info) {
+      return FakeStats.tabName(info.getProfile().id(), original);
    }
 
    @WrapOperation(
-      method = "method_1919",
+      method = "render",
       at = @At(
          value = "INVOKE",
-         target = "Lnet/minecraft/class_269;method_55430(Lnet/minecraft/class_9015;Lnet/minecraft/class_266;)Lnet/minecraft/class_9013;"
+         target = "Lnet/minecraft/world/scores/Scoreboard;getPlayerScoreInfo(Lnet/minecraft/world/scores/ScoreHolder;Lnet/minecraft/world/scores/Objective;)Lnet/minecraft/world/scores/ReadOnlyScoreInfo;"
       )
    )
-   private class_9013 champ$fakeStatsTabScore(class_269 board, class_9015 holder, class_266 objective, Operation<class_9013> original) {
-      return FakeStats.tabScore(holder, (class_9013)original.call(new Object[]{board, holder, objective}));
+   private ReadOnlyScoreInfo champ$fakeStatsTabScore(Scoreboard board, ScoreHolder holder, Objective objective, Operation<ReadOnlyScoreInfo> original) {
+      return FakeStats.tabScore(holder, (ReadOnlyScoreInfo)original.call(new Object[]{board, holder, objective}));
    }
 
    @ModifyArg(
-      method = "method_1919",
-      at = @At(value = "INVOKE", ordinal = 0, target = "Lnet/minecraft/class_327;method_1728(Lnet/minecraft/class_5348;I)Ljava/util/List;"),
+      method = "render",
+      at = @At(value = "INVOKE", ordinal = 0, target = "Lnet/minecraft/client/gui/Font;split(Lnet/minecraft/network/chat/FormattedText;I)Ljava/util/List;"),
       index = 0
    )
-   private class_5348 champ$fakeStatsTabHeader(class_5348 header) {
+   private FormattedText champ$fakeStatsTabHeader(FormattedText header) {
       return FakeStats.tabText(header);
    }
 
    @ModifyArg(
-      method = "method_1919",
-      at = @At(value = "INVOKE", ordinal = 1, target = "Lnet/minecraft/class_327;method_1728(Lnet/minecraft/class_5348;I)Ljava/util/List;"),
+      method = "render",
+      at = @At(value = "INVOKE", ordinal = 1, target = "Lnet/minecraft/client/gui/Font;split(Lnet/minecraft/network/chat/FormattedText;I)Ljava/util/List;"),
       index = 0
    )
-   private class_5348 champ$fakeStatsTabFooter(class_5348 footer) {
+   private FormattedText champ$fakeStatsTabFooter(FormattedText footer) {
       return FakeStats.tabText(footer);
    }
 }

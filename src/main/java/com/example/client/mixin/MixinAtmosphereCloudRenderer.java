@@ -3,15 +3,15 @@ package com.example.client.mixin;
 import net.champ.client.module.impl.render.AtmosphereModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_9955;
+import net.minecraft.client.renderer.CloudRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_9955.class)
+@Mixin(CloudRenderer.class)
 public abstract class MixinAtmosphereCloudRenderer {
-   @ModifyVariable(method = "method_62168", at = @At("HEAD"), argsOnly = true, ordinal = 0)
+   @ModifyVariable(method = "render", at = @At("HEAD"), argsOnly = true, ordinal = 0)
    private int champ$cloudColour(int color) {
       AtmosphereModule atmosphere = AtmosphereModule.get();
       return atmosphere != null ? atmosphere.clouds(color) : color;

@@ -3,24 +3,24 @@ package net.champ.client.util.glyph;
 import java.util.Arrays;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12175;
-import net.minecraft.class_12177;
-import net.minecraft.class_12178;
-import net.minecraft.class_12180;
-import net.minecraft.class_243;
-import net.minecraft.class_3532;
-import net.minecraft.class_4184;
-import net.minecraft.class_9848;
+import net.minecraft.gizmos.Gizmo;
+import net.minecraft.gizmos.GizmoPrimitives;
+import net.minecraft.gizmos.GizmoProperties;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.Mth;
+import net.minecraft.client.Camera;
+import net.minecraft.util.ARGB;
 import org.joml.Vector3fc;
 
 @Environment(EnvType.CLIENT)
-public final class GlyphCanvas implements class_12175 {
+public final class GlyphCanvas implements Gizmo {
    public static final int MAX_QUADS = 12000;
    private static final int MAX_LINES = 4000;
    private static final int MIN_ALPHA = 3;
    private static final int VERTEX_BITS = 9;
    private static final double RIBBON_NEAR = 0.05;
-   private final class_243[] vertices = new class_243[512];
+   private final Vec3[] vertices = new Vec3[512];
    private double[] quadPos = new double[3072];
    private int[] quadColor = new int[256];
    private int quads;
@@ -41,16 +41,16 @@ public final class GlyphCanvas implements class_12175 {
    private double lookY;
    private double lookZ;
 
-   public void begin(class_4184 camera) {
+   public void begin(Camera camera) {
       this.quads = 0;
       this.lines = 0;
-      class_243 eye = camera.method_71156();
-      this.camX = eye.field_1352;
-      this.camY = eye.field_1351;
-      this.camZ = eye.field_1350;
-      Vector3fc left = camera.method_35689();
-      Vector3fc up = camera.method_19336();
-      Vector3fc forward = camera.method_19335();
+      Vec3 eye = camera.position();
+      this.camX = eye.x;
+      this.camY = eye.y;
+      this.camZ = eye.z;
+      Vector3fc left = camera.leftVector();
+      Vector3fc up = camera.upVector();
+      Vector3fc forward = camera.forwardVector();
       this.rightX = -left.x();
       this.rightY = -left.y();
       this.rightZ = -left.z();
@@ -64,9 +64,9 @@ public final class GlyphCanvas implements class_12175 {
 
    public void submit(boolean onTop) {
       if (this.quads != 0 || this.lines != 0) {
-         class_12178 properties = class_12180.method_75553(this);
+         GizmoProperties properties = Gizmos.addGizmo(this);
          if (onTop) {
-            properties.method_75533();
+            properties.setAlwaysOnTop();
          }
       }
    }
@@ -97,7 +97,7 @@ public final class GlyphCanvas implements class_12175 {
    public void quad(
       double ax, double ay, double az, double bx, double by, double bz, double cx, double cy, double cz, double dx, double dy, double dz, int argb
    ) {
-      if (class_9848.method_61320(argb) >= 3 && this.reserveQuad()) {
+      if (ARGB.alpha(argb) >= 3 && this.reserveQuad()) {
          int p = this.quads * 12;
          double[] out = this.quadPos;
          out[p] = ax;
@@ -139,7 +139,7 @@ public final class GlyphCanvas implements class_12175 {
    }
 
    public void line(double ax, double ay, double az, double bx, double by, double bz, int argb, float width) {
-      if (class_9848.method_61320(argb) >= 3 && this.reserveLine()) {
+      if (ARGB.alpha(argb) >= 3 && this.reserveLine()) {
          int p = this.lines * 6;
          double[] out = this.linePos;
          out[p] = ax;
@@ -205,7 +205,7 @@ public final class GlyphCanvas implements class_12175 {
    }
 
    public void shape(float[] shape, double x, double y, double z, double ux, double uy, double uz, double vx, double vy, double vz, int argb) {
-      if (class_9848.method_61320(argb) >= 3) {
+      if (ARGB.alpha(argb) >= 3) {
          for (int i = 0; i + 7 < shape.length; i += 8) {
             float u0 = shape[i];
             float v0 = shape[i + 1];
@@ -243,9 +243,9 @@ public final class GlyphCanvas implements class_12175 {
    }
 
    public void sprite(float[] shape, double x, double y, double z, float width, float height, float angle, float shiftU, float shiftV, int argb) {
-      if (class_9848.method_61320(argb) >= 3) {
-         float cos = class_3532.method_15362(angle);
-         float sin = class_3532.method_15374(angle);
+      if (ARGB.alpha(argb) >= 3) {
+         float cos = Mth.cos(angle);
+         float sin = Mth.sin(angle);
          double ux = (this.rightX * cos + this.upX * sin) * width;
          double uy = (this.rightY * cos + this.upY * sin) * width;
          double uz = (this.rightZ * cos + this.upZ * sin) * width;
@@ -257,23 +257,23 @@ public final class GlyphCanvas implements class_12175 {
    }
 
    public void flat(float[] shape, double x, double y, double z, float size, float angle, int argb) {
-      float cos = class_3532.method_15362(angle) * size;
-      float sin = class_3532.method_15374(angle) * size;
+      float cos = Mth.cos(angle) * size;
+      float sin = Mth.sin(angle) * size;
       double flip = this.camY >= y ? -1.0 : 1.0;
       this.shape(shape, x, y, z, cos, 0.0, flip * sin, -sin, 0.0, flip * cos, argb);
    }
 
    public void band(double x, double y, double z, float inner, float outer, float from, float to, int segments, int argb) {
-      if (!(outer <= inner) && segments > 0 && class_9848.method_61320(argb) >= 3) {
+      if (!(outer <= inner) && segments > 0 && ARGB.alpha(argb) >= 3) {
          double flip = this.camY >= y ? -1.0 : 1.0;
          float step = (to - from) / segments;
-         float cosA = class_3532.method_15362(from);
-         float sinA = class_3532.method_15374(from);
+         float cosA = Mth.cos(from);
+         float sinA = Mth.sin(from);
 
          for (int i = 1; i <= segments; i++) {
             float angle = from + step * i;
-            float cosB = class_3532.method_15362(angle);
-            float sinB = class_3532.method_15374(angle);
+            float cosB = Mth.cos(angle);
+            float sinB = Mth.sin(angle);
             this.quad(
                x + cosA * inner,
                y,
@@ -299,14 +299,14 @@ public final class GlyphCanvas implements class_12175 {
       this.band(x, y, z, inner, outer, 0.0F, (float) (Math.PI * 2), segments, argb);
    }
 
-   public void method_75531(class_12177 out, float alpha) {
+   public void method_75531(GizmoPrimitives out, float alpha) {
       boolean faded = alpha < 1.0F;
       double[] q = this.quadPos;
       int i = 0;
 
       for (int p = 0; i < this.quads; p += 12) {
-         int color = faded ? class_9848.method_75601(this.quadColor[i], alpha) : this.quadColor[i];
-         out.method_75474(
+         int color = faded ? ARGB.multiplyAlpha(this.quadColor[i], alpha) : this.quadColor[i];
+         out.addQuad(
             this.vertex(q[p], q[p + 1], q[p + 2]),
             this.vertex(q[p + 3], q[p + 4], q[p + 5]),
             this.vertex(q[p + 6], q[p + 7], q[p + 8]),
@@ -320,23 +320,23 @@ public final class GlyphCanvas implements class_12175 {
       int ix = 0;
 
       for (int p = 0; ix < this.lines; p += 6) {
-         int color = faded ? class_9848.method_75601(this.lineColor[ix], alpha) : this.lineColor[ix];
-         out.method_75473(this.vertex(l[p], l[p + 1], l[p + 2]), this.vertex(l[p + 3], l[p + 4], l[p + 5]), color, this.lineWidth[ix]);
+         int color = faded ? ARGB.multiplyAlpha(this.lineColor[ix], alpha) : this.lineColor[ix];
+         out.addLine(this.vertex(l[p], l[p + 1], l[p + 2]), this.vertex(l[p + 3], l[p + 4], l[p + 5]), color, this.lineWidth[ix]);
          ix++;
       }
    }
 
-   private class_243 vertex(double x, double y, double z) {
+   private Vec3 vertex(double x, double y, double z) {
       long hash = Double.doubleToRawLongBits(x) * -7046029254386353131L
          ^ Double.doubleToRawLongBits(y) * -4417276706812531889L
          ^ Double.doubleToRawLongBits(z) * 1609587929392839161L;
       int slot = (int)(hash >>> 55);
-      class_243 cached = this.vertices[slot];
-      if (cached != null && cached.field_1352 == x && cached.field_1351 == y && cached.field_1350 == z) {
+      Vec3 cached = this.vertices[slot];
+      if (cached != null && cached.x == x && cached.y == y && cached.z == z) {
          return cached;
       }
 
-      class_243 made = new class_243(x, y, z);
+      Vec3 made = new Vec3(x, y, z);
       this.vertices[slot] = made;
       return made;
    }

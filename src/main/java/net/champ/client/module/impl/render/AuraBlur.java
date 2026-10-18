@@ -12,7 +12,7 @@ import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.vertex.VertexFormat.class_5596;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
@@ -20,10 +20,10 @@ import net.champ.client.module.impl.client.PerformanceModule;
 import net.champ.client.util.MobilePerformance;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10789;
-import net.minecraft.class_290;
-import net.minecraft.class_2960;
-import net.minecraft.class_6367;
+import com.mojang.blaze3d.shaders.UniformType;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import net.minecraft.resources.Identifier;
+import com.mojang.blaze3d.pipeline.TextureTarget;
 import org.lwjgl.BufferUtils;
 
 @Environment(EnvType.CLIENT)
@@ -35,8 +35,8 @@ final class AuraBlur {
    private final String name;
    private final Supplier<String> passLabel;
    private final boolean approximateHalo;
-   private class_6367 across;
-   private class_6367 down;
+   private TextureTarget across;
+   private TextureTarget down;
    private GpuBuffer acrossConfig;
    private GpuBuffer downConfig;
    private GpuBufferSlice acrossSlice;
@@ -45,15 +45,15 @@ final class AuraBlur {
 
    private static RenderPipeline pipeline(boolean mobile) {
       Builder builder = RenderPipeline.builder(new Snippet[0])
-         .withLocation(class_2960.method_60655("champ", mobile ? "pipeline/aura_spread_mobile" : "pipeline/aura_spread"))
+         .withLocation(Identifier.fromNamespaceAndPath("champ", mobile ? "pipeline/aura_spread_mobile" : "pipeline/aura_spread"))
          .withVertexShader("core/screenquad")
-         .withFragmentShader(class_2960.method_60655("champ", "core/aura_spread"))
+         .withFragmentShader(Identifier.fromNamespaceAndPath("champ", "core/aura_spread"))
          .withSampler("InSampler")
-         .withUniform("AuraSpread", class_10789.field_60031)
+         .withUniform("AuraSpread", UniformType.UNIFORM_BUFFER)
          .withoutBlend()
          .withDepthWrite(false)
          .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
-         .withVertexFormat(class_290.field_60033, class_5596.field_27379);
+         .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES);
       if (mobile) {
          builder.withShaderDefine("CHAMP_MOBILE_AURA");
       }
@@ -89,28 +89,28 @@ final class AuraBlur {
       int halfHeight = Math.max(1, (height + divisor - 1) / divisor);
       if (this.across == null) {
          this.allocate(halfWidth, halfHeight);
-      } else if (this.across.field_1482 != halfWidth || this.across.field_1481 != halfHeight) {
-         this.across.method_1234(halfWidth, halfHeight);
-         this.down.method_1234(halfWidth, halfHeight);
+      } else if (this.across.width != halfWidth || this.across.height != halfHeight) {
+         this.across.resize(halfWidth, halfHeight);
+         this.down.resize(halfWidth, halfHeight);
       }
 
       float step = Math.max(0.75F, reachPx / 6.0F);
       RenderPipeline selected = selectedPipeline(RenderSystem.getDevice(), this.approximateHalo);
       this.run(encoder, source, this.across, this.acrossSlice, step / width, 0.0F, selected);
-      this.run(encoder, this.across.method_71639(), this.down, this.downSlice, 0.0F, step / height, selected);
-      return this.down.method_71639();
+      this.run(encoder, this.across.getColorTextureView(), this.down, this.downSlice, 0.0F, step / height, selected);
+      return this.down.getColorTextureView();
    }
 
-   private void run(CommandEncoder encoder, GpuTextureView from, class_6367 into, GpuBufferSlice slice, float du, float dv, RenderPipeline selected) {
+   private void run(CommandEncoder encoder, GpuTextureView from, TextureTarget into, GpuBufferSlice slice, float du, float dv, RenderPipeline selected) {
       this.configData.putFloat(0, du);
       this.configData.putFloat(4, dv);
       encoder.writeToBuffer(slice, this.configData);
-      RenderPass pass = encoder.createRenderPass(this.passLabel, into.method_71639(), OptionalInt.empty());
+      RenderPass pass = encoder.createRenderPass(this.passLabel, into.getColorTextureView(), OptionalInt.empty());
 
       try {
          pass.setPipeline(selected);
          pass.setUniform("AuraSpread", slice);
-         pass.bindTexture("InSampler", from, RenderSystem.getSamplerCache().method_75294(FilterMode.LINEAR));
+         pass.bindTexture("InSampler", from, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
          pass.draw(0, 3);
       } catch (Throwable var12) {
          if (pass != null) {
@@ -131,8 +131,8 @@ final class AuraBlur {
 
    private void allocate(int width, int height) {
       GpuDevice device = RenderSystem.getDevice();
-      this.across = new class_6367(this.name + " across", width, height, false);
-      this.down = new class_6367(this.name + " down", width, height, false);
+      this.across = new TextureTarget(this.name + " across", width, height, false);
+      this.down = new TextureTarget(this.name + " down", width, height, false);
       this.acrossConfig = device.createBuffer(() -> this.name + " across config", 136, 16L);
       this.downConfig = device.createBuffer(() -> this.name + " down config", 136, 16L);
       this.acrossSlice = this.acrossConfig.slice();
@@ -142,12 +142,12 @@ final class AuraBlur {
 
    void release() {
       if (this.across != null) {
-         this.across.method_1238();
+         this.across.destroyBuffers();
          this.across = null;
       }
 
       if (this.down != null) {
-         this.down.method_1238();
+         this.down.destroyBuffers();
          this.down = null;
       }
 

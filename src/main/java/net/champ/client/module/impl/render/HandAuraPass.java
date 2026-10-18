@@ -12,19 +12,19 @@ import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.vertex.VertexFormat.class_5596;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.nio.ByteBuffer;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
 import net.champ.client.util.ShaderOverlay;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10789;
-import net.minecraft.class_276;
-import net.minecraft.class_290;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_6367;
+import com.mojang.blaze3d.shaders.UniformType;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.pipeline.TextureTarget;
 import org.lwjgl.BufferUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,22 +33,22 @@ import org.slf4j.LoggerFactory;
 final class HandAuraPass {
    private static final Logger LOGGER = LoggerFactory.getLogger("Champ Client");
    private static final RenderPipeline PIPELINE = RenderPipeline.builder(new Snippet[0])
-      .withLocation(class_2960.method_60655("champ", "pipeline/hand_aura"))
+      .withLocation(Identifier.fromNamespaceAndPath("champ", "pipeline/hand_aura"))
       .withVertexShader("core/screenquad")
-      .withFragmentShader(class_2960.method_60655("champ", "core/hand_aura"))
+      .withFragmentShader(Identifier.fromNamespaceAndPath("champ", "core/hand_aura"))
       .withSampler("CaptureSampler")
       .withSampler("HaloSampler")
-      .withUniform("HandAuraConfig", class_10789.field_60031)
+      .withUniform("HandAuraConfig", UniformType.UNIFORM_BUFFER)
       .withBlend(BlendFunction.TRANSLUCENT_PREMULTIPLIED_ALPHA)
       .withColorWrite(true, false)
       .withDepthWrite(false)
       .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
-      .withVertexFormat(class_290.field_60033, class_5596.field_27379)
+      .withVertexFormat(DefaultVertexFormat.EMPTY, Mode.TRIANGLES)
       .build();
    private static final Supplier<String> PASS_LABEL = () -> "Champ Client hand aura";
    private static final Supplier<String> CONFIG_LABEL = () -> "Champ Client hand aura config";
    private static final int CONFIG_SIZE = 48;
-   private static class_6367 hand;
+   private static TextureTarget hand;
    private static AuraBlur blur;
    private static GpuBuffer config;
    private static GpuBufferSlice configSlice;
@@ -61,13 +61,13 @@ final class HandAuraPass {
 
    static boolean begin() {
       if (!capturing && RenderSystem.outputColorTextureOverride == null && RenderSystem.outputDepthTextureOverride == null) {
-         class_310 mc = class_310.method_1551();
-         class_276 main = mc.method_1522();
-         if (mc.field_1687 != null
-            && !mc.field_1773.method_35765()
-            && main.method_30277() != null
-            && main.field_1482 > 0
-            && main.field_1481 > 0
+         Minecraft mc = Minecraft.getInstance();
+         RenderTarget main = mc.getMainRenderTarget();
+         if (mc.level != null
+            && !mc.gameRenderer.isPanoramicMode()
+            && main.getColorTexture() != null
+            && main.width > 0
+            && main.height > 0
             && !ShaderOverlay.shaderPackInUse()) {
             GpuDevice device = RenderSystem.getDevice();
             if (!shaderReady(device)) {
@@ -75,14 +75,14 @@ final class HandAuraPass {
             }
 
             if (hand == null) {
-               allocate(main.field_1482, main.field_1481);
-            } else if (hand.field_1482 != main.field_1482 || hand.field_1481 != main.field_1481) {
-               hand.method_1234(main.field_1482, main.field_1481);
+               allocate(main.width, main.height);
+            } else if (hand.width != main.width || hand.height != main.height) {
+               hand.resize(main.width, main.height);
             }
 
-            device.createCommandEncoder().clearColorAndDepthTextures(hand.method_30277(), 0, hand.method_30278(), 1.0);
-            RenderSystem.outputColorTextureOverride = hand.method_71639();
-            RenderSystem.outputDepthTextureOverride = hand.method_71640();
+            device.createCommandEncoder().clearColorAndDepthTextures(hand.getColorTexture(), 0, hand.getDepthTexture(), 1.0);
+            RenderSystem.outputColorTextureOverride = hand.getColorTextureView();
+            RenderSystem.outputDepthTextureOverride = hand.getDepthTextureView();
             capturing = true;
             return true;
          } else {
@@ -105,9 +105,9 @@ final class HandAuraPass {
    }
 
    static void compose(int tintArgb, float aura, float reachPx, float rim, float rimPx, int sheenArgb, float sheen, float phase) {
-      class_276 main = class_310.method_1551().method_1522();
+      RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
       CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-      GpuTextureView halo = aura > 0.0F ? blur.spread(encoder, hand.method_71639(), hand.field_1482, hand.field_1481, reachPx) : hand.method_71639();
+      GpuTextureView halo = aura > 0.0F ? blur.spread(encoder, hand.getColorTextureView(), hand.width, hand.height, reachPx) : hand.getColorTextureView();
       putColor(0, tintArgb, aura);
       putColor(16, sheenArgb, sheen);
       configData.putFloat(32, rim);
@@ -115,13 +115,13 @@ final class HandAuraPass {
       configData.putFloat(40, phase);
       configData.putFloat(44, 0.0F);
       encoder.writeToBuffer(configSlice, configData);
-      RenderPass pass = encoder.createRenderPass(PASS_LABEL, main.method_71639(), OptionalInt.empty());
+      RenderPass pass = encoder.createRenderPass(PASS_LABEL, main.getColorTextureView(), OptionalInt.empty());
 
       try {
          pass.setPipeline(PIPELINE);
          pass.setUniform("HandAuraConfig", configSlice);
-         pass.bindTexture("CaptureSampler", hand.method_71639(), RenderSystem.getSamplerCache().method_75294(FilterMode.LINEAR));
-         pass.bindTexture("HaloSampler", halo, RenderSystem.getSamplerCache().method_75294(FilterMode.LINEAR));
+         pass.bindTexture("CaptureSampler", hand.getColorTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+         pass.bindTexture("HaloSampler", halo, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
          pass.draw(0, 3);
       } catch (Throwable var15) {
          if (pass != null) {
@@ -162,7 +162,7 @@ final class HandAuraPass {
    }
 
    private static void allocate(int width, int height) {
-      hand = new class_6367("Champ Client hand aura", width, height, true);
+      hand = new TextureTarget("Champ Client hand aura", width, height, true);
       blur = new AuraBlur("Champ Client hand aura");
       config = RenderSystem.getDevice().createBuffer(CONFIG_LABEL, 136, 48L);
       configSlice = config.slice();
@@ -175,7 +175,7 @@ final class HandAuraPass {
       }
 
       if (hand != null) {
-         hand.method_1238();
+         hand.destroyBuffers();
          hand = null;
       }
 

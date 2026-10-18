@@ -17,24 +17,24 @@ import net.champ.client.util.pvp.InputControl;
 import net.champ.client.util.pvp.ServerRotation;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_1309;
-import net.minecraft.class_1657;
-import net.minecraft.class_1661;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_1887;
-import net.minecraft.class_1893;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_3966;
-import net.minecraft.class_5134;
-import net.minecraft.class_5321;
-import net.minecraft.class_6880;
-import net.minecraft.class_746;
-import net.minecraft.class_9362;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.Holder;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.item.MaceItem;
 
 @Environment(EnvType.CLIENT)
 public final class MaceModule extends ClientModule {
@@ -68,17 +68,17 @@ public final class MaceModule extends ClientModule {
    @Override
    protected void onDisable() {
       this.smashed = false;
-      this.slots.drop(class_310.method_1551(), this.swapBack.get());
+      this.slots.drop(Minecraft.getInstance(), this.swapBack.get());
    }
 
-   public void beforeAttack(class_746 player, class_1297 target) {
-      if (this.autoSwap.get() && target instanceof class_1309 living) {
+   public void beforeAttack(LocalPlayer player, Entity target) {
+      if (this.autoSwap.get() && target instanceof LivingEntity living) {
          if (!MeleeAttacks.shieldBlocks(living, player) || MeleeAttacks.shieldBroken(living)) {
-            boolean smash = class_9362.method_58659(player);
+            boolean smash = MaceItem.canSmashAttack(player);
             if (smash || this.breachSwap.get()) {
                int slot = this.bestMace(player, living, smash);
                if (slot >= 0) {
-                  if (smash || !(expected(player, player.method_31548().method_5438(slot), living) < expected(player, player.method_6047(), living) * 1.15F)) {
+                  if (smash || !(expected(player, player.getInventory().getItem(slot), living) < expected(player, player.getMainHandItem(), living) * 1.15F)) {
                      this.slots.take(player, slot);
                   }
                }
@@ -87,17 +87,17 @@ public final class MaceModule extends ClientModule {
       }
    }
 
-   private int bestMace(class_746 player, class_1309 target, boolean smash) {
+   private int bestMace(LocalPlayer player, LivingEntity target, boolean smash) {
       boolean windBurst = smash && this.pick.is("Wind Burst");
-      class_1661 inventory = player.method_31548();
+      Inventory inventory = player.getInventory();
       int best = -1;
       boolean bestBurst = false;
       float bestDamage = 0.0F;
 
-      for (int slot = 0; slot < class_1661.method_7368(); slot++) {
-         class_1799 stack = inventory.method_5438(slot);
-         if (stack.method_31574(class_1802.field_49814) && !stack.method_63692() && (smash || level(stack, class_1893.field_50158) != 0)) {
-            boolean burst = windBurst && level(stack, class_1893.field_50159) > 0;
+      for (int slot = 0; slot < Inventory.getSelectionSize(); slot++) {
+         ItemStack stack = inventory.getItem(slot);
+         if (stack.is(Items.MACE) && !stack.nextDamageWillBreak() && (smash || level(stack, Enchantments.BREACH) != 0)) {
+            boolean burst = windBurst && level(stack, Enchantments.WIND_BURST) > 0;
             float damage = expected(player, stack, target);
             if (best < 0 || (!bestBurst || burst) && (bestBurst != burst || !(damage <= bestDamage))) {
                best = slot;
@@ -110,24 +110,24 @@ public final class MaceModule extends ClientModule {
       return best;
    }
 
-   private static float expected(class_746 player, class_1799 stack, class_1309 target) {
+   private static float expected(LocalPlayer player, ItemStack stack, LivingEntity target) {
       float charge = MeleeAttacks.charge(player);
-      double fall = player.field_6017;
-      float damage = (float)(1.0 + MeleeAttacks.attackDamage(player.method_6047())) * (0.2F + 0.8F * charge * charge);
-      if (stack.method_31574(class_1802.field_49814) && class_9362.method_58659(player)) {
-         damage += (float)(smashBonus(fall) + 0.5 * level(stack, class_1893.field_50157) * fall);
+      double fall = player.fallDistance;
+      float damage = (float)(1.0 + MeleeAttacks.attackDamage(player.getMainHandItem())) * (0.2F + 0.8F * charge * charge);
+      if (stack.is(Items.MACE) && MaceItem.canSmashAttack(player)) {
+         damage += (float)(smashBonus(fall) + 0.5 * level(stack, Enchantments.DENSITY) * fall);
       }
 
       if (MeleeAttacks.wouldCrit(player, target)) {
          damage *= 1.5F;
       }
 
-      int sharpness = level(stack, class_1893.field_9118);
+      int sharpness = level(stack, Enchantments.SHARPNESS);
       if (sharpness > 0) {
          damage += charge * (0.5F * sharpness + 0.5F);
       }
 
-      return afterArmor(target, damage, level(stack, class_1893.field_50158));
+      return afterArmor(target, damage, level(stack, Enchantments.BREACH));
    }
 
    private static double smashBonus(double fall) {
@@ -138,16 +138,16 @@ public final class MaceModule extends ClientModule {
       }
    }
 
-   private static float afterArmor(class_1309 target, float damage, int breach) {
-      float armor = target.method_6096();
-      float toughness = (float)target.method_45325(class_5134.field_23725);
-      float cut = class_3532.method_15363(armor - damage / (2.0F + toughness / 4.0F), armor * 0.2F, 20.0F) / 25.0F;
-      return damage * (1.0F - class_3532.method_15363(cut - 0.15F * breach, 0.0F, 1.0F));
+   private static float afterArmor(LivingEntity target, float damage, int breach) {
+      float armor = target.getArmorValue();
+      float toughness = (float)target.getAttributeValue(Attributes.ARMOR_TOUGHNESS);
+      float cut = Mth.clamp(armor - damage / (2.0F + toughness / 4.0F), armor * 0.2F, 20.0F) / 25.0F;
+      return damage * (1.0F - Mth.clamp(cut - 0.15F * breach, 0.0F, 1.0F));
    }
 
-   private static int level(class_1799 stack, class_5321<class_1887> enchantment) {
-      for (Entry<class_6880<class_1887>> entry : stack.method_58657().method_57539()) {
-         if (((class_6880)entry.getKey()).method_40225(enchantment)) {
+   private static int level(ItemStack stack, ResourceKey<Enchantment> enchantment) {
+      for (Entry<Holder<Enchantment>> entry : stack.getEnchantments().entrySet()) {
+         if (((Holder)entry.getKey()).is(enchantment)) {
             return entry.getIntValue();
          }
       }
@@ -157,8 +157,8 @@ public final class MaceModule extends ClientModule {
 
    @EventHandler(priority = EventPriority.HIGH)
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null && mc.field_1724.method_24828()) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.player.onGround()) {
          this.smashed = false;
       }
 
@@ -168,23 +168,23 @@ public final class MaceModule extends ClientModule {
    @EventHandler
    public void onSmashTick(TickEvent event) {
       if (this.smashAssist.get()) {
-         this.trySmash(class_310.method_1551());
+         this.trySmash(Minecraft.getInstance());
       }
    }
 
-   private void trySmash(class_310 mc) {
+   private void trySmash(Minecraft mc) {
       if (MeleeAttacks.canAct(mc) && !CombatMacroLock.heldByOther(this) && !AutoInvTotemModule.wantsHotbar()) {
-         class_746 player = mc.field_1724;
+         LocalPlayer player = mc.player;
          if (!MeleeAttacks.actedThisTick(player)
             && !MeleeAttacks.clickPending(mc)
             && !MeleeAttacks.rightClickComing(mc)
             && !ServerRotation.pending()
-            && mc.field_1771 <= 0
+            && mc.missTime <= 0
             && MeleeAttacks.handsFree(mc, player)) {
-            if (!(player.method_18798().field_1351 >= 0.0)) {
-               class_3966 hit = MeleeAttacks.crosshairHit(mc);
-               if (hit != null && hit.method_17782() instanceof class_1309 target && MeleeAttacks.isEnemy(player, target)) {
-                  if (target instanceof class_1657 || this.mobs.get()) {
+            if (!(player.getDeltaMovement().y >= 0.0)) {
+               EntityHitResult hit = MeleeAttacks.crosshairHit(mc);
+               if (hit != null && hit.getEntity() instanceof LivingEntity target && MeleeAttacks.isEnemy(player, target)) {
+                  if (target instanceof Player || this.mobs.get()) {
                      if (this.smashReady(player, target)) {
                         if (MeleeAttacks.shieldBlocks(target, player) && !MeleeAttacks.shieldBroken(target)) {
                            int axe = ShieldBreakerModule.bestAxe(player);
@@ -198,7 +198,7 @@ public final class MaceModule extends ClientModule {
                            }
                         } else if (this.holdsSmash(player, target)) {
                            InputControl.dropSprint();
-                           mc.field_1771 = Math.max(mc.field_1771, 1);
+                           mc.missTime = Math.max(mc.missTime, 1);
                         } else {
                            if (MeleeAttacks.attack(mc, hit)) {
                               this.smashed = true;
@@ -217,38 +217,38 @@ public final class MaceModule extends ClientModule {
       this.smashed = true;
    }
 
-   public boolean smashReady(class_746 player, class_1309 target) {
+   public boolean smashReady(LocalPlayer player, LivingEntity target) {
       return this.isEnabled()
          && !this.smashed
-         && class_9362.method_58659(player)
-         && player.field_6017 >= this.minFall.get()
-         && (player.method_6047().method_31574(class_1802.field_49814) || this.autoSwap.get() && this.bestMace(player, target, true) >= 0);
+         && MaceItem.canSmashAttack(player)
+         && player.fallDistance >= this.minFall.get()
+         && (player.getMainHandItem().is(Items.MACE) || this.autoSwap.get() && this.bestMace(player, target, true) >= 0);
    }
 
-   public boolean holdsSmash(class_746 player, class_1309 target) {
-      boolean chargeSoon = MeleeAttacks.charge(player) <= 0.9F && player.method_7261(1.5F) > 0.9F;
-      return canHoldOneTick(player, target) && (this.smashTiming.is("Delayed") || chargeSoon || target.field_6235 > 0 || player.method_5624());
+   public boolean holdsSmash(LocalPlayer player, LivingEntity target) {
+      boolean chargeSoon = MeleeAttacks.charge(player) <= 0.9F && player.getAttackStrengthScale(1.5F) > 0.9F;
+      return canHoldOneTick(player, target) && (this.smashTiming.is("Delayed") || chargeSoon || target.hurtTime > 0 || player.isSprinting());
    }
 
-   private static boolean canHoldOneTick(class_746 player, class_1309 target) {
-      class_243 motion = player.method_18798();
-      if (!player.method_73183().method_8587(player, player.method_5829().method_997(motion))) {
+   private static boolean canHoldOneTick(LocalPlayer player, LivingEntity target) {
+      Vec3 motion = player.getDeltaMovement();
+      if (!player.level().noCollision(player, player.getBoundingBox().move(motion))) {
          return false;
       }
 
-      double reach = player.method_55755() - 0.35;
+      double reach = player.entityInteractionRange() - 0.35;
       if (reach <= 0.0) {
          return false;
       }
 
-      class_243 nextEye = player.method_33571().method_1019(motion);
-      class_243 targetStep = target.method_73189().method_1023(target.field_6014, target.field_6036, target.field_5969);
-      class_238 nextBox = target.method_5829().method_997(targetStep).method_1014(target.method_5871());
-      if (nextBox.method_1006(nextEye)) {
+      Vec3 nextEye = player.getEyePosition().add(motion);
+      Vec3 targetStep = target.position().subtract(target.xo, target.yo, target.zo);
+      AABB nextBox = target.getBoundingBox().move(targetStep).inflate(target.getPickRadius());
+      if (nextBox.contains(nextEye)) {
          return true;
       }
 
-      Optional<class_243> aim = nextBox.method_992(nextEye, nextEye.method_1019(player.method_5828(1.0F).method_1021(reach)));
+      Optional<Vec3> aim = nextBox.clip(nextEye, nextEye.add(player.getViewVector(1.0F).scale(reach)));
       return aim.isPresent() && MeleeAttacks.lineIsClear(player, nextEye, aim.get());
    }
 }

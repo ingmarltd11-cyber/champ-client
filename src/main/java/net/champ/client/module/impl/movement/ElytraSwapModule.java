@@ -20,29 +20,29 @@ import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.util.pvp.InputControl;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10192;
-import net.minecraft.class_1304;
-import net.minecraft.class_1309;
-import net.minecraft.class_1661;
-import net.minecraft.class_1713;
-import net.minecraft.class_1792;
-import net.minecraft.class_1799;
-import net.minecraft.class_1890;
-import net.minecraft.class_2561;
-import net.minecraft.class_2815;
-import net.minecraft.class_310;
-import net.minecraft.class_5134;
-import net.minecraft.class_746;
-import net.minecraft.class_9285;
-import net.minecraft.class_9334;
-import net.minecraft.class_9701;
+import net.minecraft.world.item.equipment.Equippable;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.enchantment.EnchantmentEffectComponents;
 
 @Environment(EnvType.CLIENT)
 public final class ElytraSwapModule extends ClientModule {
    private static final int[] SOURCE_INDICES = sourceIndices();
    private static final int MAX_WAIT_TICKS = 20;
    private static final int CHEST_SLOT_ID = 6;
-   private static final class_2561 SWAP_FAILED = ModuleChat.body().danger("Swap failed").text(", the item didn't move into the chest slot").build();
+   private static final Component SWAP_FAILED = ModuleChat.body().danger("Swap failed").text(", the item didn't move into the chest slot").build();
    private final KeySetting key = this.addSetting("key", new KeySetting("Key", -1));
    private final BooleanSetting swapBackOnLanding = this.addSetting("swap-back-on-landing", new BooleanSetting("Swap Back on Landing", true));
    private final NumberSetting landingDelay = this.addSetting("landing-delay", new NumberSetting("Landing Delay", 4.0F, 0.0F, 20.0F).step(1.0F));
@@ -53,7 +53,7 @@ public final class ElytraSwapModule extends ClientModule {
    private int groundTicks;
    private int settleTicks;
    private int storedIndex = -1;
-   private class_1792 storedItem;
+   private Item storedItem;
 
    public ElytraSwapModule() {
       super("elytra-swap", "Elytra Swap", "Swaps between your chestplate and elytra with one key.", ModuleCategory.MOVEMENT);
@@ -104,8 +104,8 @@ public final class ElytraSwapModule extends ClientModule {
    private void onPress(int pressed) {
       int bound = this.key.value();
       if (ModuleKeybinds.isBindable(bound) && pressed == bound) {
-         class_310 mc = class_310.method_1551();
-         if (mc.field_1755 == null && mc.field_1724 != null) {
+         Minecraft mc = Minecraft.getInstance();
+         if (mc.screen == null && mc.player != null) {
             this.pending = true;
             this.pendingTicks = 0;
          }
@@ -113,9 +113,9 @@ public final class ElytraSwapModule extends ClientModule {
    }
 
    private void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      if (player == null || mc.field_1687 == null || mc.field_1761 == null) {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      if (player == null || mc.level == null || mc.gameMode == null) {
          this.reset();
       } else if (!this.pending) {
          if (this.armed) {
@@ -124,7 +124,7 @@ public final class ElytraSwapModule extends ClientModule {
       } else {
          String busy = this.busyReason(player);
          if (busy == null) {
-            if (mc.field_1755 != null || this.swap(mc, player)) {
+            if (mc.screen != null || this.swap(mc, player)) {
                this.pending = false;
                return;
             }
@@ -139,30 +139,30 @@ public final class ElytraSwapModule extends ClientModule {
       }
    }
 
-   private String busyReason(class_746 player) {
+   private String busyReason(LocalPlayer player) {
       if (CombatMacroLock.heldByOther(this)) {
          return "another macro kept the inventory busy";
       } else if (AutoInvTotemModule.busy()) {
          return "the totem refill kept the inventory busy";
-      } else if (player.method_6115()) {
+      } else if (player.isUsingItem()) {
          return "you kept using an item";
       } else {
          return ((AccessorLocalPlayer)player).champ$lastSentInput().comp_3164() ? "you kept sneaking" : null;
       }
    }
 
-   private void followFlight(class_310 mc, class_746 player) {
-      if (!this.swapBackOnLanding.get() || !player.method_6118(class_1304.field_6174).method_57826(class_9334.field_54197)) {
+   private void followFlight(Minecraft mc, LocalPlayer player) {
+      if (!this.swapBackOnLanding.get() || !player.getItemBySlot(EquipmentSlot.CHEST).has(DataComponents.GLIDER)) {
          this.disarm();
-      } else if (player.method_6128()) {
+      } else if (player.isFallFlying()) {
          this.glided = true;
          this.groundTicks = 0;
       } else if (this.glided) {
-         if (!player.method_24828() && !player.method_5799()) {
+         if (!player.onGround() && !player.isInWater()) {
             this.groundTicks = 0;
          } else if (this.groundTicks++ >= this.landingDelay.getInt()) {
-            if (mc.field_1755 == null && inventoryReady(player) && this.busyReason(player) == null) {
-               if (!isBound(player, player.method_6118(class_1304.field_6174))) {
+            if (mc.screen == null && inventoryReady(player) && this.busyReason(player) == null) {
+               if (!isBound(player, player.getItemBySlot(EquipmentSlot.CHEST))) {
                   int chestplate = this.chestplateToEquip(player);
                   if (chestplate == -1) {
                      ModuleChat.send(this, ModuleChat.body().danger("Can't swap back").text(", no ").name("chestplate").text(" left in your inventory"));
@@ -184,8 +184,8 @@ public final class ElytraSwapModule extends ClientModule {
       }
    }
 
-   private boolean swap(class_310 mc, class_746 player) {
-      if (player.method_7325()) {
+   private boolean swap(Minecraft mc, LocalPlayer player) {
+      if (player.isSpectator()) {
          return true;
       }
 
@@ -194,13 +194,13 @@ public final class ElytraSwapModule extends ClientModule {
          return true;
       }
 
-      class_1799 worn = player.method_6118(class_1304.field_6174);
+      ItemStack worn = player.getItemBySlot(EquipmentSlot.CHEST);
       if (isBound(player, worn)) {
          ModuleChat.send(this, ModuleChat.body().danger("Can't swap").text(", your chest piece has ").name("Curse of Binding"));
          return true;
       }
 
-      if (worn.method_57826(class_9334.field_54197)) {
+      if (worn.has(DataComponents.GLIDER)) {
          int chestplate = this.chestplateToEquip(player);
          if (chestplate == -1) {
             ModuleChat.send(this, ModuleChat.body().danger("Can't swap").text(", no ").name("chestplate").text(" in your inventory"));
@@ -229,7 +229,7 @@ public final class ElytraSwapModule extends ClientModule {
             return false;
          }
 
-         class_1792 takenOff = isChestplate(worn) ? worn.method_7909() : null;
+         Item takenOff = isChestplate(worn) ? worn.getItem() : null;
          if (!equip(mc, player, elytra)) {
             ModuleChat.send(this, SWAP_FAILED);
             return true;
@@ -246,10 +246,10 @@ public final class ElytraSwapModule extends ClientModule {
       }
    }
 
-   private int chestplateToEquip(class_746 player) {
+   private int chestplateToEquip(LocalPlayer player) {
       if (this.storedIndex >= 0 && this.storedItem != null) {
-         class_1799 stored = player.method_31548().method_5438(this.storedIndex);
-         if (stored.method_31574(this.storedItem) && !isBound(player, stored)) {
+         ItemStack stored = player.getInventory().getItem(this.storedIndex);
+         if (stored.is(this.storedItem) && !isBound(player, stored)) {
             return this.storedIndex;
          }
       }
@@ -257,35 +257,35 @@ public final class ElytraSwapModule extends ClientModule {
       return findBestChestplate(player);
    }
 
-   private static boolean equip(class_310 mc, class_746 player, int index) {
-      class_1792 item = player.method_31548().method_5438(index).method_7909();
-      ((AccessorElytraFlyMultiPlayerGameMode)mc.field_1761).champ$elytraFlySyncSelected();
-      if (!class_1661.method_7380(index) && index != 40) {
+   private static boolean equip(Minecraft mc, LocalPlayer player, int index) {
+      Item item = player.getInventory().getItem(index).getItem();
+      ((AccessorElytraFlyMultiPlayerGameMode)mc.gameMode).champ$elytraFlySyncSelected();
+      if (!Inventory.isHotbarSlot(index) && index != 40) {
          ElytraFlyInventory.moveToChest(index);
       } else {
-         mc.field_1761.method_2906(player.field_7498.field_7763, 6, index, class_1713.field_7791, player);
+         mc.gameMode.handleInventoryMouseClick(player.inventoryMenu.containerId, 6, index, ClickType.SWAP, player);
       }
 
-      player.field_3944.method_52787(new class_2815(0));
-      return player.method_6118(class_1304.field_6174).method_31574(item);
+      player.connection.send(new ServerboundContainerClosePacket(0));
+      return player.getItemBySlot(EquipmentSlot.CHEST).is(item);
    }
 
-   private static boolean inventoryReady(class_746 player) {
-      return player.field_7512 == player.field_7498 && player.field_7512.method_34255().method_7960();
+   private static boolean inventoryReady(LocalPlayer player) {
+      return player.containerMenu == player.inventoryMenu && player.containerMenu.getCarried().isEmpty();
    }
 
-   private static boolean isBound(class_746 player, class_1799 stack) {
-      return !player.method_68878() && class_1890.method_60142(stack, class_9701.field_51656);
+   private static boolean isBound(LocalPlayer player, ItemStack stack) {
+      return !player.isCreative() && EnchantmentHelper.has(stack, EnchantmentEffectComponents.PREVENT_ARMOR_CHANGE);
    }
 
-   private static int findElytra(class_746 player) {
-      class_1661 inventory = player.method_31548();
+   private static int findElytra(LocalPlayer player) {
+      Inventory inventory = player.getInventory();
       int best = -1;
       int bestLeft = -1;
 
       for (int index : SOURCE_INDICES) {
-         class_1799 stack = inventory.method_5438(index);
-         if (class_1309.method_63624(stack, class_1304.field_6174) && !isBound(player, stack)) {
+         ItemStack stack = inventory.getItem(index);
+         if (LivingEntity.canGlideUsing(stack, EquipmentSlot.CHEST) && !isBound(player, stack)) {
             int left = durabilityLeft(stack);
             if (left > bestLeft) {
                best = index;
@@ -297,14 +297,14 @@ public final class ElytraSwapModule extends ClientModule {
       return best;
    }
 
-   private static int findBestChestplate(class_746 player) {
-      class_1661 inventory = player.method_31548();
+   private static int findBestChestplate(LocalPlayer player) {
+      Inventory inventory = player.getInventory();
       int best = -1;
       double bestScore = -1.0;
       int bestLeft = -1;
 
       for (int index : SOURCE_INDICES) {
-         class_1799 stack = inventory.method_5438(index);
+         ItemStack stack = inventory.getItem(index);
          if (isChestplate(stack) && !isBound(player, stack)) {
             double score = armorScore(stack);
             int left = durabilityLeft(stack);
@@ -319,23 +319,23 @@ public final class ElytraSwapModule extends ClientModule {
       return best;
    }
 
-   private static boolean isChestplate(class_1799 stack) {
-      if (!stack.method_7960() && !stack.method_57826(class_9334.field_54197)) {
-         class_10192 equippable = (class_10192)stack.method_58694(class_9334.field_54196);
-         return equippable != null && equippable.comp_3174() == class_1304.field_6174;
+   private static boolean isChestplate(ItemStack stack) {
+      if (!stack.isEmpty() && !stack.has(DataComponents.GLIDER)) {
+         Equippable equippable = (Equippable)stack.get(DataComponents.EQUIPPABLE);
+         return equippable != null && equippable.comp_3174() == EquipmentSlot.CHEST;
       } else {
          return false;
       }
    }
 
-   private static double armorScore(class_1799 stack) {
-      class_9285 modifiers = (class_9285)stack.method_58695(class_9334.field_49636, class_9285.field_49326);
-      return modifiers.method_57481(class_5134.field_23724, 0.0, class_1304.field_6174)
-         + modifiers.method_57481(class_5134.field_23725, 0.0, class_1304.field_6174);
+   private static double armorScore(ItemStack stack) {
+      ItemAttributeModifiers modifiers = (ItemAttributeModifiers)stack.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
+      return modifiers.compute(Attributes.ARMOR, 0.0, EquipmentSlot.CHEST)
+         + modifiers.compute(Attributes.ARMOR_TOUGHNESS, 0.0, EquipmentSlot.CHEST);
    }
 
-   private static int durabilityLeft(class_1799 stack) {
-      return stack.method_7963() ? stack.method_7936() - stack.method_7919() : Integer.MAX_VALUE;
+   private static int durabilityLeft(ItemStack stack) {
+      return stack.isDamageableItem() ? stack.getMaxDamage() - stack.getDamageValue() : Integer.MAX_VALUE;
    }
 
    private static int[] sourceIndices() {

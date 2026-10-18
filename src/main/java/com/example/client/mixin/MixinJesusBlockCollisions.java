@@ -5,27 +5,27 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.champ.client.module.impl.movement.JesusModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1941;
-import net.minecraft.class_2338;
-import net.minecraft.class_265;
-import net.minecraft.class_2680;
-import net.minecraft.class_3726;
-import net.minecraft.class_5329;
+import net.minecraft.world.level.CollisionGetter;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.level.BlockCollisions;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_5329.class)
+@Mixin(BlockCollisions.class)
 public abstract class MixinJesusBlockCollisions {
    @WrapOperation(
       method = "computeNext",
       at = @At(
          value = "INVOKE",
-         target = "Lnet/minecraft/class_3726;method_62878(Lnet/minecraft/class_2680;Lnet/minecraft/class_1941;Lnet/minecraft/class_2338;)Lnet/minecraft/class_265;"
+         target = "Lnet/minecraft/world/phys/shapes/CollisionContext;getCollisionShape(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/CollisionGetter;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/phys/shapes/VoxelShape;"
       )
    )
-   private class_265 champ$jesusCollisionShape(class_3726 context, class_2680 state, class_1941 level, class_2338 pos, Operation<class_265> original) {
-      class_265 shape = (class_265)original.call(new Object[]{context, state, level, pos});
+   private VoxelShape champ$jesusCollisionShape(CollisionContext context, BlockState state, CollisionGetter level, BlockPos pos, Operation<VoxelShape> original) {
+      VoxelShape shape = (VoxelShape)original.call(new Object[]{context, state, level, pos});
       JesusModule jesus = JesusModule.active;
       return jesus == null ? shape : jesus.collisionShape(level, state, pos, shape);
    }

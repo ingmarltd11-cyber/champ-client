@@ -16,15 +16,15 @@ import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents.Load;
-import net.minecraft.class_1923;
-import net.minecraft.class_2338;
-import net.minecraft.class_2678;
-import net.minecraft.class_2680;
-import net.minecraft.class_2818;
-import net.minecraft.class_2826;
-import net.minecraft.class_310;
-import net.minecraft.class_638;
-import net.minecraft.class_2338.class_2339;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ClientboundLoginPacket;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos.MutableBlockPos;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +39,7 @@ public final class ChunkScanner {
    private static final Set<Long> queued = new HashSet<>();
    private static volatile boolean resetPending;
    private static ChunkScanner.ScanCursor scanning;
-   private static class_638 scanLevel;
+   private static ClientLevel scanLevel;
    private static ChunkScanner.ScanBatch deliveryBatch;
 
    static ChunkScanner.ScanBatch deliveryBatch() {
@@ -50,11 +50,11 @@ public final class ChunkScanner {
    }
 
    public static void init() {
-      ClientChunkEvents.CHUNK_LOAD.register((Load)(level, chunk) -> enqueue(chunk.method_12004().method_8324()));
+      ClientChunkEvents.CHUNK_LOAD.register((Load)(level, chunk) -> enqueue(chunk.getPos().toLong()));
       ClientTickEvents.END_CLIENT_TICK.register(ChunkScanner::tick);
       BlockUpdateEvent.TYPE.listen(OWNER, ChunkScanner::onBlockUpdate);
       PacketReceiveNettyEvent.TYPE.listen(OWNER, event -> {
-         if (event.packet instanceof class_2678) {
+         if (event.packet instanceof ClientboundLoginPacket) {
             resetPending = true;
          }
       });
@@ -90,7 +90,7 @@ public final class ChunkScanner {
 
    private static void restartScan() {
       if (scanning != null) {
-         long key = scanning.chunk.method_12004().method_8324();
+         long key = scanning.chunk.getPos().toLong();
          scanning.batch.finished = true;
          scanning = null;
          enqueue(key);
@@ -98,19 +98,19 @@ public final class ChunkScanner {
    }
 
    private static void queueLoadedChunks() {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 != null && mc.field_1724 != null) {
-         int cx = mc.field_1724.method_31477() >> 4;
-         int cz = mc.field_1724.method_31479() >> 4;
-         int radius = (Integer)mc.field_1690.method_42503().method_41753() + 1;
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level != null && mc.player != null) {
+         int cx = mc.player.getBlockX() >> 4;
+         int cz = mc.player.getBlockZ() >> 4;
+         int radius = (Integer)mc.options.renderDistance().get() + 1;
          List<long[]> loaded = new ArrayList<>();
 
          for (int x = cx - radius; x <= cx + radius; x++) {
             for (int z = cz - radius; z <= cz + radius; z++) {
-               if (mc.field_1687.method_2935().method_12123(x, z)) {
+               if (mc.level.getChunkSource().hasChunk(x, z)) {
                   int dx = x - cx;
                   int dz = z - cz;
-                  loaded.add(new long[]{class_1923.method_8331(x, z), dx * dx + dz * dz});
+                  loaded.add(new long[]{ChunkPos.asLong(x, z), dx * dx + dz * dz});
                }
             }
          }
@@ -129,14 +129,14 @@ public final class ChunkScanner {
       }
    }
 
-   private static void tick(class_310 mc) {
-      if (scanLevel != mc.field_1687) {
+   private static void tick(Minecraft mc) {
+      if (scanLevel != mc.level) {
          if (scanning != null) {
             scanning.batch.finished = true;
          }
 
          scanning = null;
-         scanLevel = mc.field_1687;
+         scanLevel = mc.level;
       }
 
       if (resetPending) {
@@ -156,7 +156,7 @@ public final class ChunkScanner {
          queueLoadedChunks();
       }
 
-      if (mc.field_1687 != null && !consumers.isEmpty()) {
+      if (mc.level != null && !consumers.isEmpty()) {
          if (PerformanceModule.optimizationsEnabled()) {
             tickIncremental(mc);
          } else {
@@ -166,7 +166,7 @@ public final class ChunkScanner {
             Long key;
             while ((key = queue.poll()) != null) {
                queued.remove(key);
-               class_2818 chunk = mc.field_1687.method_2935().method_21730(class_1923.method_8325(key), class_1923.method_8332(key));
+               LevelChunk chunk = mc.level.getChunkSource().getChunkNow(ChunkPos.getX(key), ChunkPos.getZ(key));
                if (chunk != null) {
                   scan(mc, chunk);
                }
@@ -179,7 +179,7 @@ public final class ChunkScanner {
       }
    }
 
-   private static void tickIncremental(class_310 mc) {
+   private static void tickIncremental(Minecraft mc) {
       long deadline = PerformanceBudget.acquire(PerformanceModule.scanBudgetNanos());
       long started = System.nanoTime();
       if (started < deadline) {
@@ -192,16 +192,16 @@ public final class ChunkScanner {
                   }
 
                   queued.remove(key);
-                  class_2818 chunk = mc.field_1687.method_2935().method_21730(class_1923.method_8325(key), class_1923.method_8332(key));
+                  LevelChunk chunk = mc.level.getChunkSource().getChunkNow(ChunkPos.getX(key), ChunkPos.getZ(key));
                   if (chunk == null) {
                      continue;
                   }
 
-                  scanning = new ChunkScanner.ScanCursor(chunk, mc.field_1687.method_8597().comp_651() >> 4, snapshot);
+                  scanning = new ChunkScanner.ScanCursor(chunk, mc.level.dimensionType().comp_651() >> 4, snapshot);
                }
 
                ChunkScanner.ScanCursor cursor = scanning;
-               if (mc.field_1687.method_2935().method_21730(cursor.chunk.method_12004().field_9181, cursor.chunk.method_12004().field_9180) != cursor.chunk) {
+               if (mc.level.getChunkSource().getChunkNow(cursor.chunk.getPos().x, cursor.chunk.getPos().z) != cursor.chunk) {
                   cursor.batch.finished = true;
                   scanning = null;
                } else {
@@ -218,20 +218,20 @@ public final class ChunkScanner {
       }
    }
 
-   private static void scan(class_310 mc, class_2818 chunk) {
-      int minX = chunk.method_12004().method_8326();
-      int minZ = chunk.method_12004().method_8328();
-      int minSection = mc.field_1687.method_8597().comp_651() >> 4;
-      class_2826[] sections = chunk.method_12006();
+   private static void scan(Minecraft mc, LevelChunk chunk) {
+      int minX = chunk.getPos().getMinBlockX();
+      int minZ = chunk.getPos().getMinBlockZ();
+      int minSection = mc.level.dimensionType().comp_651() >> 4;
+      LevelChunkSection[] sections = chunk.getSections();
       List<ChunkScanner.Consumer> interested = new ArrayList<>(consumers.size());
 
       for (int si = 0; si < sections.length; si++) {
-         class_2826 section = sections[si];
-         if (section != null && !section.method_38292()) {
+         LevelChunkSection section = sections[si];
+         if (section != null && !section.hasOnlyAir()) {
             interested.clear();
 
             for (ChunkScanner.Consumer consumer : consumers) {
-               if (section.method_19523(consumer::wants)) {
+               if (section.maybeHas(consumer::wants)) {
                   interested.add(consumer);
                }
             }
@@ -242,9 +242,9 @@ public final class ChunkScanner {
                for (int x = 0; x < 16; x++) {
                   for (int z = 0; z < 16; z++) {
                      for (int y = 0; y < 16; y++) {
-                        class_2680 state = section.method_12254(x, y, z);
-                        if (!state.method_26215()) {
-                           long pos = class_2338.method_10064(minX + x, baseY + y, minZ + z);
+                        BlockState state = section.getBlockState(x, y, z);
+                        if (!state.isAir()) {
+                           long pos = BlockPos.asLong(minX + x, baseY + y, minZ + z);
 
                            for (ChunkScanner.Consumer consumer : interested) {
                               if (consumer.wants(state)) {
@@ -262,14 +262,14 @@ public final class ChunkScanner {
       finishScan(chunk);
    }
 
-   private static void finishScan(class_2818 chunk) {
-      long chunkKey = chunk.method_12004().method_8324();
-      class_2339 probe = new class_2339();
+   private static void finishScan(LevelChunk chunk) {
+      long chunkKey = chunk.getPos().toLong();
+      MutableBlockPos probe = new MutableBlockPos();
 
       for (ChunkScanner.Consumer consumer : snapshot) {
          call(consumer, c -> c.chunkScanned(chunkKey, pos -> {
-            class_2680 state = chunk.method_8320(probe.method_16363(pos));
-            return !state.method_26215() && c.wants(state);
+            BlockState state = chunk.getBlockState(probe.set(pos));
+            return !state.isAir() && c.wants(state);
          }));
       }
    }
@@ -277,14 +277,14 @@ public final class ChunkScanner {
    private static void onBlockUpdate(BlockUpdateEvent event) {
       ChunkScanner.Consumer[] current = snapshot;
       if (current.length != 0) {
-         long pos = event.pos.method_10063();
-         class_2680 state = event.newState;
+         long pos = event.pos.asLong();
+         BlockState state = event.newState;
          ChunkScanner.ScanBatch previous = deliveryBatch;
          deliveryBatch = null;
 
          try {
             for (ChunkScanner.Consumer consumer : current) {
-               if (!state.method_26215() && consumer.wants(state)) {
+               if (!state.isAir() && consumer.wants(state)) {
                   found(consumer, pos, state);
                } else {
                   removed(consumer, pos);
@@ -296,7 +296,7 @@ public final class ChunkScanner {
       }
    }
 
-   private static void found(ChunkScanner.Consumer consumer, long pos, class_2680 state) {
+   private static void found(ChunkScanner.Consumer consumer, long pos, BlockState state) {
       try {
          consumer.found(pos, state);
       } catch (RuntimeException e) {
@@ -329,9 +329,9 @@ public final class ChunkScanner {
 
    @Environment(EnvType.CLIENT)
    public interface Consumer {
-      boolean wants(class_2680 var1);
+      boolean wants(BlockState var1);
 
-      void found(long var1, class_2680 var3);
+      void found(long var1, BlockState var3);
 
       void removed(long var1);
 
@@ -348,7 +348,7 @@ public final class ChunkScanner {
 
    @Environment(EnvType.CLIENT)
    private static final class ScanCursor {
-      final class_2818 chunk;
+      final LevelChunk chunk;
       final int minSection;
       final ChunkScanner.Consumer[] listeners;
       final ChunkScanner.ScanBatch batch = new ChunkScanner.ScanBatch();
@@ -356,7 +356,7 @@ public final class ChunkScanner {
       int sectionIndex;
       int blockIndex;
 
-      ScanCursor(class_2818 chunk, int minSection, ChunkScanner.Consumer[] listeners) {
+      ScanCursor(LevelChunk chunk, int minSection, ChunkScanner.Consumer[] listeners) {
          this.chunk = chunk;
          this.minSection = minSection;
          this.listeners = listeners;
@@ -383,17 +383,17 @@ public final class ChunkScanner {
       }
 
       private boolean stepBlocks() {
-         class_2826[] sections = this.chunk.method_12006();
+         LevelChunkSection[] sections = this.chunk.getSections();
          if (this.sectionIndex >= sections.length) {
             return true;
          }
 
-         class_2826 section = sections[this.sectionIndex];
+         LevelChunkSection section = sections[this.sectionIndex];
          if (this.blockIndex == 0) {
             this.interested.clear();
-            if (section != null && !section.method_38292()) {
+            if (section != null && !section.hasOnlyAir()) {
                for (ChunkScanner.Consumer consumer : this.listeners) {
-                  if (ChunkScanner.consumers.contains(consumer) && section.method_19523(consumer::wants)) {
+                  if (ChunkScanner.consumers.contains(consumer) && section.maybeHas(consumer::wants)) {
                      this.interested.add(consumer);
                   }
                }
@@ -406,8 +406,8 @@ public final class ChunkScanner {
          }
 
          int end = Math.min(4096, this.blockIndex + 256);
-         int minX = this.chunk.method_12004().method_8326();
-         int minZ = this.chunk.method_12004().method_8328();
+         int minX = this.chunk.getPos().getMinBlockX();
+         int minZ = this.chunk.getPos().getMinBlockZ();
          int baseY = this.minSection + this.sectionIndex << 4;
 
          while (this.blockIndex < end && !this.batch.finished) {
@@ -415,9 +415,9 @@ public final class ChunkScanner {
             int x = index >> 8;
             int z = index >> 4 & 15;
             int y = index & 15;
-            class_2680 state = section.method_12254(x, y, z);
-            if (!state.method_26215()) {
-               long pos = class_2338.method_10064(minX + x, baseY + y, minZ + z);
+            BlockState state = section.getBlockState(x, y, z);
+            if (!state.isAir()) {
+               long pos = BlockPos.asLong(minX + x, baseY + y, minZ + z);
 
                for (ChunkScanner.Consumer consumer : this.interested) {
                   if (consumer.wants(state)) {

@@ -14,8 +14,8 @@ import java.util.Arrays;
 import java.util.List;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1923;
-import net.minecraft.class_2338;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.core.BlockPos;
 
 @Environment(EnvType.CLIENT)
 public final class PredictionArea {
@@ -60,12 +60,12 @@ public final class PredictionArea {
 
       while (it.hasNext()) {
          long key = it.nextLong();
-         int x = class_1923.method_8325(key);
-         int z = class_1923.method_8332(key);
+         int x = ChunkPos.getX(key);
+         int z = ChunkPos.getZ(key);
 
          for (int dx = -reach; dx <= reach; dx++) {
             for (int dz = -reach; dz <= reach; dz++) {
-               decos.add(class_1923.method_8331(x + dx, z + dz));
+               decos.add(ChunkPos.asLong(x + dx, z + dz));
             }
          }
       }
@@ -95,12 +95,12 @@ public final class PredictionArea {
 
       while (it.hasNext()) {
          long key = it.nextLong();
-         int x = class_1923.method_8325(key);
-         int z = class_1923.method_8332(key);
+         int x = ChunkPos.getX(key);
+         int z = ChunkPos.getZ(key);
 
          for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
-               near.add(class_1923.method_8331(x + dx, z + dz));
+               near.add(ChunkPos.asLong(x + dx, z + dz));
             }
          }
       }
@@ -116,20 +116,20 @@ public final class PredictionArea {
    }
 
    public void offer(ShownChunk chunk) {
-      long key = class_1923.method_8331(chunk.chunkX, chunk.chunkZ);
+      long key = ChunkPos.asLong(chunk.chunkX, chunk.chunkZ);
       this.shown.put(key, chunk);
       this.doubt.remove(key);
       this.gateHeights.remove(key);
 
       for (int dx = -3; dx <= 3; dx++) {
          for (int dz = -3; dz <= 3; dz++) {
-            this.collected.remove(class_1923.method_8331(chunk.chunkX + dx, chunk.chunkZ + dz));
+            this.collected.remove(ChunkPos.asLong(chunk.chunkX + dx, chunk.chunkZ + dz));
          }
       }
 
       for (int dx = -1; dx <= 1; dx++) {
          for (int dz = -1; dz <= 1; dz++) {
-            long near = class_1923.method_8331(chunk.chunkX + dx, chunk.chunkZ + dz);
+            long near = ChunkPos.asLong(chunk.chunkX + dx, chunk.chunkZ + dz);
             if (this.decorationChunks.contains(near)) {
                this.markDirty(near);
             }
@@ -178,12 +178,12 @@ public final class PredictionArea {
 
       long next = this.nearest(firstTime.isEmpty() ? this.dirty : firstTime);
       if (next != Long.MIN_VALUE) {
-         int x = class_1923.method_8325(next);
-         int z = class_1923.method_8332(next);
+         int x = ChunkPos.getX(next);
+         int z = ChunkPos.getZ(next);
 
          for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
-               long key = class_1923.method_8331(x + dx, z + dz);
+               long key = ChunkPos.asLong(x + dx, z + dz);
                if (!this.terrains.containsKey(key)) {
                   this.terrains.put(key, this.world.terrain(x + dx, z + dz));
                   return null;
@@ -208,13 +208,13 @@ public final class PredictionArea {
             long key = this.nearest(waiting);
             waiting.remove(key);
             if (this.ready(key)) {
-               int x = class_1923.method_8325(key);
-               int z = class_1923.method_8332(key);
+               int x = ChunkPos.getX(key);
+               int z = ChunkPos.getZ(key);
                ChunkDecoration[] around = new ChunkDecoration[9];
 
                for (int dx = -1; dx <= 1; dx++) {
                   for (int dz = -1; dz <= 1; dz++) {
-                     around[(dx + 1) * 3 + dz + 1] = (ChunkDecoration)this.decorations.get(class_1923.method_8331(x + dx, z + dz));
+                     around[(dx + 1) * 3 + dz + 1] = (ChunkDecoration)this.decorations.get(ChunkPos.asLong(x + dx, z + dz));
                   }
                }
 
@@ -224,7 +224,7 @@ public final class PredictionArea {
 
                for (int dx = -2; dx <= 2; dx++) {
                   for (int dz = -2; dz <= 2; dz++) {
-                     long near = class_1923.method_8331(x + dx, z + dz);
+                     long near = ChunkPos.asLong(x + dx, z + dz);
                      if (this.bandChunks.contains(near)) {
                         this.clustersDue.add(near);
                      }
@@ -247,7 +247,7 @@ public final class PredictionArea {
                   key,
                   List.copyOf(
                      BlobJudge.clusters(
-                        class_1923.method_8325(key), class_1923.method_8332(key), (cx, cz) -> (VanillaBand)this.bands.get(class_1923.method_8331(cx, cz))
+                        ChunkPos.getX(key), ChunkPos.getZ(key), (cx, cz) -> (VanillaBand)this.bands.get(ChunkPos.asLong(cx, cz))
                      )
                   )
                );
@@ -263,12 +263,12 @@ public final class PredictionArea {
          return false;
       }
 
-      int x = class_1923.method_8325(key);
-      int z = class_1923.method_8332(key);
+      int x = ChunkPos.getX(key);
+      int z = ChunkPos.getZ(key);
 
       for (int dx = -1; dx <= 1; dx++) {
          for (int dz = -1; dz <= 1; dz++) {
-            long near = class_1923.method_8331(x + dx, z + dz);
+            long near = ChunkPos.asLong(x + dx, z + dz);
             if (this.bandChunks.contains(near) && !this.bands.containsKey(near)) {
                return false;
             }
@@ -281,12 +281,12 @@ public final class PredictionArea {
    private void unbuild(long key) {
       if (this.built.remove(key)) {
          this.bands.remove(key);
-         int x = class_1923.method_8325(key);
-         int z = class_1923.method_8332(key);
+         int x = ChunkPos.getX(key);
+         int z = ChunkPos.getZ(key);
 
          for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
-               long near = class_1923.method_8331(x + dx, z + dz);
+               long near = ChunkPos.asLong(x + dx, z + dz);
                if (this.clustersSent.remove(near)) {
                   this.out.add(new PredictionArea.ChunkClusters(near, null));
                }
@@ -300,12 +300,12 @@ public final class PredictionArea {
    }
 
    private boolean ready(long key) {
-      int x = class_1923.method_8325(key);
-      int z = class_1923.method_8332(key);
+      int x = ChunkPos.getX(key);
+      int z = ChunkPos.getZ(key);
 
       for (int dx = -1; dx <= 1; dx++) {
          for (int dz = -1; dz <= 1; dz++) {
-            if (!this.decorations.containsKey(class_1923.method_8331(x + dx, z + dz))) {
+            if (!this.decorations.containsKey(ChunkPos.asLong(x + dx, z + dz))) {
                return false;
             }
          }
@@ -317,7 +317,7 @@ public final class PredictionArea {
 
       for (int dx = -3; dx <= 3; dx++) {
          for (int dz = -3; dz <= 3; dz++) {
-            if (this.dirty.contains(class_1923.method_8331(x + dx, z + dz))) {
+            if (this.dirty.contains(ChunkPos.asLong(x + dx, z + dz))) {
                return false;
             }
          }
@@ -329,20 +329,20 @@ public final class PredictionArea {
    private void markDirty(long key) {
       if (this.decorationChunks.contains(key)) {
          this.dirty.add(key);
-         int x = class_1923.method_8325(key);
-         int z = class_1923.method_8332(key);
+         int x = ChunkPos.getX(key);
+         int z = ChunkPos.getZ(key);
 
          for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
-               this.unbuild(class_1923.method_8331(x + dx, z + dz));
+               this.unbuild(ChunkPos.asLong(x + dx, z + dz));
             }
          }
       }
    }
 
    private void predict(long key) {
-      int x = class_1923.method_8325(key);
-      int z = class_1923.method_8332(key);
+      int x = ChunkPos.getX(key);
+      int z = ChunkPos.getZ(key);
       ChunkDecoration full = OrePredictor.predict(this.world, x, z, this.inputs(x, z));
       this.dirty.remove(key);
       ChunkDecoration decoration = full.trimmed(-16, 63, true);
@@ -350,7 +350,7 @@ public final class PredictionArea {
 
       for (int dx = -1; dx <= 1; dx++) {
          for (int dz = -1; dz <= 1; dz++) {
-            this.unbuild(class_1923.method_8331(x + dx, z + dz));
+            this.unbuild(ChunkPos.asLong(x + dx, z + dz));
          }
       }
 
@@ -359,7 +359,7 @@ public final class PredictionArea {
          for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
                if (dx != 0 || dz != 0) {
-                  this.markDirty(class_1923.method_8331(x + dx, z + dz));
+                  this.markDirty(ChunkPos.asLong(x + dx, z + dz));
                }
             }
          }
@@ -372,7 +372,7 @@ public final class PredictionArea {
 
       for (int dx = -2; dx <= 2; dx++) {
          for (int dz = -2; dz <= 2; dz++) {
-            long near = class_1923.method_8331(x + dx, z + dz);
+            long near = ChunkPos.asLong(x + dx, z + dz);
             ChunkDecoration d = (ChunkDecoration)this.decorations.get(near);
             if (d != null && this.neighbourhoodGuessed(near) && (evidenceChanged || !this.collected.contains(near))) {
                changed.addAll(this.order.collect(d, this.decorations, this::terrainOrNull, this::shownKind));
@@ -383,12 +383,12 @@ public final class PredictionArea {
 
       for (long[] pair : changed) {
          for (long end : pair) {
-            int ex = class_1923.method_8325(end);
-            int ez = class_1923.method_8332(end);
+            int ex = ChunkPos.getX(end);
+            int ez = ChunkPos.getZ(end);
 
             for (int dx = -2; dx <= 2; dx++) {
                for (int dz = -2; dz <= 2; dz++) {
-                  this.markDirty(class_1923.method_8331(ex + dx, ez + dz));
+                  this.markDirty(ChunkPos.asLong(ex + dx, ez + dz));
                }
             }
          }
@@ -396,12 +396,12 @@ public final class PredictionArea {
    }
 
    private boolean neighbourhoodGuessed(long key) {
-      int x = class_1923.method_8325(key);
-      int z = class_1923.method_8332(key);
+      int x = ChunkPos.getX(key);
+      int z = ChunkPos.getZ(key);
 
       for (int dx = -2; dx <= 2; dx++) {
          for (int dz = -2; dz <= 2; dz++) {
-            long near = class_1923.method_8331(x + dx, z + dz);
+            long near = ChunkPos.asLong(x + dx, z + dz);
             if (this.decorationChunks.contains(near) && !this.decorations.containsKey(near)) {
                return false;
             }
@@ -412,11 +412,11 @@ public final class PredictionArea {
    }
 
    private TerrainChunk terrainOrNull(int chunkX, int chunkZ) {
-      return (TerrainChunk)this.terrains.get(class_1923.method_8331(chunkX, chunkZ));
+      return (TerrainChunk)this.terrains.get(ChunkPos.asLong(chunkX, chunkZ));
    }
 
    private byte shownKind(int x, int y, int z) {
-      ShownChunk chunk = (ShownChunk)this.shown.get(class_1923.method_8331(x >> 4, z >> 4));
+      ShownChunk chunk = (ShownChunk)this.shown.get(ChunkPos.asLong(x >> 4, z >> 4));
       return chunk == null ? 15 : chunk.kind(x, y, z);
    }
 
@@ -428,8 +428,8 @@ public final class PredictionArea {
 
       int off = 0;
       int columns = 0;
-      int chunkX = class_1923.method_8325(key);
-      int chunkZ = class_1923.method_8332(key);
+      int chunkX = ChunkPos.getX(key);
+      int chunkZ = ChunkPos.getZ(key);
 
       for (int z = 0; z < 16; z++) {
          for (int x = 0; x < 16; x++) {
@@ -458,7 +458,7 @@ public final class PredictionArea {
    }
 
    private GateHeights gateHeights(int chunkX, int chunkZ) {
-      long key = class_1923.method_8331(chunkX, chunkZ);
+      long key = ChunkPos.asLong(chunkX, chunkZ);
       GateHeights heights = (GateHeights)this.gateHeights.get(key);
       if (heights != null) {
          return heights;
@@ -472,11 +472,11 @@ public final class PredictionArea {
    }
 
    private OrePredictor.Inputs inputs(int chunkX, int chunkZ) {
-      final long self = class_1923.method_8331(chunkX, chunkZ);
+      final long self = ChunkPos.asLong(chunkX, chunkZ);
       return new OrePredictor.Inputs() {
          @Override
          public TerrainChunk terrain(int x, int z) {
-            return (TerrainChunk)PredictionArea.this.terrains.get(class_1923.method_8331(x, z));
+            return (TerrainChunk)PredictionArea.this.terrains.get(ChunkPos.asLong(x, z));
          }
 
          @Override
@@ -491,7 +491,7 @@ public final class PredictionArea {
 
             for (int dx = -1; dx <= 1; dx++) {
                for (int dz = -1; dz <= 1; dz++) {
-                  long writer = class_1923.method_8331(px + dx, pz + dz);
+                  long writer = ChunkPos.asLong(px + dx, pz + dz);
                   if (writer != self && !PredictionArea.this.order.after(writer, self)) {
                      if (!PredictionArea.this.decorationChunks.contains(writer)) {
                         return true;
@@ -520,7 +520,7 @@ public final class PredictionArea {
 
             for (int dx = -1; dx <= 1; dx++) {
                for (int dz = -1; dz <= 1; dz++) {
-                  PredictionArea.MayWrite w = (PredictionArea.MayWrite)PredictionArea.this.may.get(class_1923.method_8331(px + dx, pz + dz));
+                  PredictionArea.MayWrite w = (PredictionArea.MayWrite)PredictionArea.this.may.get(ChunkPos.asLong(px + dx, pz + dz));
                   if (w != null && w.ore(x, y, z)) {
                      return true;
                   }
@@ -539,7 +539,7 @@ public final class PredictionArea {
 
       while (it.hasNext()) {
          long key = it.nextLong();
-         int distance = Math.max(Math.abs(class_1923.method_8325(key) - this.focusX), Math.abs(class_1923.method_8332(key) - this.focusZ));
+         int distance = Math.max(Math.abs(ChunkPos.getX(key) - this.focusX), Math.abs(ChunkPos.getZ(key) - this.focusZ));
          if (distance < bestDistance) {
             bestDistance = distance;
             best = key;
@@ -579,7 +579,7 @@ public final class PredictionArea {
 
          for (int i = 0; i < d.size(); i++) {
             long pos = d.key(i);
-            int index = this.index(class_2338.method_10061(pos), class_2338.method_10071(pos), class_2338.method_10083(pos));
+            int index = this.index(BlockPos.getX(pos), BlockPos.getY(pos), BlockPos.getZ(pos));
             if (index >= 0) {
                for (int n = 0; n < d.writeCount(i); n++) {
                   byte kind = ChunkDecoration.kind(d.write(i, n));

@@ -5,7 +5,7 @@ import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2338;
+import net.minecraft.core.BlockPos;
 
 @Environment(EnvType.CLIENT)
 public final class OrePredictor {
@@ -177,7 +177,7 @@ public final class OrePredictor {
             base = (byte)(VBlock.isBase(this.terrain(x, z).kind(x, y, z)) ? 1 : 0);
          }
 
-         ShortArrayList own = this.builder.at(class_2338.method_10064(x, y, z));
+         ShortArrayList own = this.builder.at(BlockPos.asLong(x, y, z));
          if (own != null) {
             for (int n = 0; n < own.size(); n++) {
                short write = own.getShort(n);

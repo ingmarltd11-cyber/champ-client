@@ -3,17 +3,17 @@ package net.champ.client.module.impl.misc;
 import it.unimi.dsi.fastutil.objects.Object2IntMap.Entry;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1657;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_1887;
-import net.minecraft.class_1893;
-import net.minecraft.class_2338;
-import net.minecraft.class_238;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
-import net.minecraft.class_3612;
-import net.minecraft.class_6880;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.core.Holder;
 
 @Environment(EnvType.CLIENT)
 public final class GrimRiptide {
@@ -23,21 +23,21 @@ public final class GrimRiptide {
    }
 
    public static boolean clientAccepts() {
-      class_310 mc = class_310.method_1551();
-      class_1657 player = mc.field_1724;
-      if (player != null && mc.field_1687 != null && mc.method_18854()) {
-         if (!player.method_5721() && !mc.field_1687.method_8419()) {
-            class_238 box = player.method_5829().method_1014(0.1);
-            class_2338 min = class_2338.method_49637(box.field_1323, box.field_1322, box.field_1321);
-            class_2338 max = class_2338.method_49637(box.field_1320, box.field_1325, box.field_1324);
+      Minecraft mc = Minecraft.getInstance();
+      Player player = mc.player;
+      if (player != null && mc.level != null && mc.isSameThread()) {
+         if (!player.isInWaterOrRain() && !mc.level.isRaining()) {
+            AABB box = player.getBoundingBox().inflate(0.1);
+            BlockPos min = BlockPos.containing(box.minX, box.minY, box.minZ);
+            BlockPos max = BlockPos.containing(box.maxX, box.maxY, box.maxZ);
 
-            for (class_2338 pos : class_2338.method_10097(min, max)) {
-               class_2680 state = mc.field_1687.method_8320(pos);
-               if (state.method_26227().method_39360(class_3612.field_15910)) {
+            for (BlockPos pos : BlockPos.betweenClosed(min, max)) {
+               BlockState state = mc.level.getBlockState(pos);
+               if (state.getFluidState().is(Fluids.WATER)) {
                   return true;
                }
 
-               if (state.method_26227().method_39360(class_3612.field_15909)) {
+               if (state.getFluidState().is(Fluids.FLOWING_WATER)) {
                   return true;
                }
             }
@@ -51,14 +51,14 @@ public final class GrimRiptide {
       }
    }
 
-   public static boolean isRiptide(class_1799 stack) {
-      if (!stack.method_31574(class_1802.field_8547)) {
+   public static boolean isRiptide(ItemStack stack) {
+      if (!stack.is(Items.TRIDENT)) {
          return false;
       }
 
-      for (Entry<class_6880<class_1887>> entry : stack.method_58657().method_57539()) {
-         class_6880<class_1887> enchantment = (class_6880<class_1887>)entry.getKey();
-         if (enchantment.method_40225(class_1893.field_9104) && entry.getIntValue() > 0) {
+      for (Entry<Holder<Enchantment>> entry : stack.getEnchantments().entrySet()) {
+         Holder<Enchantment> enchantment = (Holder<Enchantment>)entry.getKey();
+         if (enchantment.is(Enchantments.RIPTIDE) && entry.getIntValue() > 0) {
             return true;
          }
       }

@@ -18,12 +18,12 @@ import net.champ.client.util.glyph.GlyphShapes;
 import net.champ.client.util.glyph.GlyphTint;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1309;
-import net.minecraft.class_1657;
-import net.minecraft.class_238;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_638;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.client.multiplayer.ClientLevel;
 
 @Environment(EnvType.CLIENT)
 public final class TotemSpiritModule extends ClientModule {
@@ -66,7 +66,7 @@ public final class TotemSpiritModule extends ClientModule {
    private final TotemSpiritModule.Spirit[] spirits = new TotemSpiritModule.Spirit[12];
    private final GlyphCanvas canvas = new GlyphCanvas();
    private final GlyphTint palette = new GlyphTint();
-   private final Consumer<class_1309> popSink = this::capture;
+   private final Consumer<LivingEntity> popSink = this::capture;
    private final double[] corners = new double[24];
    private final float[] pitch = new float[PARTS.length];
    private final float[] yaw = new float[PARTS.length];
@@ -75,7 +75,7 @@ public final class TotemSpiritModule extends ClientModule {
    private boolean cachedPose;
    private int head;
    private int count;
-   private class_638 boundLevel;
+   private ClientLevel boundLevel;
    private double originX;
    private double originY;
    private double originZ;
@@ -118,7 +118,7 @@ public final class TotemSpiritModule extends ClientModule {
       this.boundLevel = null;
    }
 
-   private boolean bind(class_638 level) {
+   private boolean bind(ClientLevel level) {
       if (level == null) {
          if (this.boundLevel != null) {
             this.reset();
@@ -138,7 +138,7 @@ public final class TotemSpiritModule extends ClientModule {
 
    private void onTick(TickEvent event) {
       if (this.boundLevel != null) {
-         this.bind(class_310.method_1551().field_1687);
+         this.bind(Minecraft.getInstance().level);
       }
    }
 
@@ -146,11 +146,11 @@ public final class TotemSpiritModule extends ClientModule {
       TotemPops.scan(event.packet, this.popSink);
    }
 
-   private void capture(class_1309 entity) {
-      class_310 mc = class_310.method_1551();
-      if (entity instanceof class_1657 player && this.bind(mc.field_1687) && player.method_73183() == mc.field_1687) {
-         if (!player.method_7325()) {
-            boolean mine = player == mc.field_1724;
+   private void capture(LivingEntity entity) {
+      Minecraft mc = Minecraft.getInstance();
+      if (entity instanceof Player player && this.bind(mc.level) && player.level() == mc.level) {
+         if (!player.isSpectator()) {
+            boolean mine = player == mc.player;
             if (!mine || this.own.get()) {
                if (this.count == 12) {
                   this.head = (this.head + 1) % 12;
@@ -159,16 +159,16 @@ public final class TotemSpiritModule extends ClientModule {
 
                TotemSpiritModule.Spirit spirit = this.spirits[(this.head + this.count) % 12];
                this.count++;
-               spirit.x = player.method_23317();
-               spirit.y = player.method_23318();
-               spirit.z = player.method_23321();
-               spirit.bodyYaw = player.field_6283;
-               spirit.headYaw = class_3532.method_15393(player.field_6241 - player.field_6283);
-               spirit.headPitch = player.method_36455();
-               spirit.walk = player.field_42108.method_48569();
-               spirit.stride = Math.min(1.0F, player.field_42108.method_48566());
-               spirit.scale = player.method_55693();
-               spirit.crouch = player.method_18276();
+               spirit.x = player.getX();
+               spirit.y = player.getY();
+               spirit.z = player.getZ();
+               spirit.bodyYaw = player.yBodyRot;
+               spirit.headYaw = Mth.wrapDegrees(player.yHeadRot - player.yBodyRot);
+               spirit.headPitch = player.getXRot();
+               spirit.walk = player.walkAnimation.position();
+               spirit.stride = Math.min(1.0F, player.walkAnimation.speed());
+               spirit.scale = player.getScale();
+               spirit.crouch = player.isCrouching();
                spirit.mine = mine;
                spirit.born = System.nanoTime();
             }
@@ -177,8 +177,8 @@ public final class TotemSpiritModule extends ClientModule {
    }
 
    private void onRender(Render3DEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (this.bind(mc.field_1687) && this.count != 0) {
+      Minecraft mc = Minecraft.getInstance();
+      if (this.bind(mc.level) && this.count != 0) {
          long now = System.nanoTime();
 
          float life;
@@ -188,13 +188,13 @@ public final class TotemSpiritModule extends ClientModule {
 
          if (this.count != 0) {
             this.palette.resolve(this.colorMode.get(), CosmeticAccent.argb(), this.bodyColor.argb(), this.auraColor.argb());
-            this.canvas.begin(mc.field_1773.method_19418());
+            this.canvas.begin(mc.gameRenderer.getMainCamera());
 
             for (int n = 0; n < this.count; n++) {
                TotemSpiritModule.Spirit spirit = this.spirits[(this.head + n) % 12];
                if ((!spirit.mine || this.own.get())
                   && !(this.canvas.distanceSqr(spirit.x, spirit.y, spirit.z) > 9216.0)
-                  && (!MobilePerformance.active() || event.frustum == null || event.frustum.method_23093(this.renderBounds(spirit)))) {
+                  && (!MobilePerformance.active() || event.frustum == null || event.frustum.isVisible(this.renderBounds(spirit)))) {
                   this.draw(spirit, Math.min(1.0F, (float)(now - spirit.born) / life));
                }
             }
@@ -204,10 +204,10 @@ public final class TotemSpiritModule extends ClientModule {
       }
    }
 
-   private class_238 renderBounds(TotemSpiritModule.Spirit spirit) {
+   private AABB renderBounds(TotemSpiritModule.Spirit spirit) {
       double scale = Math.max(0.01F, spirit.scale);
       double radius = scale * 2.0 + 0.25;
-      return new class_238(
+      return new AABB(
          spirit.x - radius, spirit.y - scale, spirit.z - radius, spirit.x + radius, spirit.y + this.ascent.get() * 1.3 + scale * 3.5 + 0.5, spirit.z + radius
       );
    }
@@ -232,8 +232,8 @@ public final class TotemSpiritModule extends ClientModule {
       this.originZ = s.z;
       this.unit = 0.05859375F * s.scale * (1.0F + 0.08F * t);
       float lean = s.crouch ? 0.45F * (1.0F - ka) : 0.0F;
-      this.leanSin = class_3532.method_15374(lean);
-      this.leanCos = class_3532.method_15362(lean);
+      this.leanSin = Mth.sin(lean);
+      this.leanCos = Mth.cos(lean);
       this.drop = s.crouch ? 3.0F * (1.0F - ka) : 0.0F;
       this.pose(s, ka);
       this.cachedPose = MobilePerformance.active();
@@ -273,14 +273,14 @@ public final class TotemSpiritModule extends ClientModule {
    }
 
    private void pose(TotemSpiritModule.Spirit s, float ka) {
-      float swing = class_3532.method_15362(s.walk * 0.6662F) * s.stride;
+      float swing = Mth.cos(s.walk * 0.6662F) * s.stride;
       float settle = 1.0F - ka;
       float crouchArms = s.crouch ? 0.35F : 0.0F;
       this.pitch[0] = swing * 1.4F * settle - 0.05F * ka;
       this.pitch[1] = -swing * 1.4F * settle - 0.15F * ka;
       this.pitch[2] = 0.0F;
-      this.pitch[3] = class_3532.method_16439(ka, -swing + crouchArms, 2.75F);
-      this.pitch[4] = class_3532.method_16439(ka, swing + crouchArms, 2.75F);
+      this.pitch[3] = Mth.lerp(ka, -swing + crouchArms, 2.75F);
+      this.pitch[4] = Mth.lerp(ka, swing + crouchArms, 2.75F);
       this.pitch[5] = -s.headPitch * (float) (Math.PI / 180.0) * settle + 0.3F * ka;
       this.yaw[5] = s.headYaw * (float) (Math.PI / 180.0) * settle;
       this.roll[3] = 0.32F * ka;
@@ -291,12 +291,12 @@ public final class TotemSpiritModule extends ClientModule {
       float[] part = PARTS[index];
       boolean torso = index >= 2;
       int r = index * 6;
-      float cp = this.cachedPose ? this.rotations[r] : class_3532.method_15362(this.pitch[index]);
-      float sp = this.cachedPose ? this.rotations[r + 1] : class_3532.method_15374(this.pitch[index]);
-      float cy = this.cachedPose ? this.rotations[r + 2] : class_3532.method_15362(this.yaw[index]);
-      float sy = this.cachedPose ? this.rotations[r + 3] : class_3532.method_15374(this.yaw[index]);
-      float cr = this.cachedPose ? this.rotations[r + 4] : class_3532.method_15362(this.roll[index]);
-      float sr = this.cachedPose ? this.rotations[r + 5] : class_3532.method_15374(this.roll[index]);
+      float cp = this.cachedPose ? this.rotations[r] : Mth.cos(this.pitch[index]);
+      float sp = this.cachedPose ? this.rotations[r + 1] : Mth.sin(this.pitch[index]);
+      float cy = this.cachedPose ? this.rotations[r + 2] : Mth.cos(this.yaw[index]);
+      float sy = this.cachedPose ? this.rotations[r + 3] : Mth.sin(this.yaw[index]);
+      float cr = this.cachedPose ? this.rotations[r + 4] : Mth.cos(this.roll[index]);
+      float sr = this.cachedPose ? this.rotations[r + 5] : Mth.sin(this.roll[index]);
 
       for (int c = 0; c < 8; c++) {
          float lx = (c & 1) == 0 ? part[3] - inflate : part[6] + inflate;
@@ -327,12 +327,12 @@ public final class TotemSpiritModule extends ClientModule {
    private void cachePose() {
       for (int i = 0; i < PARTS.length; i++) {
          int r = i * 6;
-         this.rotations[r] = class_3532.method_15362(this.pitch[i]);
-         this.rotations[r + 1] = class_3532.method_15374(this.pitch[i]);
-         this.rotations[r + 2] = class_3532.method_15362(this.yaw[i]);
-         this.rotations[r + 3] = class_3532.method_15374(this.yaw[i]);
-         this.rotations[r + 4] = class_3532.method_15362(this.roll[i]);
-         this.rotations[r + 5] = class_3532.method_15374(this.roll[i]);
+         this.rotations[r] = Mth.cos(this.pitch[i]);
+         this.rotations[r + 1] = Mth.sin(this.pitch[i]);
+         this.rotations[r + 2] = Mth.cos(this.yaw[i]);
+         this.rotations[r + 3] = Mth.sin(this.yaw[i]);
+         this.rotations[r + 4] = Mth.cos(this.roll[i]);
+         this.rotations[r + 5] = Mth.sin(this.roll[i]);
       }
    }
 
@@ -380,9 +380,9 @@ public final class TotemSpiritModule extends ClientModule {
          this.canvas
             .flat(
                GlyphShapes.ANKH,
-               s.x + class_3532.method_15362(angle) * radius * 0.78F,
+               s.x + Mth.cos(angle) * radius * 0.78F,
                y + 0.004,
-               s.z + class_3532.method_15374(angle) * radius * 0.78F,
+               s.z + Mth.sin(angle) * radius * 0.78F,
                0.13F * s.scale,
                -angle - (float) (Math.PI / 2),
                GlyphTint.alpha(light, a)
@@ -404,7 +404,7 @@ public final class TotemSpiritModule extends ClientModule {
    }
 
    private static float dissolve(float t, float tier) {
-      return 1.0F - class_3532.method_15363((t - 0.45F - tier * 0.22F) / 0.3F, 0.0F, 1.0F);
+      return 1.0F - Mth.clamp((t - 0.45F - tier * 0.22F) / 0.3F, 0.0F, 1.0F);
    }
 
    private static float ascend(float t) {
@@ -413,7 +413,7 @@ public final class TotemSpiritModule extends ClientModule {
    }
 
    private static float smooth(float t) {
-      float k = class_3532.method_15363(t, 0.0F, 1.0F);
+      float k = Mth.clamp(t, 0.0F, 1.0F);
       return k * k * (3.0F - 2.0F * k);
    }
 

@@ -3,22 +3,22 @@ package com.example.client.mixin;
 import net.champ.client.module.impl.render.JumpCirclesModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_11658;
-import net.minecraft.class_4587;
-import net.minecraft.class_761;
-import net.minecraft.class_4597.class_4598;
+import net.minecraft.client.renderer.state.LevelRenderState;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_761.class)
+@Mixin(LevelRenderer.class)
 public abstract class MixinJumpCirclesLevelRenderer {
-   @Inject(method = "method_62206", at = @At("HEAD"))
-   private void champ$jumpCircles(class_4587 poseStack, class_4598 crumblingBuffers, class_11658 levelRenderState, CallbackInfo ci) {
+   @Inject(method = "renderBlockDestroyAnimation", at = @At("HEAD"))
+   private void champ$jumpCircles(PoseStack poseStack, BufferSource crumblingBuffers, LevelRenderState levelRenderState, CallbackInfo ci) {
       if (JumpCirclesModule.active != null) {
-         JumpCirclesModule.renderLevel(levelRenderState.field_63082);
+         JumpCirclesModule.renderLevel(levelRenderState.cameraRenderState);
       }
    }
 }

@@ -3,18 +3,18 @@ package com.example.client.mixin;
 import net.champ.client.module.impl.movement.entitycontrol.EntityControlVehicleHook;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_1313;
-import net.minecraft.class_243;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_1297.class)
+@Mixin(Entity.class)
 public abstract class MixinEntityControlEntity {
-   @ModifyVariable(method = "method_5784", at = @At("HEAD"), argsOnly = true)
-   private class_243 champ$entityControlVehicleMove(class_243 movement, class_1313 type) {
-      return !EntityControlVehicleHook.anyActive ? movement : EntityControlVehicleHook.onEntityMove((class_1297)this, type, movement);
+   @ModifyVariable(method = "move", at = @At("HEAD"), argsOnly = true)
+   private Vec3 champ$entityControlVehicleMove(Vec3 movement, MoverType type) {
+      return !EntityControlVehicleHook.anyActive ? movement : EntityControlVehicleHook.onEntityMove((Entity)this, type, movement);
    }
 }

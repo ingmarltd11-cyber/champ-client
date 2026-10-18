@@ -21,12 +21,12 @@ import net.champ.client.gui.ItemLook;
 import net.champ.client.module.impl.misc.NoInvLeakModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1041;
-import net.minecraft.class_10725;
-import net.minecraft.class_1799;
-import net.minecraft.class_310;
-import net.minecraft.class_408;
-import net.minecraft.class_437;
+import com.mojang.blaze3d.platform.Window;
+import net.minecraft.data.AtlasIds;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.Screen;
 import org.lwjgl.opengl.GL11;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +45,7 @@ public final class StreamOverlay {
    private static final int FALLBACK_BACKGROUND = -7631989;
    private static final int[] BLANK = new int[0];
    private static final Runnable NOTHING = () -> {};
-   private static final class_1799[] stack = new class_1799[42];
+   private static final ItemStack[] stack = new ItemStack[42];
    private static final int[] guiX = new int[42];
    private static final int[] guiY = new int[42];
    private static long mask;
@@ -59,7 +59,7 @@ public final class StreamOverlay {
    private static final DigitFont.Sink FAKE_SINK = (x, y, w, h, argb) -> fakeList.addRectFilled(
       x, y, x + w, y + h, argb & -16711936 | argb << 16 & 0xFF0000 | argb >>> 16 & 0xFF
    );
-   private static final class_1799[] shownStack = new class_1799[42];
+   private static final ItemStack[] shownStack = new ItemStack[42];
    private static final int[] shownX = new int[42];
    private static final int[] shownY = new int[42];
    private static final int[] shownCount = new int[42];
@@ -77,7 +77,7 @@ public final class StreamOverlay {
    private static int boxX;
    private static int boxY;
    private static boolean backgroundValid;
-   private static class_1799 cursorStack;
+   private static ItemStack cursorStack;
    private static int cursorCount;
    private static int cursorBar;
    private static int cursorScale;
@@ -122,20 +122,20 @@ public final class StreamOverlay {
       failed = false;
    }
 
-   public static void hotbar(int slot, int x, int y, class_1799 item) {
+   public static void hotbar(int slot, int x, int y, ItemStack item) {
       if (hotbarVisible()) {
          record(slot, x, y, item);
       }
    }
 
-   public static void container(int slot, int x, int y, class_1799 item, boolean isHovered) {
+   public static void container(int slot, int x, int y, ItemStack item, boolean isHovered) {
       record(slot, x, y, item);
       if (isHovered) {
          hovered = slot;
       }
    }
 
-   public static void carried(class_1799 item, int x, int y) {
+   public static void carried(ItemStack item, int x, int y) {
       record(41, x, y, item);
    }
 
@@ -147,21 +147,21 @@ public final class StreamOverlay {
       }
    }
 
-   public static void tooltip(class_1799 item, int mouseX, int mouseY) {
+   public static void tooltip(ItemStack item, int mouseX, int mouseY) {
       TextPanels.tooltip(item, mouseX, mouseY);
    }
 
-   public static void itemName(class_1799 item, int alpha, int y) {
+   public static void itemName(ItemStack item, int alpha, int y) {
       TextPanels.itemName(item, alpha, y);
    }
 
    private static boolean hotbarVisible() {
-      class_437 screen = class_310.method_1551().field_1755;
-      return screen == null || screen instanceof class_408;
+      Screen screen = Minecraft.getInstance().screen;
+      return screen == null || screen instanceof ChatScreen;
    }
 
-   private static void record(int entry, int x, int y, class_1799 item) {
-      if (entry >= 0 && entry < 42 && (entry != 41 || !item.method_7960())) {
+   private static void record(int entry, int x, int y, ItemStack item) {
+      if (entry >= 0 && entry < 42 && (entry != 41 || !item.isEmpty())) {
          stack[entry] = item;
          guiX[entry] = x;
          guiY[entry] = y;
@@ -181,8 +181,8 @@ public final class StreamOverlay {
 
          for (int slot = 0; slot < 41; slot++) {
             if ((bits >>> slot & 1L) != 0L) {
-               class_1799 fake = NoInvLeakModule.fakeFor(slot);
-               if (!fake.method_7960()) {
+               ItemStack fake = NoInvLeakModule.fakeFor(slot);
+               if (!fake.isEmpty()) {
                   int x = guiX[slot] * scale;
                   int y = guiY[slot] * scale;
                   ItemIcons.draw(fakeList, fake, x, y, 16.0F * scale, 1.0F);
@@ -202,15 +202,15 @@ public final class StreamOverlay {
       selectionSeen = false;
       if (NoInvLeakModule.overlayWanted() && usable()) {
          try {
-            class_310 mc = class_310.method_1551();
-            class_1041 win = mc.method_22683();
-            if (win.method_65966()) {
+            Minecraft mc = Minecraft.getInstance();
+            Window win = mc.getWindow();
+            if (win.isMinimized()) {
                fakeMask = 0L;
                hideAll();
             } else {
-               int scale = win.method_4495();
-               int windowX = win.method_4499();
-               int windowY = win.method_4477();
+               int scale = win.getGuiScale();
+               int windowX = win.getX();
+               int windowY = win.getY();
                boolean opaque = NoInvLeakModule.opaqueCells();
                frame = withoutEmpty(frame, opaque && NoInvLeakModule.fillsEmpty());
                GpuTexture atlas = itemAtlas(mc);
@@ -248,7 +248,7 @@ public final class StreamOverlay {
       if (RenderSystem.isOnRenderThread()) {
          release();
       } else {
-         class_310.method_1551().execute(StreamOverlay::release);
+         Minecraft.getInstance().execute(StreamOverlay::release);
       }
    }
 
@@ -256,7 +256,7 @@ public final class StreamOverlay {
       return slotWindow != null || cursorWindow != null || scratch != null || TextPanels.started();
    }
 
-   private static void layers(class_310 mc, class_1041 win, long frame, int scale, int windowX, int windowY, boolean opaque, boolean selection, int hover) {
+   private static void layers(Minecraft mc, Window win, long frame, int scale, int windowX, int windowY, boolean opaque, boolean selection, int hover) {
       long slotBits = frame & 2199023255551L;
       boolean slotsShown = slotBits != 0L || selection;
       if (!slotsShown && (frame >>> 41 & 1L) == 0L) {
@@ -272,11 +272,11 @@ public final class StreamOverlay {
          }
 
          if (slotWindow == null && slotsShown) {
-            slotWindow = new OverlayWindow(win.method_4490());
+            slotWindow = new OverlayWindow(win.handle());
          }
 
          if (cursorWindow == null && (frame >>> 41 & 1L) != 0L) {
-            cursorWindow = new OverlayWindow(win.method_4490());
+            cursorWindow = new OverlayWindow(win.handle());
          }
 
          boolean layout = slotBits != shownMask
@@ -290,7 +290,7 @@ public final class StreamOverlay {
             if ((slotBits >>> i & 1L) != 0L) {
                if (guiX[i] != shownX[i] || guiY[i] != shownY[i]) {
                   layout = true;
-               } else if (stack[i] != shownStack[i] || stack[i].method_7947() != shownCount[i] || bar(stack[i]) != shownBar[i]) {
+               } else if (stack[i] != shownStack[i] || stack[i].getCount() != shownCount[i] || bar(stack[i]) != shownBar[i]) {
                   content = true;
                }
             }
@@ -362,7 +362,7 @@ public final class StreamOverlay {
       long bits = frame;
 
       for (int i = 0; i < 41; i++) {
-         if ((bits >>> i & 1L) != 0L && stack[i].method_7960()) {
+         if ((bits >>> i & 1L) != 0L && stack[i].isEmpty()) {
             bits &= ~(1L << i);
          }
       }
@@ -375,8 +375,8 @@ public final class StreamOverlay {
       TextPanels.hide();
    }
 
-   private static int bar(class_1799 item) {
-      return item.method_31578() ? item.method_31580() << 5 | item.method_31579() : -1;
+   private static int bar(ItemStack item) {
+      return item.isBarVisible() ? item.getBarColor() << 5 | item.getBarWidth() : -1;
    }
 
    private static int cellX(int cell, int px) {
@@ -392,13 +392,13 @@ public final class StreamOverlay {
 
       for (int i = 0; i < 42; i++) {
          if ((bits >>> i & 1L) != 0L) {
-            class_1799 item = stack[i];
+            ItemStack item = stack[i];
             if (item != shownStack[i]) {
                slotIcon[i] = null;
             }
 
             if (slotIcon[i] == null) {
-               if (!item.method_7960() && look.resolve(item)) {
+               if (!item.isEmpty() && look.resolve(item)) {
                   int[] icon = (int[])icons.get(look.identity);
                   if (icon != null) {
                      slotIcon[i] = icon;
@@ -409,7 +409,7 @@ public final class StreamOverlay {
                      pendingKey[cell] = Arrays.asList(look.identity.toArray());
                   }
 
-                  look.method_65605();
+                  look.clear();
                } else {
                   slotIcon[i] = BLANK;
                }
@@ -444,9 +444,9 @@ public final class StreamOverlay {
       iconPx = px;
    }
 
-   private static GpuTexture itemAtlas(class_310 mc) {
+   private static GpuTexture itemAtlas(Minecraft mc) {
       try {
-         return mc.method_72703().method_73025(class_10725.field_64477).method_68004();
+         return mc.getAtlasManager().getAtlasOrThrow(AtlasIds.ITEMS).getTexture();
       } catch (RuntimeException notReady) {
          return null;
       }
@@ -622,12 +622,12 @@ public final class StreamOverlay {
    }
 
    private static long frameTextureBytes() {
-      GpuTexture frame = class_310.method_1551().method_1522().method_30277();
+      GpuTexture frame = Minecraft.getInstance().getMainRenderTarget().getColorTexture();
       return (long)frame.getWidth(0) * frame.getHeight(0) * 4L;
    }
 
    private static boolean region(long slotBits, int scale, int[] out) {
-      class_1041 win = class_310.method_1551().method_22683();
+      Window win = Minecraft.getInstance().getWindow();
       int px = 16 * scale;
       int x0 = Integer.MAX_VALUE;
       int y0 = Integer.MAX_VALUE;
@@ -645,8 +645,8 @@ public final class StreamOverlay {
 
       x0 = Math.max(x0, 0);
       y0 = Math.max(y0, 0);
-      x1 = Math.min(x1, win.method_4489());
-      y1 = Math.min(y1, win.method_4506());
+      x1 = Math.min(x1, win.getWidth());
+      y1 = Math.min(y1, win.getHeight());
       if (x1 > x0 && y1 > y0) {
          out[0] = x0;
          out[1] = y0;
@@ -659,9 +659,9 @@ public final class StreamOverlay {
    }
 
    private static void copyRegion(CommandEncoder encoder, GpuBuffer target, long offset, int[] region) {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       encoder.copyTextureToBuffer(
-         mc.method_1522().method_30277(), target, offset, NOTHING, 0, region[0], mc.method_22683().method_4506() - region[1] - region[3], region[2], region[3]
+         mc.getMainRenderTarget().getColorTexture(), target, offset, NOTHING, 0, region[0], mc.getWindow().getHeight() - region[1] - region[3], region[2], region[3]
       );
    }
 
@@ -787,7 +787,7 @@ public final class StreamOverlay {
                   canvas.blend(icon, px, px, ox, oy, 1);
                }
 
-               if (!stack[i].method_7960()) {
+               if (!stack[i].isEmpty()) {
                   DigitFont.decorations(canvas, stack[i], ox, oy, scale);
                }
             }
@@ -800,7 +800,7 @@ public final class StreamOverlay {
                shownStack[i] = stack[i];
                shownX[i] = guiX[i];
                shownY[i] = guiY[i];
-               shownCount[i] = stack[i].method_7947();
+               shownCount[i] = stack[i].getCount();
                shownBar[i] = bar(stack[i]);
             }
          }
@@ -826,11 +826,11 @@ public final class StreamOverlay {
 
          cursorStack = null;
       } else {
-         class_1799 item = stack[41];
+         ItemStack item = stack[41];
          int px = 16 * scale;
          int screenX = windowX + guiX[41] * scale;
          int screenY = windowY + guiY[41] * scale;
-         boolean same = item == cursorStack && item.method_7947() == cursorCount && bar(item) == cursorBar && scale == cursorScale;
+         boolean same = item == cursorStack && item.getCount() == cursorCount && bar(item) == cursorBar && scale == cursorScale;
          if (same) {
             if (screenX != cursorX || screenY != cursorY) {
                cursorWindow.move(screenX, screenY);
@@ -846,7 +846,7 @@ public final class StreamOverlay {
             DigitFont.decorations(canvas, item, 0, 0, scale);
             cursorWindow.present(screenX, screenY, size, size);
             cursorStack = item;
-            cursorCount = item.method_7947();
+            cursorCount = item.getCount();
             cursorBar = bar(item);
             cursorScale = scale;
          }

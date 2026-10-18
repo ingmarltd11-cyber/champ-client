@@ -16,23 +16,23 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10185;
-import net.minecraft.class_1268;
-import net.minecraft.class_1661;
-import net.minecraft.class_1703;
-import net.minecraft.class_1713;
-import net.minecraft.class_1802;
-import net.minecraft.class_2338;
-import net.minecraft.class_2350;
-import net.minecraft.class_2846;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_465;
-import net.minecraft.class_490;
-import net.minecraft.class_634;
-import net.minecraft.class_640;
-import net.minecraft.class_746;
-import net.minecraft.class_2846.class_2847;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Items;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
 
 @Environment(EnvType.CLIENT)
 public final class AutoInvTotemModule extends ClientModule {
@@ -93,14 +93,14 @@ public final class AutoInvTotemModule extends ClientModule {
    public static boolean busy() {
       AutoInvTotemModule module = instance;
       if (module != null && module.isEnabled()) {
-         class_746 player = class_310.method_1551().field_1724;
-         if (player != null && !player.method_7325() && !player.method_56992()) {
-            class_1661 inventory = player.method_31548();
+         LocalPlayer player = Minecraft.getInstance().player;
+         if (player != null && !player.isSpectator() && !player.hasInfiniteMaterials()) {
+            Inventory inventory = player.getInventory();
             return module.step != AutoInvTotemModule.Step.IDLE
                || module.totemHand.holding()
                || module.awaitingServer(player)
                || module.clickedAt == module.tick
-               || player.method_6079().method_7960() && (findStoredTotem(inventory) != -1 || module.hotbarSource(inventory) != -1);
+               || player.getOffhandItem().isEmpty() && (findStoredTotem(inventory) != -1 || module.hotbarSource(inventory) != -1);
          } else {
             return false;
          }
@@ -109,9 +109,9 @@ public final class AutoInvTotemModule extends ClientModule {
       }
    }
 
-   public static boolean clickSafe(class_746 player) {
+   public static boolean clickSafe(LocalPlayer player) {
       AccessorLocalPlayer sent = (AccessorLocalPlayer)player;
-      class_10185 input = sent.champ$lastSentInput();
+      Input input = sent.champ$lastSentInput();
       return !sent.champ$wasSprinting()
          && !input.comp_3159()
          && !input.comp_3160()
@@ -133,15 +133,15 @@ public final class AutoInvTotemModule extends ClientModule {
 
    @Override
    protected void onDisable() {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       if (player != null) {
-         class_1661 inventory = player.method_31548();
-         if (this.openedInventory && mc.field_1755 instanceof class_490) {
-            player.method_7346();
+         Inventory inventory = player.getInventory();
+         if (this.openedInventory && mc.screen instanceof InventoryScreen) {
+            player.closeContainer();
          }
 
-         if ((this.step == AutoInvTotemModule.Step.HOTBAR_SWAP || this.step == AutoInvTotemModule.Step.HOTBAR_RETURN) && mc.field_1755 == null) {
+         if ((this.step == AutoInvTotemModule.Step.HOTBAR_SWAP || this.step == AutoInvTotemModule.Step.HOTBAR_RETURN) && mc.screen == null) {
             this.restoreSlot(inventory);
          }
 
@@ -154,15 +154,15 @@ public final class AutoInvTotemModule extends ClientModule {
    @EventHandler(priority = EventPriority.HIGHEST)
    public void onTick(TickEvent event) {
       this.tick++;
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       if (player != null
-         && mc.field_1687 != null
-         && mc.field_1761 != null
-         && mc.method_1562() != null
-         && !player.method_29504()
-         && !player.method_7325()
-         && !player.method_56992()) {
+         && mc.level != null
+         && mc.gameMode != null
+         && mc.getConnection() != null
+         && !player.isDeadOrDying()
+         && !player.isSpectator()
+         && !player.hasInfiniteMaterials()) {
          if (this.step == AutoInvTotemModule.Step.IDLE) {
             this.tryStart(mc, player);
          }
@@ -187,21 +187,21 @@ public final class AutoInvTotemModule extends ClientModule {
             }
          }
       } else {
-         if (player != null && this.openedInventory && mc.field_1755 instanceof class_490) {
-            player.method_7346();
+         if (player != null && this.openedInventory && mc.screen instanceof InventoryScreen) {
+            player.closeContainer();
          }
 
          this.reset();
       }
    }
 
-   private void tryStart(class_310 mc, class_746 player) {
-      class_1661 inventory = player.method_31548();
-      if (!player.method_6079().method_7960()) {
+   private void tryStart(Minecraft mc, LocalPlayer player) {
+      Inventory inventory = player.getInventory();
+      if (!player.getOffhandItem().isEmpty()) {
          this.confirmDeadline = -1;
       }
 
-      boolean offhandJob = player.method_6079().method_7960()
+      boolean offhandJob = player.getOffhandItem().isEmpty()
          && !this.awaitingServer(player)
          && (findStoredTotem(inventory) != -1 || this.hotbarSource(inventory) != -1);
       if (!offhandJob && !this.refillDue(mc, player)) {
@@ -212,13 +212,13 @@ public final class AutoInvTotemModule extends ClientModule {
          }
 
          if (this.tick >= this.reactionAt && this.tick >= this.idleUntil) {
-            if (mc.field_1755 instanceof class_465) {
+            if (mc.screen instanceof AbstractContainerScreen) {
                this.startPass(false);
-            } else if (mc.field_1755 == null) {
-               boolean canOpen = !mc.field_1761.method_2895() && !sneakForced();
+            } else if (mc.screen == null) {
+               boolean canOpen = !mc.gameMode.isServerControlledInventory() && !sneakForced();
                if (!offhandJob || this.hotbarSource(inventory) == -1 || !this.mode.is("Hotbar Swap") && canOpen) {
                   if (canOpen) {
-                     mc.method_1507(new class_490(player));
+                     mc.setScreen(new InventoryScreen(player));
                      this.startPass(true);
                   } else {
                      this.idleUntil = this.tick + 10;
@@ -231,15 +231,15 @@ public final class AutoInvTotemModule extends ClientModule {
       }
    }
 
-   private boolean refillDue(class_310 mc, class_746 player) {
-      class_1661 inventory = player.method_31548();
-      return !player.method_6079().method_7960() && this.refillWanted(inventory) && findStoredTotem(inventory) != -1
-         ? mc.field_1755 instanceof class_465 || mc.field_1755 == null && clickSafe(player) && !this.totemHand.holding() && !CombatMacroLock.heldByOther(this)
+   private boolean refillDue(Minecraft mc, LocalPlayer player) {
+      Inventory inventory = player.getInventory();
+      return !player.getOffhandItem().isEmpty() && this.refillWanted(inventory) && findStoredTotem(inventory) != -1
+         ? mc.screen instanceof AbstractContainerScreen || mc.screen == null && clickSafe(player) && !this.totemHand.holding() && !CombatMacroLock.heldByOther(this)
          : false;
    }
 
-   private boolean refillWanted(class_1661 inventory) {
-      return this.hotbarRefill.get() && !inventory.method_5438(this.hotbarSlot.getInt() - 1).method_31574(class_1802.field_8288);
+   private boolean refillWanted(Inventory inventory) {
+      return this.hotbarRefill.get() && !inventory.getItem(this.hotbarSlot.getInt() - 1).is(Items.TOTEM_OF_UNDYING);
    }
 
    private static boolean sneakForced() {
@@ -254,15 +254,15 @@ public final class AutoInvTotemModule extends ClientModule {
       this.schedule(AutoInvTotemModule.Step.INVENTORY_SWAP, opened ? Math.max(1, this.swapDelay.getInt()) : this.swapDelay.getInt());
    }
 
-   private void inventorySwap(class_310 mc, class_746 player) {
-      if (mc.field_1755 instanceof class_465<?> screen && (!this.openedInventory || mc.field_1755 instanceof class_490)) {
-         class_1703 menu = screen.method_17577();
-         if (clickSafe(player) && menu.method_34255().method_7960()) {
+   private void inventorySwap(Minecraft mc, LocalPlayer player) {
+      if (mc.screen instanceof AbstractContainerScreen<?> screen && (!this.openedInventory || mc.screen instanceof InventoryScreen)) {
+         AbstractContainerMenu menu = screen.getMenu();
+         if (clickSafe(player) && menu.getCarried().isEmpty()) {
             int source = this.passSource(player);
             if (source != -1 && this.passSwaps < 2) {
-               int button = player.method_6079().method_7960() ? 40 : this.hotbarSlot.getInt() - 1;
-               menu.method_37418(player.method_31548(), source)
-                  .ifPresent(index -> mc.field_1761.method_2906(menu.field_7763, index, button, class_1713.field_7791, player));
+               int button = player.getOffhandItem().isEmpty() ? 40 : this.hotbarSlot.getInt() - 1;
+               menu.findSlot(player.getInventory(), source)
+                  .ifPresent(index -> mc.gameMode.handleInventoryMouseClick(menu.containerId, index, button, ClickType.SWAP, player));
                this.clickedAt = this.tick;
                this.passSwaps++;
                if (this.passSource(player) != -1 && this.passSwaps < 2) {
@@ -285,17 +285,17 @@ public final class AutoInvTotemModule extends ClientModule {
       }
    }
 
-   private void closeInventory(class_310 mc, class_746 player) {
-      if (this.passSource(player) != -1 && this.passSwaps < 2 && this.unsafeTicks <= 10 && mc.field_1755 instanceof class_465) {
+   private void closeInventory(Minecraft mc, LocalPlayer player) {
+      if (this.passSource(player) != -1 && this.passSwaps < 2 && this.unsafeTicks <= 10 && mc.screen instanceof AbstractContainerScreen) {
          this.schedule(AutoInvTotemModule.Step.INVENTORY_SWAP, Math.max(1, this.swapDelay.getInt()));
       } else {
-         if (this.openedInventory && mc.field_1755 instanceof class_490) {
+         if (this.openedInventory && mc.screen instanceof InventoryScreen) {
             if (!clickSafe(player) && ++this.unsafeTicks <= 10) {
                this.readyAt = this.tick + 1;
                return;
             }
 
-            player.method_7346();
+            player.closeContainer();
          }
 
          this.finishPass();
@@ -307,39 +307,39 @@ public final class AutoInvTotemModule extends ClientModule {
       this.endSequence();
    }
 
-   private int passSource(class_746 player) {
-      class_1661 inventory = player.method_31548();
+   private int passSource(LocalPlayer player) {
+      Inventory inventory = player.getInventory();
       int stored = findStoredTotem(inventory);
-      if (player.method_6079().method_7960()) {
+      if (player.getOffhandItem().isEmpty()) {
          return stored != -1 ? stored : this.hotbarSource(inventory);
       } else {
          return this.refillWanted(inventory) ? stored : -1;
       }
    }
 
-   private void startHotbarSwap(class_1661 inventory) {
+   private void startHotbarSwap(Inventory inventory) {
       this.totemSlot = this.hotbarSource(inventory);
-      this.previousSlot = inventory.method_67532();
+      this.previousSlot = inventory.getSelectedSlot();
       this.reselects = 0;
-      inventory.method_61496(this.totemSlot);
+      inventory.setSelectedSlot(this.totemSlot);
       this.schedule(AutoInvTotemModule.Step.HOTBAR_SWAP, this.swapDelay.getInt());
    }
 
-   private void hotbarSwap(class_310 mc, class_746 player) {
-      if (mc.field_1755 != null) {
+   private void hotbarSwap(Minecraft mc, LocalPlayer player) {
+      if (mc.screen != null) {
          this.readyAt = this.tick + 1;
-      } else if (!player.method_6079().method_7960()) {
+      } else if (!player.getOffhandItem().isEmpty()) {
          this.schedule(AutoInvTotemModule.Step.HOTBAR_RETURN, 0);
       } else {
-         class_1661 inventory = player.method_31548();
-         if (inventory.method_67532() == this.totemSlot && player.method_6047().method_31574(class_1802.field_8288)) {
-            class_634 connection = mc.method_1562();
-            ((AccessorElytraFlyMultiPlayerGameMode)mc.field_1761).champ$elytraFlySyncSelected();
+         Inventory inventory = player.getInventory();
+         if (inventory.getSelectedSlot() == this.totemSlot && player.getMainHandItem().is(Items.TOTEM_OF_UNDYING)) {
+            ClientPacketListener connection = mc.getConnection();
+            ((AccessorElytraFlyMultiPlayerGameMode)mc.gameMode).champ$elytraFlySyncSelected();
 
-            while (mc.field_1690.field_1831.method_1436()) {
+            while (mc.options.keySwapOffhand.consumeClick()) {
             }
 
-            connection.method_52787(new class_2846(class_2847.field_12969, class_2338.field_10980, class_2350.field_11033));
+            connection.send(new ServerboundPlayerActionPacket(Action.SWAP_ITEM_WITH_OFFHAND, BlockPos.ZERO, Direction.DOWN));
             this.confirmDeadline = this.tick + confirmWindow(connection, player);
             this.swappedAt = this.tick;
             this.schedule(AutoInvTotemModule.Step.HOTBAR_RETURN, this.switchBackDelay.getInt());
@@ -347,7 +347,7 @@ public final class AutoInvTotemModule extends ClientModule {
             int slot = this.hotbarSource(inventory);
             if (slot != -1 && this.reselects++ < 2) {
                this.totemSlot = slot;
-               inventory.method_61496(slot);
+               inventory.setSelectedSlot(slot);
                this.schedule(AutoInvTotemModule.Step.HOTBAR_SWAP, this.swapDelay.getInt());
             } else {
                this.idleUntil = this.tick + 10;
@@ -357,28 +357,28 @@ public final class AutoInvTotemModule extends ClientModule {
       }
    }
 
-   private void hotbarReturn(class_310 mc, class_746 player) {
-      if (mc.field_1755 == null && (this.swappedAt != this.tick || !player.method_6115() || player.method_6058() != class_1268.field_5808)) {
-         this.restoreSlot(player.method_31548());
+   private void hotbarReturn(Minecraft mc, LocalPlayer player) {
+      if (mc.screen == null && (this.swappedAt != this.tick || !player.isUsingItem() || player.getUsedItemHand() != InteractionHand.MAIN_HAND)) {
+         this.restoreSlot(player.getInventory());
          this.endSequence();
       } else {
          this.readyAt = this.tick + 1;
       }
    }
 
-   private void restoreSlot(class_1661 inventory) {
-      if (class_1661.method_7380(this.previousSlot) && this.previousSlot != this.totemSlot && inventory.method_67532() == this.totemSlot) {
-         inventory.method_61496(this.previousSlot);
+   private void restoreSlot(Inventory inventory) {
+      if (Inventory.isHotbarSlot(this.previousSlot) && this.previousSlot != this.totemSlot && inventory.getSelectedSlot() == this.totemSlot) {
+         inventory.setSelectedSlot(this.previousSlot);
       }
    }
 
-   private int hotbarSource(class_1661 inventory) {
-      int selected = inventory.method_67532();
+   private int hotbarSource(Inventory inventory) {
+      int selected = inventory.getSelectedSlot();
       int reserved = this.hotbarRefill.get() ? this.hotbarSlot.getInt() - 1 : -1;
       int fallback = -1;
 
       for (int i = 0; i < 9; i++) {
-         if (i != selected && inventory.method_5438(i).method_31574(class_1802.field_8288)) {
+         if (i != selected && inventory.getItem(i).is(Items.TOTEM_OF_UNDYING)) {
             if (i != reserved) {
                return i;
             }
@@ -390,13 +390,13 @@ public final class AutoInvTotemModule extends ClientModule {
       if (fallback != -1) {
          return fallback;
       } else {
-         return !this.totemHand.holding() && inventory.method_5438(selected).method_31574(class_1802.field_8288) ? selected : -1;
+         return !this.totemHand.holding() && inventory.getItem(selected).is(Items.TOTEM_OF_UNDYING) ? selected : -1;
       }
    }
 
-   private static int findStoredTotem(class_1661 inventory) {
+   private static int findStoredTotem(Inventory inventory) {
       for (int i = 9; i < 36; i++) {
-         if (inventory.method_5438(i).method_31574(class_1802.field_8288)) {
+         if (inventory.getItem(i).is(Items.TOTEM_OF_UNDYING)) {
             return i;
          }
       }
@@ -404,14 +404,14 @@ public final class AutoInvTotemModule extends ClientModule {
       return -1;
    }
 
-   private static int confirmWindow(class_634 connection, class_746 player) {
-      class_640 info = connection.method_2871(player.method_5667());
-      int latencyMs = info != null ? info.method_2959() : 0;
-      return class_3532.method_15340(latencyMs / 25 + 4, 10, 40);
+   private static int confirmWindow(ClientPacketListener connection, LocalPlayer player) {
+      PlayerInfo info = connection.getPlayerInfo(player.getUUID());
+      int latencyMs = info != null ? info.getLatency() : 0;
+      return Mth.clamp(latencyMs / 25 + 4, 10, 40);
    }
 
-   private boolean awaitingServer(class_746 player) {
-      return this.confirmDeadline >= 0 && this.tick < this.confirmDeadline && !player.method_6079().method_31574(class_1802.field_8288);
+   private boolean awaitingServer(LocalPlayer player) {
+      return this.confirmDeadline >= 0 && this.tick < this.confirmDeadline && !player.getOffhandItem().is(Items.TOTEM_OF_UNDYING);
    }
 
    private void schedule(AutoInvTotemModule.Step next, int ticks) {

@@ -3,27 +3,27 @@ package com.example.client.mixin;
 import net.champ.client.module.impl.render.PharaohHeaddressLayer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10055;
-import net.minecraft.class_1007;
-import net.minecraft.class_11890;
-import net.minecraft.class_11901;
-import net.minecraft.class_591;
-import net.minecraft.class_922;
-import net.minecraft.class_5617.class_5618;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.client.renderer.entity.player.AvatarRenderer;
+import net.minecraft.world.entity.Avatar;
+import net.minecraft.client.entity.ClientAvatarEntity;
+import net.minecraft.client.model.player.PlayerModel;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider.Context;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_1007.class)
-public abstract class MixinPharaohAvatarRenderer<T extends class_11890 & class_11901> extends class_922<T, class_10055, class_591> {
-   protected MixinPharaohAvatarRenderer(class_5618 context, class_591 model, float shadowRadius) {
+@Mixin(AvatarRenderer.class)
+public abstract class MixinPharaohAvatarRenderer<T extends Avatar & ClientAvatarEntity> extends LivingEntityRenderer<T, AvatarRenderState, PlayerModel> {
+   protected MixinPharaohAvatarRenderer(Context context, PlayerModel model, float shadowRadius) {
       super(context, model, shadowRadius);
    }
 
    @Inject(method = "<init>", at = @At("TAIL"))
-   private void champ$addHeadCosmetics(class_5618 context, boolean slim, CallbackInfo ci) {
-      this.method_4046(new PharaohHeaddressLayer(this));
+   private void champ$addHeadCosmetics(Context context, boolean slim, CallbackInfo ci) {
+      this.addLayer(new PharaohHeaddressLayer(this));
    }
 }

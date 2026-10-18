@@ -5,16 +5,16 @@ import net.champ.client.module.impl.combat.WTapRecodeModule;
 import net.champ.client.module.impl.combat.melee.MeleeAttacks;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12125;
-import net.minecraft.class_1268;
-import net.minecraft.class_1269;
-import net.minecraft.class_1297;
-import net.minecraft.class_1657;
-import net.minecraft.class_310;
-import net.minecraft.class_3965;
-import net.minecraft.class_3966;
-import net.minecraft.class_636;
-import net.minecraft.class_746;
+import net.minecraft.world.item.component.PiercingWeapon;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -22,19 +22,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_636.class)
+@Mixin(MultiPlayerGameMode.class)
 public abstract class MixinMultiPlayerGameMode {
-   @Inject(method = "method_2918", at = @At(value = "INVOKE", target = "Lnet/minecraft/class_636;method_2911()V"))
-   private void champ$beforeAttack(class_1657 player, class_1297 entity, CallbackInfo ci) {
+   @Inject(method = "attack", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;ensureHasSentCarriedItem()V"))
+   private void champ$beforeAttack(Player player, Entity entity, CallbackInfo ci) {
       WTapRecodeModule wTap = ModuleRegistry.get(WTapRecodeModule.class);
       if (wTap != null && wTap.isEnabled()) {
          wTap.beforeAttack(player, entity);
       }
    }
 
-   @Inject(method = "method_2918", at = @At("RETURN"))
-   private void champ$afterAttack(class_1657 player, class_1297 entity, CallbackInfo ci) {
-      if (player == class_310.method_1551().field_1724) {
+   @Inject(method = "attack", at = @At("RETURN"))
+   private void champ$afterAttack(Player player, Entity entity, CallbackInfo ci) {
+      if (player == Minecraft.getInstance().player) {
          MeleeAttacks.noteAction(player);
       }
 
@@ -44,46 +44,46 @@ public abstract class MixinMultiPlayerGameMode {
       }
    }
 
-   @Inject(method = "method_75407", at = @At("RETURN"))
-   private void champ$afterStab(class_12125 weapon, CallbackInfo ci) {
-      MeleeAttacks.noteAction(class_310.method_1551().field_1724);
+   @Inject(method = "piercingAttack", at = @At("RETURN"))
+   private void champ$afterStab(PiercingWeapon weapon, CallbackInfo ci) {
+      MeleeAttacks.noteAction(Minecraft.getInstance().player);
       WTapRecodeModule wTap = ModuleRegistry.get(WTapRecodeModule.class);
       if (wTap != null && wTap.isEnabled()) {
          wTap.afterStab();
       }
    }
 
-   @Inject(method = "method_2919", at = @At("RETURN"))
-   private void champ$afterUseItem(class_1657 player, class_1268 hand, CallbackInfoReturnable<class_1269> cir) {
-      if (player == class_310.method_1551().field_1724) {
+   @Inject(method = "useItem", at = @At("RETURN"))
+   private void champ$afterUseItem(Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
+      if (player == Minecraft.getInstance().player) {
          MeleeAttacks.noteAction(player);
       }
    }
 
-   @Inject(method = "method_2896", at = @At("RETURN"))
-   private void champ$afterUseItemOn(class_746 player, class_1268 hand, class_3965 hit, CallbackInfoReturnable<class_1269> cir) {
-      if (player == class_310.method_1551().field_1724) {
+   @Inject(method = "useItemOn", at = @At("RETURN"))
+   private void champ$afterUseItemOn(LocalPlayer player, InteractionHand hand, BlockHitResult hit, CallbackInfoReturnable<InteractionResult> cir) {
+      if (player == Minecraft.getInstance().player) {
          MeleeAttacks.noteAction(player);
       }
    }
 
-   @Inject(method = "method_2905", at = @At("RETURN"))
-   private void champ$afterInteract(class_1657 player, class_1297 entity, class_1268 hand, CallbackInfoReturnable<class_1269> cir) {
-      if (player == class_310.method_1551().field_1724) {
+   @Inject(method = "interact", at = @At("RETURN"))
+   private void champ$afterInteract(Player player, Entity entity, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
+      if (player == Minecraft.getInstance().player) {
          MeleeAttacks.noteAction(player);
       }
    }
 
-   @Inject(method = "method_2917", at = @At("RETURN"))
-   private void champ$afterInteractAt(class_1657 player, class_1297 entity, class_3966 hit, class_1268 hand, CallbackInfoReturnable<class_1269> cir) {
-      if (player == class_310.method_1551().field_1724) {
+   @Inject(method = "interactAt", at = @At("RETURN"))
+   private void champ$afterInteractAt(Player player, Entity entity, EntityHitResult hit, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
+      if (player == Minecraft.getInstance().player) {
          MeleeAttacks.noteAction(player);
       }
    }
 
-   @Inject(method = "method_2897", at = @At("RETURN"))
-   private void champ$afterRelease(class_1657 player, CallbackInfo ci) {
-      if (player == class_310.method_1551().field_1724) {
+   @Inject(method = "releaseUsingItem", at = @At("RETURN"))
+   private void champ$afterRelease(Player player, CallbackInfo ci) {
+      if (player == Minecraft.getInstance().player) {
          MeleeAttacks.noteAction(player);
       }
    }

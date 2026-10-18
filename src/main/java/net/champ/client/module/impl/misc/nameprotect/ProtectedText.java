@@ -8,42 +8,42 @@ import java.util.Map;
 import java.util.Optional;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2561;
-import net.minecraft.class_2568;
-import net.minecraft.class_2583;
-import net.minecraft.class_5250;
-import net.minecraft.class_5348;
-import net.minecraft.class_2568.class_10611;
-import net.minecraft.class_2568.class_10613;
-import net.minecraft.class_2568.class_5248;
-import net.minecraft.class_5348.class_5246;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.network.chat.HoverEvent.ShowEntity;
+import net.minecraft.network.chat.HoverEvent.ShowText;
+import net.minecraft.network.chat.HoverEvent.EntityTooltipInfo;
+import net.minecraft.network.chat.FormattedText.StyledContentConsumer;
 
 @Environment(EnvType.CLIENT)
 public final class ProtectedText {
    private ProtectedText() {
    }
 
-   public static class_2561 rewrite(NameMatcher matcher, class_2561 text) {
+   public static Component rewrite(NameMatcher matcher, Component text) {
       if (text != null && !matcher.isEmpty()) {
-         class_2561 rebuilt = rebuild(matcher, text, true);
+         Component rebuilt = rebuild(matcher, text, true);
          return rebuilt != null ? rebuilt : text;
       } else {
          return text;
       }
    }
 
-   public static class_5348 rewrite(NameMatcher matcher, class_5348 text) {
+   public static FormattedText rewrite(NameMatcher matcher, FormattedText text) {
       if (text != null && !matcher.isEmpty()) {
-         class_2561 rebuilt = rebuild(matcher, text, true);
-         return (class_5348)(rebuilt != null ? rebuilt : text);
+         Component rebuilt = rebuild(matcher, text, true);
+         return (FormattedText)(rebuilt != null ? rebuilt : text);
       } else {
          return text;
       }
    }
 
-   private static class_2561 rebuild(NameMatcher matcher, class_5348 text, boolean withHovers) {
+   private static Component rebuild(NameMatcher matcher, FormattedText text, boolean withHovers) {
       ProtectedText.Pieces pieces = new ProtectedText.Pieces();
-      text.method_27658(pieces, class_2583.field_24360);
+      text.visit(pieces, Style.EMPTY);
       if (pieces.count == 0) {
          return null;
       }
@@ -51,12 +51,12 @@ public final class ProtectedText {
       pieces.seal();
       String joined = pieces.text.toString();
       List<NameMatcher.Match> matches = matcher.scan(joined, pieces.starts, pieces.count);
-      class_2583[] hoverStyles = withHovers ? rewriteHovers(matcher, pieces) : null;
+      Style[] hoverStyles = withHovers ? rewriteHovers(matcher, pieces) : null;
       if (matches.isEmpty() && hoverStyles == null) {
          return null;
       }
 
-      class_2583[] styles = hoverStyles != null ? hoverStyles : pieces.styles;
+      Style[] styles = hoverStyles != null ? hoverStyles : pieces.styles;
       ProtectedText.Runs runs = new ProtectedText.Runs(pieces);
       int position = 0;
 
@@ -70,19 +70,19 @@ public final class ProtectedText {
       return runs.build(styles);
    }
 
-   private static class_2583[] rewriteHovers(NameMatcher matcher, ProtectedText.Pieces pieces) {
-      class_2583[] out = null;
-      Map<class_2568, class_2568> done = null;
+   private static Style[] rewriteHovers(NameMatcher matcher, ProtectedText.Pieces pieces) {
+      Style[] out = null;
+      Map<HoverEvent, HoverEvent> done = null;
 
       for (int i = 0; i < pieces.count; i++) {
-         class_2583 style = pieces.styles[i];
-         class_2568 hover = style.method_10969();
+         Style style = pieces.styles[i];
+         HoverEvent hover = style.getHoverEvent();
          if (hover != null) {
             if (done == null) {
                done = new IdentityHashMap<>();
             }
 
-            class_2568 rewritten = done.get(hover);
+            HoverEvent rewritten = done.get(hover);
             if (rewritten == null) {
                rewritten = rewriteHover(matcher, hover);
                done.put(hover, rewritten);
@@ -93,7 +93,7 @@ public final class ProtectedText {
                   out = Arrays.copyOf(pieces.styles, pieces.count);
                }
 
-               out[i] = style.method_10949(rewritten);
+               out[i] = style.withHoverEvent(rewritten);
             }
          }
       }
@@ -101,16 +101,16 @@ public final class ProtectedText {
       return out;
    }
 
-   private static class_2568 rewriteHover(NameMatcher matcher, class_2568 hover) {
-      if (hover instanceof class_10613 showText) {
-         class_2561 value = showText.comp_3510();
-         class_2561 rewritten = value != null ? rebuild(matcher, value, false) : null;
-         return (class_2568)(rewritten != null ? new class_10613(rewritten) : hover);
-      } else if (hover instanceof class_10611 showEntity) {
-         class_5248 info = showEntity.comp_3508();
-         if (info != null && !info.field_24353.isEmpty()) {
-            class_2561 rewritten = rebuild(matcher, (class_5348)info.field_24353.get(), false);
-            return (class_2568)(rewritten != null ? new class_10611(new class_5248(info.field_24351, info.field_24352, rewritten)) : hover);
+   private static HoverEvent rewriteHover(NameMatcher matcher, HoverEvent hover) {
+      if (hover instanceof ShowText showText) {
+         Component value = showText.comp_3510();
+         Component rewritten = value != null ? rebuild(matcher, value, false) : null;
+         return (HoverEvent)(rewritten != null ? new ShowText(rewritten) : hover);
+      } else if (hover instanceof ShowEntity showEntity) {
+         EntityTooltipInfo info = showEntity.comp_3508();
+         if (info != null && !info.name.isEmpty()) {
+            Component rewritten = rebuild(matcher, (FormattedText)info.name.get(), false);
+            return (HoverEvent)(rewritten != null ? new ShowEntity(new EntityTooltipInfo(info.type, info.uuid, rewritten)) : hover);
          } else {
             return hover;
          }
@@ -120,13 +120,13 @@ public final class ProtectedText {
    }
 
    @Environment(EnvType.CLIENT)
-   private static final class Pieces implements class_5246<Object> {
+   private static final class Pieces implements StyledContentConsumer<Object> {
       final StringBuilder text = new StringBuilder();
-      class_2583[] styles = new class_2583[8];
+      Style[] styles = new Style[8];
       int[] starts = new int[9];
       int count;
 
-      public Optional<Object> accept(class_2583 style, String part) {
+      public Optional<Object> accept(Style style, String part) {
          if (part.isEmpty()) {
             return Optional.empty();
          }
@@ -196,11 +196,11 @@ public final class ProtectedText {
          return text;
       }
 
-      class_2561 build(class_2583[] styles) {
-         class_5250 root = class_2561.method_43473();
+      Component build(Style[] styles) {
+         MutableComponent root = Component.empty();
 
          for (int i = 0; i < this.runTexts.size(); i++) {
-            root.method_10852(class_2561.method_43470(this.runTexts.get(i).toString()).method_10862(styles[this.runPieces.get(i)]));
+            root.append(Component.literal(this.runTexts.get(i).toString()).setStyle(styles[this.runPieces.get(i)]));
          }
 
          return root;

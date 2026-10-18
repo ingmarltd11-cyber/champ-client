@@ -4,19 +4,19 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import net.champ.client.module.impl.movement.BoatNoclipModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10255;
-import net.minecraft.class_310;
+import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
+import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_10255.class)
+@Mixin(AbstractBoat.class)
 public abstract class MixinBoatNoclipAbstractBoat {
-   @ModifyReturnValue(method = "method_30949", at = @At("RETURN"))
+   @ModifyReturnValue(method = "canCollideWith", at = @At("RETURN"))
    private boolean champ$boatNoclipCollide(boolean original) {
       if (original && BoatNoclipModule.active != null) {
-         class_10255 boat = (class_10255)this;
-         return !boat.method_73183().method_8608() || boat.method_5642() != class_310.method_1551().field_1724;
+         AbstractBoat boat = (AbstractBoat)this;
+         return !boat.level().isClientSide() || boat.getControllingPassenger() != Minecraft.getInstance().player;
       } else {
          return original;
       }

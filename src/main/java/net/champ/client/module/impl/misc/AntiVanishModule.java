@@ -32,46 +32,46 @@ import net.champ.client.util.antivanish.AntiVanishText;
 import net.champ.client.util.staff.ShardTracker;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1109;
-import net.minecraft.class_1297;
-import net.minecraft.class_1299;
-import net.minecraft.class_1657;
-import net.minecraft.class_1676;
-import net.minecraft.class_1934;
-import net.minecraft.class_2338;
-import net.minecraft.class_243;
-import net.minecraft.class_2561;
-import net.minecraft.class_2588;
-import net.minecraft.class_2596;
-import net.minecraft.class_2639;
-import net.minecraft.class_2664;
-import net.minecraft.class_2675;
-import net.minecraft.class_2680;
-import net.minecraft.class_2703;
-import net.minecraft.class_2739;
-import net.minecraft.class_2741;
-import net.minecraft.class_2765;
-import net.minecraft.class_2767;
-import net.minecraft.class_2805;
-import net.minecraft.class_2824;
-import net.minecraft.class_2846;
-import net.minecraft.class_2879;
-import net.minecraft.class_2885;
-import net.minecraft.class_2886;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_3414;
-import net.minecraft.class_3417;
-import net.minecraft.class_640;
-import net.minecraft.class_7439;
-import net.minecraft.class_7828;
-import net.minecraft.class_7923;
-import net.minecraft.class_2703.class_2705;
-import net.minecraft.class_2703.class_5893;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.level.GameType;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundCommandSuggestionsPacket;
+import net.minecraft.network.protocol.game.ClientboundExplodePacket;
+import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.network.protocol.game.ClientboundSoundEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundSoundPacket;
+import net.minecraft.network.protocol.game.ServerboundCommandSuggestionPacket;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Entry;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Action;
 
 @Environment(EnvType.CLIENT)
 public final class AntiVanishModule extends ClientModule {
-   private static final class_310 MC = class_310.method_1551();
+   private static final Minecraft MC = Minecraft.getInstance();
    private static final String PROBE_COMMAND = "minecraft:msg";
    private static final int SENSOR_RANGE = 64;
    private static final long SIGNAL_WINDOW_MS = 15000L;
@@ -126,7 +126,7 @@ public final class AntiVanishModule extends ClientModule {
    @Override
    protected void onEnable() {
       this.resetRuntime();
-      if (MC.field_1724 != null && MC.field_1687 != null) {
+      if (MC.player != null && MC.level != null) {
          this.trackListedPlayers();
       }
    }
@@ -138,14 +138,14 @@ public final class AntiVanishModule extends ClientModule {
 
    @EventHandler
    public void onTick(TickEvent event) {
-      if (MC.field_1724 != null && MC.field_1687 != null && MC.method_1562() != null) {
+      if (MC.player != null && MC.level != null && MC.getConnection() != null) {
          if (this.shard.moved(MC)) {
             this.resetRuntime();
          }
 
          this.playPendingChime();
          this.tickCounter++;
-         if (MC.field_1724.field_7512 != MC.field_1724.field_7498) {
+         if (MC.player.containerMenu != MC.player.inventoryMenu) {
             this.lastContainerActivityMs = System.currentTimeMillis();
          }
 
@@ -176,19 +176,19 @@ public final class AntiVanishModule extends ClientModule {
       this.handleOutbound(event.packet);
    }
 
-   private void handleOutbound(class_2596<?> packet) {
+   private void handleOutbound(Packet<?> packet) {
       if (packet != null) {
-         if (packet instanceof class_2885 useOn) {
+         if (packet instanceof ServerboundUseItemOnPacket useOn) {
             this.lastLocalActionMs = System.currentTimeMillis();
-            if (useOn.method_12543() != null && useOn.method_12543().method_17777() != null) {
+            if (useOn.getHitResult() != null && useOn.getHitResult().getBlockPos() != null) {
                long until = System.currentTimeMillis() + 6000L;
-               class_2338 hit = useOn.method_12543().method_17777();
-               class_2338 adjacent = hit.method_10093(useOn.method_12543().method_17780());
-               this.selfPlacedBlocks.put(hit.method_10063(), until);
-               this.selfPlacedBlocks.put(adjacent.method_10063(), until);
+               BlockPos hit = useOn.getHitResult().getBlockPos();
+               BlockPos adjacent = hit.relative(useOn.getHitResult().getDirection());
+               this.selfPlacedBlocks.put(hit.asLong(), until);
+               this.selfPlacedBlocks.put(adjacent.asLong(), until);
                String itemPath = "";
-               if (MC.field_1724 != null && useOn.method_12546() != null) {
-                  class_2960 itemId = class_7923.field_41178.method_10221(MC.field_1724.method_5998(useOn.method_12546()).method_7909());
+               if (MC.player != null && useOn.getHand() != null) {
+                  Identifier itemId = BuiltInRegistries.ITEM.getKey(MC.player.getItemInHand(useOn.getHand()).getItem());
                   itemPath = AntiVanishHeuristics.path(itemId == null ? "" : itemId.toString());
                }
 
@@ -196,16 +196,16 @@ public final class AntiVanishModule extends ClientModule {
                markSelfMultiBlockFootprint(adjacent, itemPath, this.selfPlacedBlocks, until);
             }
          } else {
-            if (packet instanceof class_2846 || packet instanceof class_2886 || packet instanceof class_2824 || packet instanceof class_2879) {
+            if (packet instanceof ServerboundPlayerActionPacket || packet instanceof ServerboundUseItemPacket || packet instanceof ServerboundInteractPacket || packet instanceof ServerboundSwingPacket) {
                this.lastLocalActionMs = System.currentTimeMillis();
             }
          }
       }
    }
 
-   static void markSelfMultiBlockFootprint(class_2338 pos, String path, Map<Long, Long> targets, long until) {
+   static void markSelfMultiBlockFootprint(BlockPos pos, String path, Map<Long, Long> targets, long until) {
       if (pos != null && targets != null) {
-         targets.put(pos.method_10063(), until);
+         targets.put(pos.asLong(), until);
          String id = path == null ? "" : path;
          boolean vertical = id.endsWith("_door") && !id.endsWith("trapdoor")
             || id.contains("sunflower")
@@ -216,15 +216,15 @@ public final class AntiVanishModule extends ClientModule {
             || id.contains("large_fern")
             || id.contains("pitcher_plant");
          if (vertical) {
-            targets.put(pos.method_10084().method_10063(), until);
-            targets.put(pos.method_10074().method_10063(), until);
+            targets.put(pos.above().asLong(), until);
+            targets.put(pos.below().asLong(), until);
          }
 
          if (id.endsWith("_bed")) {
-            targets.put(pos.method_10069(1, 0, 0).method_10063(), until);
-            targets.put(pos.method_10069(-1, 0, 0).method_10063(), until);
-            targets.put(pos.method_10069(0, 0, 1).method_10063(), until);
-            targets.put(pos.method_10069(0, 0, -1).method_10063(), until);
+            targets.put(pos.offset(1, 0, 0).asLong(), until);
+            targets.put(pos.offset(-1, 0, 0).asLong(), until);
+            targets.put(pos.offset(0, 0, 1).asLong(), until);
+            targets.put(pos.offset(0, 0, -1).asLong(), until);
          }
       }
    }
@@ -236,32 +236,32 @@ public final class AntiVanishModule extends ClientModule {
       }
    }
 
-   private boolean handleInbound(class_2596<?> packet) {
-      if (packet instanceof class_7828 remove) {
+   private boolean handleInbound(Packet<?> packet) {
+      if (packet instanceof ClientboundPlayerInfoRemovePacket remove) {
          if (remove.comp_1105().size() < 4) {
             for (UUID id : remove.comp_1105()) {
                this.observations.offer(AntiVanishModule.Observation.tabRemove(id));
             }
          }
-      } else if (packet instanceof class_2703 info && info.method_46327().contains(class_5893.field_40700)) {
+      } else if (packet instanceof ClientboundPlayerInfoUpdatePacket info && info.actions().contains(Action.UPDATE_LISTED)) {
          int unlisted = 0;
 
-         for (class_2705 entry : info.method_46329()) {
+         for (Entry entry : info.entries()) {
             if (entry != null && !entry.comp_1108()) {
                unlisted++;
             }
          }
 
          if (unlisted > 0 && unlisted < 4) {
-            for (class_2705 entry : info.method_46329()) {
+            for (Entry entry : info.entries()) {
                if (entry != null && !entry.comp_1108()) {
                   this.observations.offer(AntiVanishModule.Observation.tabHide(entry.comp_1106()));
                }
             }
          }
-      } else if (packet instanceof class_2703 info && info.method_46327().contains(class_5893.field_29137)) {
+      } else if (packet instanceof ClientboundPlayerInfoUpdatePacket info && info.actions().contains(Action.UPDATE_GAME_MODE)) {
          this.queueGamemodeUpdates(info);
-      } else if (packet instanceof class_7439 chat) {
+      } else if (packet instanceof ClientboundSystemChatPacket chat) {
          String text = chat.comp_763() == null ? "" : chat.comp_763().getString();
          if (!text.isBlank()) {
             this.observations.offer(AntiVanishModule.Observation.systemChat(text));
@@ -272,10 +272,10 @@ public final class AntiVanishModule extends ClientModule {
             this.observations.offer(AntiVanishModule.Observation.playerLeft(departedName));
          }
       } else {
-         if (packet instanceof class_2639 suggestions && this.completionRequestIds.remove(suggestions.comp_2262())) {
+         if (packet instanceof ClientboundCommandSuggestionsPacket suggestions && this.completionRequestIds.remove(suggestions.comp_2262())) {
             List<String> names = new ArrayList<>();
 
-            for (Suggestion suggestion : suggestions.method_11397().getList()) {
+            for (Suggestion suggestion : suggestions.toSuggestions().getList()) {
                String text = suggestion.getText();
                if (text != null && !text.isBlank()) {
                   names.add(text.trim());
@@ -286,26 +286,26 @@ public final class AntiVanishModule extends ClientModule {
             return true;
          }
 
-         if (packet instanceof class_2739 metadata) {
+         if (packet instanceof ClientboundSetEntityDataPacket metadata) {
             this.observations.offer(AntiVanishModule.Observation.entityMetadata(metadata.comp_1127()));
-         } else if (packet instanceof class_2664 explosion) {
+         } else if (packet instanceof ClientboundExplodePacket explosion) {
             this.observations.offer(AntiVanishModule.Observation.explosion(explosion.comp_2883(), explosion.comp_4594()));
-         } else if (packet instanceof class_2765 sound) {
+         } else if (packet instanceof ClientboundSoundEntityPacket sound) {
             this.observations
-               .offer(AntiVanishModule.Observation.entitySound(sound.method_11883(), soundId(((class_3414)sound.method_11882().comp_349()).comp_3319())));
-         } else if (packet instanceof class_2675 particles) {
-            class_2960 id = class_7923.field_41180.method_10221(particles.method_11551().method_10295());
+               .offer(AntiVanishModule.Observation.entitySound(sound.getId(), soundId(((SoundEvent)sound.getSound().comp_349()).comp_3319())));
+         } else if (packet instanceof ClientboundLevelParticlesPacket particles) {
+            Identifier id = BuiltInRegistries.PARTICLE_TYPE.getKey(particles.getParticle().getType());
             this.observations
                .offer(
                   AntiVanishModule.Observation.position(
                      AntiVanishModule.ObservationType.PARTICLE,
-                     particles.method_11544(),
-                     particles.method_11547(),
-                     particles.method_11546(),
+                     particles.getX(),
+                     particles.getY(),
+                     particles.getZ(),
                      id == null ? "" : id.toString()
                   )
                );
-         } else if (packet instanceof class_2767 sound) {
+         } else if (packet instanceof ClientboundSoundPacket sound) {
             this.onSoundPacket(sound);
          }
       }
@@ -313,13 +313,13 @@ public final class AntiVanishModule extends ClientModule {
       return false;
    }
 
-   private void onSoundPacket(class_2767 packet) {
-      if (packet != null && packet.method_11894() != null && packet.method_11894().comp_349() != null) {
-         String id = soundId(((class_3414)packet.method_11894().comp_349()).comp_3319());
+   private void onSoundPacket(ClientboundSoundPacket packet) {
+      if (packet != null && packet.getSound() != null && packet.getSound().comp_349() != null) {
+         String id = soundId(((SoundEvent)packet.getSound().comp_349()).comp_3319());
          this.observations
             .offer(
                AntiVanishModule.Observation.position(
-                  AntiVanishModule.ObservationType.POSITIONAL_SOUND, packet.method_11890(), packet.method_11889(), packet.method_11893(), id
+                  AntiVanishModule.ObservationType.POSITIONAL_SOUND, packet.getX(), packet.getY(), packet.getZ(), id
                )
             );
       }
@@ -451,15 +451,15 @@ public final class AntiVanishModule extends ClientModule {
    }
 
    private void trackListedPlayers() {
-      if (MC.method_1562() != null) {
+      if (MC.getConnection() != null) {
          long now = System.currentTimeMillis();
 
-         for (class_640 info : MC.method_1562().method_45732()) {
-            if (info != null && info.method_2966() != null && info.method_2966().id() != null) {
-               UUID uuid = info.method_2966().id();
-               if (MC.field_1724 == null || !MC.field_1724.method_5667().equals(uuid)) {
+         for (PlayerInfo info : MC.getConnection().getListedOnlinePlayers()) {
+            if (info != null && info.getProfile() != null && info.getProfile().id() != null) {
+               UUID uuid = info.getProfile().id();
+               if (MC.player == null || !MC.player.getUUID().equals(uuid)) {
                   this.listedSinceMs.putIfAbsent(uuid, now);
-                  String name = info.method_2966().name();
+                  String name = info.getProfile().name();
                   if (name != null && !this.knownPlayers.containsKey(uuid)) {
                      this.knownPlayers.put(uuid, new AntiVanishModule.KnownPlayer(uuid, name));
                   }
@@ -474,9 +474,9 @@ public final class AntiVanishModule extends ClientModule {
          if (this.listedSinceMs.size() > 1024 || this.knownPlayers.size() > 1024) {
             Set<UUID> connected = new HashSet<>();
 
-            for (class_640 info : MC.method_1562().method_2880()) {
-               if (info != null && info.method_2966() != null) {
-                  connected.add(info.method_2966().id());
+            for (PlayerInfo info : MC.getConnection().getOnlinePlayers()) {
+               if (info != null && info.getProfile() != null) {
+                  connected.add(info.getProfile().id());
                }
             }
 
@@ -496,7 +496,7 @@ public final class AntiVanishModule extends ClientModule {
    }
 
    private void handleTabRemoval(UUID uuid) {
-      if (uuid != null && !MC.field_1724.method_5667().equals(uuid)) {
+      if (uuid != null && !MC.player.getUUID().equals(uuid)) {
          String name = this.knownName(uuid);
          if (this.credibleSubject(uuid, name) && AntiVanishText.isPlausiblePlayerName(name)) {
             this.pendingVanishes.removeIf(pending -> pending.uuid.equals(uuid));
@@ -506,7 +506,7 @@ public final class AntiVanishModule extends ClientModule {
    }
 
    private void handleTabHidden(UUID uuid) {
-      if (uuid != null && !MC.field_1724.method_5667().equals(uuid)) {
+      if (uuid != null && !MC.player.getUUID().equals(uuid)) {
          AntiVanishModule.KnownPlayer known = this.knownPlayers.get(uuid);
          String name = known != null && known.name != null ? known.name : this.knownName(uuid);
          if (this.credibleSubject(uuid, name) && AntiVanishText.isPlausiblePlayerName(name)) {
@@ -523,10 +523,10 @@ public final class AntiVanishModule extends ClientModule {
          return known.name;
       }
 
-      if (MC.method_1562() != null) {
-         class_640 info = MC.method_1562().method_2871(uuid);
-         if (info != null && info.method_2966() != null) {
-            return info.method_2966().name();
+      if (MC.getConnection() != null) {
+         PlayerInfo info = MC.getConnection().getPlayerInfo(uuid);
+         if (info != null && info.getProfile() != null) {
+            return info.getProfile().name();
          }
       }
 
@@ -569,14 +569,14 @@ public final class AntiVanishModule extends ClientModule {
    private void processPendingVanishes() {
       while (!this.pendingVanishes.isEmpty() && this.pendingVanishes.peekFirst().dueTick <= this.tickCounter) {
          AntiVanishModule.PendingVanish pending = this.pendingVanishes.removeFirst();
-         if (MC.method_1562().method_2871(pending.uuid) == null) {
+         if (MC.getConnection().getPlayerInfo(pending.uuid) == null) {
             long now = System.currentTimeMillis();
             if (this.confirmedDepartures.getOrDefault(pending.uuid, 0L) <= now) {
                if (this.recentMessageNames(pending.name)) {
                   this.serverSendsLeaveMessages = true;
                } else {
-                  class_1657 remaining = MC.field_1687.method_18470(pending.uuid);
-                  if (remaining != null && !remaining.method_31481()) {
+                  Player remaining = MC.level.getPlayerByUUID(pending.uuid);
+                  if (remaining != null && !remaining.isRemoved()) {
                      this.reportHidden(pending.uuid, pending.name, false, "Vanish Event: entity remained", "off TAB, still nearby", 100);
                   } else {
                      String reason = "Vanish Event: silent TAB disappearance";
@@ -638,7 +638,7 @@ public final class AntiVanishModule extends ClientModule {
    }
 
    private void sendCompletionProbe() {
-      if (MC.method_1562() != null) {
+      if (MC.getConnection() != null) {
          String command = "minecraft:msg";
          int id = this.nextCompletionId++;
          if (this.nextCompletionId > 40000) {
@@ -652,7 +652,7 @@ public final class AntiVanishModule extends ClientModule {
          }
 
          try {
-            MC.method_1562().method_52787(new class_2805(id, command.trim() + " "));
+            MC.getConnection().send(new ServerboundCommandSuggestionPacket(id, command.trim() + " "));
          } catch (Throwable var4) {
          }
       }
@@ -662,16 +662,16 @@ public final class AntiVanishModule extends ClientModule {
       List<String> current = this.pendingCompletionNames;
       if (current != null) {
          this.pendingCompletionNames = null;
-         if (MC.method_1562() != null && MC.field_1724 != null) {
+         if (MC.getConnection() != null && MC.player != null) {
             Set<String> tabNames = new HashSet<>();
 
-            for (class_640 info : MC.method_1562().method_2880()) {
-               if (info != null && info.method_2966() != null && info.method_2966().name() != null) {
-                  tabNames.add(info.method_2966().name().toLowerCase(Locale.ROOT));
+            for (PlayerInfo info : MC.getConnection().getOnlinePlayers()) {
+               if (info != null && info.getProfile() != null && info.getProfile().name() != null) {
+                  tabNames.add(info.getProfile().name().toLowerCase(Locale.ROOT));
                }
             }
 
-            String self = MC.field_1724.method_5477().getString();
+            String self = MC.player.getName().getString();
             List<String> hidden = new ArrayList<>();
 
             for (String name : current) {
@@ -693,11 +693,11 @@ public final class AntiVanishModule extends ClientModule {
       }
    }
 
-   private static String departedPlayerName(class_2561 component) {
-      if (component != null && component.method_10851() instanceof class_2588 translated && "multiplayer.player.left".equals(translated.method_11022())) {
-         Object[] args = translated.method_11023();
+   private static String departedPlayerName(Component component) {
+      if (component != null && component.getContents() instanceof TranslatableContents translated && "multiplayer.player.left".equals(translated.getKey())) {
+         Object[] args = translated.getArgs();
          if (args.length != 0 && args[0] != null) {
-            return args[0] instanceof class_2561 name ? name.getString() : String.valueOf(args[0]);
+            return args[0] instanceof Component name ? name.getString() : String.valueOf(args[0]);
          } else {
             return "";
          }
@@ -719,7 +719,7 @@ public final class AntiVanishModule extends ClientModule {
 
       while (it.hasNext()) {
          AntiVanishModule.HiddenSpell spell = it.next();
-         if (spell.spectator && MC.method_1562().method_2871(spell.uuid) == null) {
+         if (spell.spectator && MC.getConnection().getPlayerInfo(spell.uuid) == null) {
             it.remove();
          } else if (!spell.watched && spell.sinceTick < this.tickCounter) {
             AntiVanishModule.RegionProof proof = this.regionProof(spell.uuid);
@@ -758,9 +758,9 @@ public final class AntiVanishModule extends ClientModule {
       if (uuid == null) {
          return null;
       } else {
-         class_1657 body = MC.field_1687.method_18470(uuid);
-         if (body != null && body != MC.field_1724) {
-            return new AntiVanishModule.RegionProof(uuid, Math.round(body.method_5739(MC.field_1724)));
+         Player body = MC.level.getPlayerByUUID(uuid);
+         if (body != null && body != MC.player) {
+            return new AntiVanishModule.RegionProof(uuid, Math.round(body.distanceTo(MC.player)));
          } else {
             return StaffListModule.isInYourRegion(uuid) ? new AntiVanishModule.RegionProof(uuid, -1) : null;
          }
@@ -778,16 +778,16 @@ public final class AntiVanishModule extends ClientModule {
    private void scanInvisiblePlayers() {
       double rangeSq = this.sensorRangeSq();
 
-      for (class_1657 player : MC.field_1687.method_18456()) {
-         if (player != null && player != MC.field_1724 && player.method_5767() && !(player.method_5858(MC.field_1724) > rangeSq) && this.realPlayer(player)) {
+      for (Player player : MC.level.players()) {
+         if (player != null && player != MC.player && player.isInvisible() && !(player.distanceToSqr(MC.player) > rangeSq) && this.realPlayer(player)) {
             this.triggerSensor(AntiVanishModule.SignalType.INVISIBLE, player, "Invisible Entity: metadata flag", 35, 5000L);
          }
       }
    }
 
    private void inspectInvisibleEntity(int entityId) {
-      if (MC.field_1687.method_8469(entityId) instanceof class_1657 player && player != MC.field_1724 && player.method_5767()) {
-         if (!(player.method_5858(MC.field_1724) > this.sensorRangeSq())) {
+      if (MC.level.getEntity(entityId) instanceof Player player && player != MC.player && player.isInvisible()) {
+         if (!(player.distanceToSqr(MC.player) > this.sensorRangeSq())) {
             if (this.realPlayer(player)) {
                this.triggerSensor(AntiVanishModule.SignalType.INVISIBLE, player, "Invisible Entity: metadata flag", 35, 5000L);
             }
@@ -795,17 +795,17 @@ public final class AntiVanishModule extends ClientModule {
       }
    }
 
-   private boolean realPlayer(class_1657 player) {
-      return this.credibleSubject(player.method_5667(), profileName(player));
+   private boolean realPlayer(Player player) {
+      return this.credibleSubject(player.getUUID(), profileName(player));
    }
 
-   private static String profileName(class_1657 player) {
-      return player.method_7334() == null ? player.method_5477().getString() : player.method_7334().name();
+   private static String profileName(Player player) {
+      return player.getGameProfile() == null ? player.getName().getString() : player.getGameProfile().name();
    }
 
    private void inspectPositionalSound(AntiVanishModule.Observation observation) {
       if (AntiVanishHeuristics.suspiciousSound(observation.detail)) {
-         class_243 source = observation.position();
+         Vec3 source = observation.position();
          long now = System.currentTimeMillis();
          if (this.nearPlayer(source)
             && !this.hasVisibleCause(source)
@@ -822,10 +822,10 @@ public final class AntiVanishModule extends ClientModule {
 
    private void inspectEntitySound(AntiVanishModule.Observation observation) {
       if (AntiVanishHeuristics.suspiciousSound(observation.detail)) {
-         if (MC.field_1687.method_8469(observation.entityId) instanceof class_1657 player
-            && player != MC.field_1724
-            && player.method_5767()
-            && player.method_5858(MC.field_1724) <= this.sensorRangeSq()
+         if (MC.level.getEntity(observation.entityId) instanceof Player player
+            && player != MC.player
+            && player.isInvisible()
+            && player.distanceToSqr(MC.player) <= this.sensorRangeSq()
             && this.realPlayer(player)) {
             this.triggerSensor(AntiVanishModule.SignalType.SOUND, player, "Suspicious Sound: invisible source", 16, 3000L);
          }
@@ -834,7 +834,7 @@ public final class AntiVanishModule extends ClientModule {
 
    private void inspectParticle(AntiVanishModule.Observation observation) {
       if (AntiVanishHeuristics.suspiciousParticle(observation.detail)) {
-         class_243 source = observation.position();
+         Vec3 source = observation.position();
          long now = System.currentTimeMillis();
          if (this.nearPlayer(source)
             && !this.hasVisibleCause(source)
@@ -853,12 +853,12 @@ public final class AntiVanishModule extends ClientModule {
       }
    }
 
-   private boolean villagerToggledDoor(String blockId, class_243 source) {
+   private boolean villagerToggledDoor(String blockId, Vec3 source) {
       String path = AntiVanishHeuristics.path(blockId);
       boolean doorLike = path.contains("door") && !path.contains("trapdoor") || path.contains("fence_gate");
-      if (doorLike && source != null && MC.field_1687 != null) {
-         for (class_1297 entity : MC.field_1687.method_18112()) {
-            if (entity.method_5864() == class_1299.field_6077 && entity.method_73189().method_1025(source) <= 9.0) {
+      if (doorLike && source != null && MC.level != null) {
+         for (Entity entity : MC.level.entitiesForRendering()) {
+            if (entity.getType() == EntityType.VILLAGER && entity.position().distanceToSqr(source) <= 9.0) {
                return true;
             }
          }
@@ -869,12 +869,12 @@ public final class AntiVanishModule extends ClientModule {
       }
    }
 
-   private boolean recentlySelfPlaced(class_243 source) {
+   private boolean recentlySelfPlaced(Vec3 source) {
       if (source == null) {
          return false;
       }
 
-      Long until = this.selfPlacedBlocks.get(class_2338.method_49638(source).method_10063());
+      Long until = this.selfPlacedBlocks.get(BlockPos.containing(source).asLong());
       return until != null && until > System.currentTimeMillis();
    }
 
@@ -908,8 +908,8 @@ public final class AntiVanishModule extends ClientModule {
       this.addSignal(type, where, null, reason, weight, cooldownMs);
    }
 
-   private void triggerSensor(AntiVanishModule.SignalType type, class_1657 player, String reason, int weight, long cooldownMs) {
-      this.addSignal(type, profileName(player), this.regionProof(player.method_5667()), reason, weight, cooldownMs);
+   private void triggerSensor(AntiVanishModule.SignalType type, Player player, String reason, int weight, long cooldownMs) {
+      this.addSignal(type, profileName(player), this.regionProof(player.getUUID()), reason, weight, cooldownMs);
    }
 
    private void addSignal(AntiVanishModule.SignalType type, String subject, AntiVanishModule.RegionProof proof, String reason, int weight, long cooldownMs) {
@@ -961,8 +961,8 @@ public final class AntiVanishModule extends ClientModule {
          boolean sirenCovers = this.pendingChimes.stream().allMatch(StaffListModule::alarmedRecently);
          this.pendingChimes.clear();
          if (!sirenCovers) {
-            if (MC.method_1483() != null) {
-               MC.method_1483().method_4873(class_1109.method_4757(class_3417.field_15203, 1.0F, 1.0F));
+            if (MC.getSoundManager() != null) {
+               MC.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.ELDER_GUARDIAN_CURSE, 1.0F, 1.0F));
             }
 
             StaffGhost.watching(this.ghostId, this.ghostName, 0);
@@ -970,7 +970,7 @@ public final class AntiVanishModule extends ClientModule {
       }
    }
 
-   private void news(String name, class_2561 what, String detail) {
+   private void news(String name, Component what, String detail) {
       ModuleChat.Body line = ModuleChat.body().name(NameFilter.apply(name)).text(" ").append(what);
       if (!detail.isEmpty()) {
          line.text(" (" + detail + ")");
@@ -979,21 +979,21 @@ public final class AntiVanishModule extends ClientModule {
       ModuleChat.send(this, line);
    }
 
-   private void queueGamemodeUpdates(class_2703 info) {
-      if (!info.method_46327().contains(class_5893.field_29136)) {
-         for (class_2705 entry : info.method_46329()) {
+   private void queueGamemodeUpdates(ClientboundPlayerInfoUpdatePacket info) {
+      if (!info.actions().contains(Action.ADD_PLAYER)) {
+         for (Entry entry : info.entries()) {
             if (entry != null && entry.comp_1110() != null && entry.comp_1106() != null) {
-               this.observations.offer(AntiVanishModule.Observation.gamemode(entry.comp_1106(), entry.comp_1110().method_8381()));
+               this.observations.offer(AntiVanishModule.Observation.gamemode(entry.comp_1106(), entry.comp_1110().getName()));
             }
          }
       }
    }
 
    private void announceGamemode(UUID uuid, String gameMode) {
-      if (uuid != null && (MC.field_1724 == null || !MC.field_1724.method_5667().equals(uuid))) {
+      if (uuid != null && (MC.player == null || !MC.player.getUUID().equals(uuid))) {
          AntiVanishModule.KnownPlayer known = this.knownPlayers.get(uuid);
          if (known != null && StaffListModule.isStaffName(known.name)) {
-            if (class_1934.field_9219.method_8381().equals(gameMode)) {
+            if (GameType.SPECTATOR.getName().equals(gameMode)) {
                if (this.credibleSubject(uuid, known.name)) {
                   this.reportHidden(uuid, known.name, true, "Vanish Event: switched to spectator", "", 100);
                   return;
@@ -1107,12 +1107,12 @@ public final class AntiVanishModule extends ClientModule {
       }
    }
 
-   private boolean nearPlayer(class_243 source) {
-      return source != null && source.method_1025(MC.field_1724.method_73189()) <= this.sensorRangeSq();
+   private boolean nearPlayer(Vec3 source) {
+      return source != null && source.distanceToSqr(MC.player.position()) <= this.sensorRangeSq();
    }
 
-   private boolean nearSelf(class_243 source, double maxDistSq) {
-      return source != null && MC.field_1724 != null && source.method_1025(MC.field_1724.method_73189()) < maxDistSq;
+   private boolean nearSelf(Vec3 source, double maxDistSq) {
+      return source != null && MC.player != null && source.distanceToSqr(MC.player.position()) < maxDistSq;
    }
 
    private boolean selfContainerActive() {
@@ -1124,12 +1124,12 @@ public final class AntiVanishModule extends ClientModule {
       return path.contains("chest") || path.contains("barrel") || path.contains("shulker");
    }
 
-   private String locatedSubject(class_243 source) {
-      if (source != null && MC.field_1724 != null) {
-         class_243 me = MC.field_1724.method_73189();
-         double dx = source.field_1352 - me.field_1352;
-         double dy = source.field_1351 - me.field_1351;
-         double dz = source.field_1350 - me.field_1350;
+   private String locatedSubject(Vec3 source) {
+      if (source != null && MC.player != null) {
+         Vec3 me = MC.player.position();
+         double dx = source.x - me.x;
+         double dy = source.y - me.y;
+         double dz = source.z - me.z;
          long dist = Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz));
          String dir = compass(dx, dz);
          return dir.isEmpty() ? dist + "m" : dist + "m " + dir;
@@ -1144,18 +1144,18 @@ public final class AntiVanishModule extends ClientModule {
       return ns + ew;
    }
 
-   private boolean hasVisibleCause(class_243 source) {
+   private boolean hasVisibleCause(Vec3 source) {
       if (source == null) {
          return true;
       }
 
-      for (class_1297 entity : MC.field_1687.method_18112()) {
-         if (entity != MC.field_1724) {
-            if (entity instanceof class_1657 player) {
-               if (!player.method_5767() && entity.method_73189().method_1025(source) <= 16.0) {
+      for (Entity entity : MC.level.entitiesForRendering()) {
+         if (entity != MC.player) {
+            if (entity instanceof Player player) {
+               if (!player.isInvisible() && entity.position().distanceToSqr(source) <= 16.0) {
                   return true;
                }
-            } else if (entity instanceof class_1676 && entity.method_73189().method_1025(source) <= 16.0) {
+            } else if (entity instanceof Projectile && entity.position().distanceToSqr(source) <= 16.0) {
                return true;
             }
          }
@@ -1164,7 +1164,7 @@ public final class AntiVanishModule extends ClientModule {
       return false;
    }
 
-   private boolean isExplosionRelated(class_243 source) {
+   private boolean isExplosionRelated(Vec3 source) {
       if (source == null) {
          return false;
       }
@@ -1176,7 +1176,7 @@ public final class AntiVanishModule extends ClientModule {
       }
 
       for (AntiVanishModule.ExplosionEvent explosion : this.recentExplosions) {
-         if (explosion.center.method_1025(source) <= explosion.radius * explosion.radius) {
+         if (explosion.center.distanceToSqr(source) <= explosion.radius * explosion.radius) {
             return true;
          }
       }
@@ -1184,15 +1184,15 @@ public final class AntiVanishModule extends ClientModule {
       return false;
    }
 
-   private boolean hasAmbientParticleSource(class_243 source, String particleId) {
+   private boolean hasAmbientParticleSource(Vec3 source, String particleId) {
       if (source != null && shortId(particleId).contains("smoke")) {
-         class_2338 center = class_2338.method_49638(source);
+         BlockPos center = BlockPos.containing(source);
 
          for (int dx = -2; dx <= 2; dx++) {
             for (int dy = -2; dy <= 2; dy++) {
                for (int dz = -2; dz <= 2; dz++) {
-                  class_2338 pos = center.method_10069(dx, dy, dz);
-                  class_2960 id = class_7923.field_41175.method_10221(MC.field_1687.method_8320(pos).method_26204());
+                  BlockPos pos = center.offset(dx, dy, dz);
+                  Identifier id = BuiltInRegistries.BLOCK.getKey(MC.level.getBlockState(pos).getBlock());
                   String path = shortId(id == null ? "" : id.toString());
                   if (path.contains("campfire")
                      || path.contains("furnace")
@@ -1213,21 +1213,21 @@ public final class AntiVanishModule extends ClientModule {
       }
    }
 
-   private boolean isPoweredMechanism(class_243 source, String soundId) {
+   private boolean isPoweredMechanism(Vec3 source, String soundId) {
       String path = shortId(soundId);
       if (!path.contains("door") && !path.contains("trapdoor")) {
          return false;
       }
 
-      class_2338 center = class_2338.method_49638(source);
+      BlockPos center = BlockPos.containing(source);
       long now = System.currentTimeMillis();
 
       for (int dy = -1; dy <= 1; dy++) {
-         class_2338 pos = center.method_10069(0, dy, 0);
-         class_2680 state = MC.field_1687.method_8320(pos);
-         long key = pos.method_10063();
-         boolean powered = state.method_28498(class_2741.field_12484) && (Boolean)state.method_11654(class_2741.field_12484);
-         if (powered || MC.field_1687.method_49803(pos)) {
+         BlockPos pos = center.offset(0, dy, 0);
+         BlockState state = MC.level.getBlockState(pos);
+         long key = pos.asLong();
+         boolean powered = state.hasProperty(BlockStateProperties.POWERED) && (Boolean)state.getValue(BlockStateProperties.POWERED);
+         if (powered || MC.level.hasNeighborSignal(pos)) {
             this.automatedMechanisms.put(key, now + 5000L);
             return true;
          }
@@ -1253,7 +1253,7 @@ public final class AntiVanishModule extends ClientModule {
       }
    }
 
-   private static String soundId(class_2960 id) {
+   private static String soundId(Identifier id) {
       return id == null ? "" : id.toString();
    }
 
@@ -1310,7 +1310,7 @@ public final class AntiVanishModule extends ClientModule {
    }
 
    @Environment(EnvType.CLIENT)
-   private record ExplosionEvent(class_243 center, double radius, long timeMs) {
+   private record ExplosionEvent(Vec3 center, double radius, long timeMs) {
    }
 
    @Environment(EnvType.CLIENT)
@@ -1334,9 +1334,9 @@ public final class AntiVanishModule extends ClientModule {
          this.sinceTick = sinceTick;
       }
 
-      class_2561 how() {
+      Component how() {
          return this.spectator
-            ? StaffListModule.switchedTo(ModuleChat.body(), class_1934.field_9219.method_8381()).build()
+            ? StaffListModule.switchedTo(ModuleChat.body(), GameType.SPECTATOR.getName()).build()
             : ModuleChat.body().danger("vanished").build();
       }
    }
@@ -1375,9 +1375,9 @@ public final class AntiVanishModule extends ClientModule {
          return new AntiVanishModule.Observation(AntiVanishModule.ObservationType.ENTITY_METADATA, null, id, 0.0, 0.0, 0.0, "");
       }
 
-      static AntiVanishModule.Observation explosion(class_243 center, float radius) {
+      static AntiVanishModule.Observation explosion(Vec3 center, float radius) {
          return new AntiVanishModule.Observation(
-            AntiVanishModule.ObservationType.EXPLOSION, null, -1, center.field_1352, center.field_1351, center.field_1350, Float.toString(radius)
+            AntiVanishModule.ObservationType.EXPLOSION, null, -1, center.x, center.y, center.z, Float.toString(radius)
          );
       }
 
@@ -1389,8 +1389,8 @@ public final class AntiVanishModule extends ClientModule {
          return new AntiVanishModule.Observation(type, null, -1, x, y, z, detail);
       }
 
-      class_243 position() {
-         return new class_243(this.x, this.y, this.z);
+      Vec3 position() {
+         return new Vec3(this.x, this.y, this.z);
       }
    }
 

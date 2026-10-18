@@ -8,8 +8,8 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_4587;
-import net.minecraft.class_7833;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 
 @Environment(EnvType.CLIENT)
 public final class HandsModule extends ClientModule {
@@ -78,14 +78,14 @@ public final class HandsModule extends ClientModule {
       }
    }
 
-   public static void shape(class_4587 pose, boolean mainHand, int side) {
+   public static void shape(PoseStack pose, boolean mainHand, int side) {
       HandsModule module = live;
       if (module != null) {
          module.shapeHand(pose, mainHand, side);
       }
    }
 
-   private void shapeHand(class_4587 pose, boolean mainHand, int side) {
+   private void shapeHand(PoseStack pose, boolean mainHand, int side) {
       boolean on = this.isEnabled();
       HandsModule.HandState state = mainHand ? this.mainState : this.offState;
       state.step(!mainHand && !this.link.get() ? this.off : this.main, on, this.follow());
@@ -93,12 +93,12 @@ public final class HandsModule extends ClientModule {
          live = null;
       } else if (!state.rested) {
          float[] v = state.value;
-         pose.method_46416(side * (0.56F + v[0]), -0.52F + v[1], -0.72F + v[2]);
-         pose.method_22907(class_7833.field_40716.rotationDegrees(side * v[4]));
-         pose.method_22907(class_7833.field_40714.rotationDegrees(v[3]));
-         pose.method_22907(class_7833.field_40718.rotationDegrees(side * v[5]));
-         pose.method_22905(v[6], v[6], v[6]);
-         pose.method_46416(-side * 0.56F, 0.52F, 0.72F);
+         pose.translate(side * (0.56F + v[0]), -0.52F + v[1], -0.72F + v[2]);
+         pose.mulPose(Axis.YP.rotationDegrees(side * v[4]));
+         pose.mulPose(Axis.XP.rotationDegrees(v[3]));
+         pose.mulPose(Axis.ZP.rotationDegrees(side * v[5]));
+         pose.scale(v[6], v[6], v[6]);
+         pose.translate(-side * 0.56F, 0.52F, 0.72F);
       }
    }
 

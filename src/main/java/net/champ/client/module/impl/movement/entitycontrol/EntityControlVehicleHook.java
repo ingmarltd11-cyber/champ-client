@@ -10,17 +10,17 @@ import net.champ.client.module.impl.movement.EntitySpeedModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.class_10185;
-import net.minecraft.class_10255;
-import net.minecraft.class_1297;
-import net.minecraft.class_1313;
-import net.minecraft.class_243;
-import net.minecraft.class_304;
-import net.minecraft.class_310;
-import net.minecraft.class_746;
-import net.minecraft.class_3675.class_306;
-import net.minecraft.class_3675.class_307;
-import net.minecraft.class_4970.class_4971;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import com.mojang.blaze3d.platform.InputConstants.Key;
+import com.mojang.blaze3d.platform.InputConstants.Type;
+import net.minecraft.world.level.block.state.BlockBehaviour.BlockStateBase;
 import org.lwjgl.glfw.GLFW;
 
 @Environment(EnvType.CLIENT)
@@ -35,17 +35,17 @@ public final class EntityControlVehicleHook {
       anyActive = EntityControlModule.active != null || EntitySpeedModule.active != null || BoatFlyModule.active != null || BoatNoclipModule.active != null;
    }
 
-   public static class_243 onEntityMove(class_1297 entity, class_1313 type, class_243 movement) {
-      if (type == class_1313.field_6308 && entity.method_73183().method_8608()) {
-         class_746 player = class_310.method_1551().field_1724;
-         if (player != null && player.method_5854() == entity && entity.method_5642() == player) {
-            class_243 velocity = entity.method_18798();
+   public static Vec3 onEntityMove(Entity entity, MoverType type, Vec3 movement) {
+      if (type == MoverType.SELF && entity.level().isClientSide()) {
+         LocalPlayer player = Minecraft.getInstance().player;
+         if (player != null && player.getVehicle() == entity && entity.getControllingPassenger() == player) {
+            Vec3 velocity = entity.getDeltaMovement();
             BoatNoclipModule noclip = BoatNoclipModule.active;
-            if (noclip != null && entity instanceof class_10255 boat) {
-               class_243 result = noclip.boatMovement(boat, player);
-               entity.method_36456(player.method_36454());
+            if (noclip != null && entity instanceof AbstractBoat boat) {
+               Vec3 result = noclip.boatMovement(boat, player);
+               entity.setYRot(player.getYRot());
                if (movement == velocity) {
-                  entity.method_18799(result);
+                  entity.setDeltaMovement(result);
                }
 
                return result;
@@ -53,21 +53,21 @@ public final class EntityControlVehicleHook {
                EntityControlModule control = EntityControlModule.active;
                EntitySpeedModule speed = EntitySpeedModule.active;
                BoatFlyModule fly = BoatFlyModule.active;
-               double velX = velocity.field_1352;
-               double velY = velocity.field_1351;
-               double velZ = velocity.field_1350;
+               double velX = velocity.x;
+               double velY = velocity.y;
+               double velZ = velocity.z;
                boolean overridden = false;
                if (speed != null) {
                   if (speed.appliesTo(entity)) {
-                     class_243 horizontal = horizontalVelocity(player, speed.horizontalSpeed());
-                     velX = horizontal.field_1352;
-                     velZ = horizontal.field_1350;
+                     Vec3 horizontal = horizontalVelocity(player, speed.horizontalSpeed());
+                     velX = horizontal.x;
+                     velZ = horizontal.z;
                      overridden = true;
                   }
                } else if (fly != null) {
-                  class_243 horizontal = horizontalVelocity(player, fly.horizontalSpeed());
-                  velX = horizontal.field_1352;
-                  velZ = horizontal.field_1350;
+                  Vec3 horizontal = horizontalVelocity(player, fly.horizontalSpeed());
+                  velX = horizontal.x;
+                  velZ = horizontal.z;
                   overridden = true;
                }
 
@@ -77,16 +77,16 @@ public final class EntityControlVehicleHook {
                }
 
                if (fly != null || control != null && control.locksYaw(entity)) {
-                  entity.method_36456(player.method_36454());
+                  entity.setYRot(player.getYRot());
                }
 
                if (!overridden) {
                   return movement;
                }
 
-               class_243 result = new class_243(velX, velY, velZ);
+               Vec3 result = new Vec3(velX, velY, velZ);
                if (movement == velocity) {
-                  entity.method_18799(result);
+                  entity.setDeltaMovement(result);
                }
 
                return result;
@@ -99,8 +99,8 @@ public final class EntityControlVehicleHook {
       }
    }
 
-   public static boolean locksBoatTurning(class_10255 boat) {
-      if (!anyActive || !boat.method_73183().method_8608()) {
+   public static boolean locksBoatTurning(AbstractBoat boat) {
+      if (!anyActive || !boat.level().isClientSide()) {
          return false;
       } else if (BoatFlyModule.active == null && BoatNoclipModule.active == null) {
          EntityControlModule control = EntityControlModule.active;
@@ -110,36 +110,36 @@ public final class EntityControlVehicleHook {
       }
    }
 
-   public static class_243 horizontalVelocity(class_746 player, double bps) {
-      float yaw = player.method_36454();
-      class_243 forward = class_243.method_1030(0.0F, yaw);
-      class_243 right = class_243.method_1030(0.0F, yaw + 90.0F);
-      class_10185 input = player.field_3913.field_54155;
+   public static Vec3 horizontalVelocity(LocalPlayer player, double bps) {
+      float yaw = player.getYRot();
+      Vec3 forward = Vec3.directionFromRotation(0.0F, yaw);
+      Vec3 right = Vec3.directionFromRotation(0.0F, yaw + 90.0F);
+      Input input = player.input.keyPresses;
       double velX = 0.0;
       double velZ = 0.0;
       boolean longitudinal = false;
       if (input.comp_3159()) {
-         velX += forward.field_1352 / 20.0 * bps;
-         velZ += forward.field_1350 / 20.0 * bps;
+         velX += forward.x / 20.0 * bps;
+         velZ += forward.z / 20.0 * bps;
          longitudinal = true;
       }
 
       if (input.comp_3160()) {
-         velX -= forward.field_1352 / 20.0 * bps;
-         velZ -= forward.field_1350 / 20.0 * bps;
+         velX -= forward.x / 20.0 * bps;
+         velZ -= forward.z / 20.0 * bps;
          longitudinal = true;
       }
 
       boolean lateral = false;
       if (input.comp_3162()) {
-         velX += right.field_1352 / 20.0 * bps;
-         velZ += right.field_1350 / 20.0 * bps;
+         velX += right.x / 20.0 * bps;
+         velZ += right.z / 20.0 * bps;
          lateral = true;
       }
 
       if (input.comp_3161()) {
-         velX -= right.field_1352 / 20.0 * bps;
-         velZ -= right.field_1350 / 20.0 * bps;
+         velX -= right.x / 20.0 * bps;
+         velZ -= right.z / 20.0 * bps;
          lateral = true;
       }
 
@@ -148,26 +148,26 @@ public final class EntityControlVehicleHook {
          velZ *= DIAGONAL;
       }
 
-      return new class_243(velX, 0.0, velZ);
+      return new Vec3(velX, 0.0, velZ);
    }
 
-   public static boolean isPhysicallyDown(class_304 mapping) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1755 == null && !mapping.method_1415() && !isFreecamActive()) {
-         class_306 key = KeyBindingHelper.getBoundKeyOf(mapping);
-         class_307 type = key.method_1442();
-         if (type == class_307.field_1668) {
-            return ChampKeyPolling.isKeyDown(mc.method_22683(), key.method_1444());
+   public static boolean isPhysicallyDown(KeyMapping mapping) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.screen == null && !mapping.isUnbound() && !isFreecamActive()) {
+         Key key = KeyBindingHelper.getBoundKeyOf(mapping);
+         Type type = key.getType();
+         if (type == Type.KEYSYM) {
+            return ChampKeyPolling.isKeyDown(mc.getWindow(), key.getValue());
          } else {
-            return type == class_307.field_1672 ? GLFW.glfwGetMouseButton(mc.method_22683().method_4490(), key.method_1444()) == 1 : mapping.method_1434();
+            return type == Type.MOUSE ? GLFW.glfwGetMouseButton(mc.getWindow().handle(), key.getValue()) == 1 : mapping.isDown();
          }
       } else {
          return false;
       }
    }
 
-   public static boolean isOnAir(class_1297 entity) {
-      return entity.method_73183().method_29546(entity.method_5829().method_1014(0.0625).method_1012(0.0, -0.55, 0.0)).allMatch(class_4971::method_26215);
+   public static boolean isOnAir(Entity entity) {
+      return entity.level().getBlockStates(entity.getBoundingBox().inflate(0.0625).expandTowards(0.0, -0.55, 0.0)).allMatch(BlockStateBase::isAir);
    }
 
    private static boolean isFreecamActive() {

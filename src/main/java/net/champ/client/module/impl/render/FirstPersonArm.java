@@ -8,26 +8,26 @@ import net.champ.client.module.ModuleRegistry;
 import net.champ.client.module.impl.misc.SkinChangeModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1007;
-import net.minecraft.class_10444;
-import net.minecraft.class_11659;
-import net.minecraft.class_1309;
-import net.minecraft.class_1664;
-import net.minecraft.class_1747;
-import net.minecraft.class_1799;
-import net.minecraft.class_1802;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_4587;
-import net.minecraft.class_742;
-import net.minecraft.class_746;
-import net.minecraft.class_7833;
-import net.minecraft.class_7920;
-import net.minecraft.class_804;
-import net.minecraft.class_811;
-import net.minecraft.class_8685;
-import net.minecraft.class_898;
-import net.minecraft.class_4587.class_4665;
+import net.minecraft.client.renderer.entity.player.AvatarRenderer;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.PlayerModelPart;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.LocalPlayer;
+import com.mojang.math.Axis;
+import net.minecraft.world.entity.player.PlayerModelType;
+import net.minecraft.client.renderer.block.model.ItemTransform;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.entity.player.PlayerSkin;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -45,23 +45,23 @@ final class FirstPersonArm {
    private static final float HANDLE_INSET = 0.1875F;
    private static final float BLOCK_BELOW = 0.17F;
    private static final Vector3f BLOCK_SHIFT = new Vector3f(0.09F, 0.0F, 0.06F);
-   private static final class_10444 MODEL = new class_10444();
+   private static final ItemStackRenderState MODEL = new ItemStackRenderState();
 
    private FirstPersonArm() {
    }
 
    static FirstPersonArm.Arm arm() {
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
-      if (player != null && !player.method_5767()) {
-         class_898 dispatcher = mc.method_1561();
-         class_1007<class_742> renderer = dispatcher.method_74405(player);
-         class_8685 skin = player.method_52814();
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      if (player != null && !player.isInvisible()) {
+         EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
+         AvatarRenderer<AbstractClientPlayer> renderer = dispatcher.getPlayerRenderer(player);
+         PlayerSkin skin = player.getSkin();
          SkinChangeModule change = ModuleRegistry.get(SkinChangeModule.class);
          if (change != null && change.isEnabled()) {
-            class_8685 swapped = change.skinFor(player.method_5628(), skin);
+            PlayerSkin swapped = change.skinFor(player.getId(), skin);
             if (swapped != skin) {
-               class_1007<class_742> byModel = ((AccessorSkinChangeEntityRenderDispatcher)dispatcher)
+               AvatarRenderer<AbstractClientPlayer> byModel = ((AccessorSkinChangeEntityRenderDispatcher)dispatcher)
                   .champ$skinChangePlayerRenderers()
                   .get(swapped.comp_1629());
                if (byModel != null) {
@@ -75,9 +75,9 @@ final class FirstPersonArm {
          return new FirstPersonArm.Arm(
             renderer,
             skin.comp_1626().comp_3627(),
-            player.method_74091(class_1664.field_7570),
-            player.method_74091(class_1664.field_7568),
-            skin.comp_1629() == class_7920.field_41122
+            player.isModelPartShown(PlayerModelPart.RIGHT_SLEEVE),
+            player.isModelPartShown(PlayerModelPart.LEFT_SLEEVE),
+            skin.comp_1629() == PlayerModelType.SLIM
          );
       } else {
          return null;
@@ -85,12 +85,12 @@ final class FirstPersonArm {
    }
 
    static void hold(
-      class_4587 pose,
+      PoseStack pose,
       FirstPersonArm.Arm arm,
-      class_1799 stack,
-      class_811 context,
-      class_1309 holder,
-      class_11659 collector,
+      ItemStack stack,
+      ItemDisplayContext context,
+      LivingEntity holder,
+      SubmitNodeCollector collector,
       int light,
       float dx,
       float dy,
@@ -100,53 +100,53 @@ final class FirstPersonArm {
       if (grip != null) {
          Vector3f elbow = new Vector3f(grip).fma(0.6F, FOREARM);
          grip.add(dx, dy, dz);
-         boolean left = context.method_67675();
-         pose.method_22903();
+         boolean left = context.leftHand();
+         pose.pushPose();
          if (left) {
-            pose.method_22905(-1.0F, 1.0F, 1.0F);
+            pose.scale(-1.0F, 1.0F, 1.0F);
          }
 
          place(pose, grip, elbow, arm.slim(), posed -> arm.draw(posed, left, collector, light));
-         pose.method_22909();
+         pose.popPose();
       }
    }
 
-   static Vector3f grip(class_1799 stack, class_811 context, class_1309 holder) {
-      if (!stack.method_7960()
-         && !stack.method_31574(class_1802.field_8102)
-         && !stack.method_31574(class_1802.field_8399)
-         && !stack.method_31574(class_1802.field_8255)
-         && !stack.method_31574(class_1802.field_8547)
-         && !stack.method_31574(class_1802.field_27070)) {
-         class_310.method_1551().method_65386().method_65598(MODEL, stack, context, holder.method_73183(), holder, holder.method_5628() + context.ordinal());
+   static Vector3f grip(ItemStack stack, ItemDisplayContext context, LivingEntity holder) {
+      if (!stack.isEmpty()
+         && !stack.is(Items.BOW)
+         && !stack.is(Items.CROSSBOW)
+         && !stack.is(Items.SHIELD)
+         && !stack.is(Items.TRIDENT)
+         && !stack.is(Items.SPYGLASS)) {
+         Minecraft.getInstance().getItemModelResolver().updateForTopItem(MODEL, stack, context, holder.level(), holder, holder.getId() + context.ordinal());
          AccessorHandItemRenderState state = (AccessorHandItemRenderState)MODEL;
          if (state.champ$handLayerCount() <= 0) {
             return null;
          }
 
          AccessorHandItemLayer layer = (AccessorHandItemLayer)state.champ$handLayers()[0];
-         class_804 transform = layer.champ$handTransform();
-         class_4665 display = new class_4665();
+         ItemTransform transform = layer.champ$handTransform();
+         Pose display = new Pose();
          if (transform != null) {
-            transform.method_23075(context.method_67675(), display);
+            transform.apply(context.leftHand(), display);
          }
 
-         Matrix4f m = display.method_23761();
-         if (!MODEL.method_65608()) {
+         Matrix4f m = display.pose();
+         if (!MODEL.usesBlockLight()) {
             float[] handle = handle(layer.champ$handExtents() != null ? layer.champ$handExtents().get() : null);
             Vector3f grip = m.transformPosition(handle[0] - 0.5F, handle[1] - 0.5F, 0.0F, new Vector3f());
-            if (context.method_67675()) {
+            if (context.leftHand()) {
                grip.x = -grip.x;
             }
 
             return grip;
          } else {
-            if (!(stack.method_7909() instanceof class_1747)) {
+            if (!(stack.getItem() instanceof BlockItem)) {
                return null;
             }
 
             Vector3f center = m.transformPosition(0.0F, 0.0F, 0.0F, new Vector3f());
-            if (context.method_67675()) {
+            if (context.leftHand()) {
                center.x = -center.x;
             }
 
@@ -194,53 +194,53 @@ final class FirstPersonArm {
       return (p.x() < 1.0E-4F || p.x() > 0.9999F) && (p.y() < 1.0E-4F || p.y() > 0.9999F);
    }
 
-   static void place(class_4587 pose, Vector3f hand, Vector3f elbow, boolean slim, Consumer<class_4587> draw) {
+   static void place(PoseStack pose, Vector3f hand, Vector3f elbow, boolean slim, Consumer<PoseStack> draw) {
       Vector3f along = new Vector3f(hand).sub(elbow).normalize();
       Vector3f front = new Vector3f(ARM_UP).fma(-ARM_UP.dot(along), along).normalize();
       Vector3f side = new Vector3f(along).cross(front);
-      pose.method_22903();
-      pose.method_46416(hand.x, hand.y, hand.z);
-      pose.method_22907(new Quaternionf().setFromNormalized(new Matrix3f(side, along, front)));
+      pose.pushPose();
+      pose.translate(hand.x, hand.y, hand.z);
+      pose.mulPose(new Quaternionf().setFromNormalized(new Matrix3f(side, along, front)));
       drawPart(pose, slim, draw);
-      pose.method_46416(0.0F, -0.625F, 0.0F);
-      pose.method_22905(-1.0F, -3.0F, 1.0F);
-      pose.method_46416(0.0F, 0.625F, 0.0F);
+      pose.translate(0.0F, -0.625F, 0.0F);
+      pose.scale(-1.0F, -3.0F, 1.0F);
+      pose.translate(0.0F, 0.625F, 0.0F);
       drawPart(pose, slim, draw);
-      pose.method_22909();
+      pose.popPose();
    }
 
-   private static void drawPart(class_4587 pose, boolean slim, Consumer<class_4587> draw) {
-      pose.method_22903();
-      pose.method_46416(slim ? 0.03125F : 0.0625F, -0.5F, 0.0F);
-      pose.method_22907(class_7833.field_40718.rotation(-0.1F));
-      pose.method_46416(0.3125F, -0.125F, 0.0F);
+   private static void drawPart(PoseStack pose, boolean slim, Consumer<PoseStack> draw) {
+      pose.pushPose();
+      pose.translate(slim ? 0.03125F : 0.0625F, -0.5F, 0.0F);
+      pose.mulPose(Axis.ZP.rotation(-0.1F));
+      pose.translate(0.3125F, -0.125F, 0.0F);
       draw.accept(pose);
-      pose.method_22909();
+      pose.popPose();
    }
 
-   static void shoulder(class_4587 pose, boolean right, boolean slim) {
+   static void shoulder(PoseStack pose, boolean right, boolean slim) {
       float pivotX = right ? -0.3125F : 0.3125F;
       float pivotY = 0.125F;
       float tilt = right ? 0.1F : -0.1F;
       float middle = (right ? -1.0F : 1.0F) * (slim ? 0.5F : 1.0F) / 16.0F;
       float top = -0.125F;
-      pose.method_46416(pivotX, pivotY, 0.0F);
-      pose.method_22907(class_7833.field_40718.rotation(tilt));
-      pose.method_46416(middle, top, 0.0F);
-      pose.method_22905(-1.0F, -3.0F, 1.0F);
-      pose.method_46416(-middle, -top, 0.0F);
-      pose.method_22907(class_7833.field_40718.rotation(-tilt));
-      pose.method_46416(-pivotX, -pivotY, 0.0F);
+      pose.translate(pivotX, pivotY, 0.0F);
+      pose.mulPose(Axis.ZP.rotation(tilt));
+      pose.translate(middle, top, 0.0F);
+      pose.scale(-1.0F, -3.0F, 1.0F);
+      pose.translate(-middle, -top, 0.0F);
+      pose.mulPose(Axis.ZP.rotation(-tilt));
+      pose.translate(-pivotX, -pivotY, 0.0F);
    }
 
    @Environment(EnvType.CLIENT)
-   record Arm(class_1007<class_742> renderer, class_2960 texture, boolean rightSleeve, boolean leftSleeve, boolean slim) {
-      void draw(class_4587 pose, boolean left, class_11659 collector, int light) {
+   record Arm(AvatarRenderer<AbstractClientPlayer> renderer, Identifier texture, boolean rightSleeve, boolean leftSleeve, boolean slim) {
+      void draw(PoseStack pose, boolean left, SubmitNodeCollector collector, int light) {
          if (left) {
-            pose.method_22905(-1.0F, 1.0F, 1.0F);
-            this.renderer.method_4221(pose, collector, light, this.texture, this.leftSleeve);
+            pose.scale(-1.0F, 1.0F, 1.0F);
+            this.renderer.renderLeftHand(pose, collector, light, this.texture, this.leftSleeve);
          } else {
-            this.renderer.method_4220(pose, collector, light, this.texture, this.rightSleeve);
+            this.renderer.renderRightHand(pose, collector, light, this.texture, this.rightSleeve);
          }
       }
    }

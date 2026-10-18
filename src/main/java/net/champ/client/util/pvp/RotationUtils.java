@@ -2,33 +2,33 @@ package net.champ.client.util.pvp;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
-import net.minecraft.class_3532;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class RotationUtils {
    private RotationUtils() {
    }
 
-   public static Rotation fromTo(class_243 from, class_243 to) {
-      double dx = to.field_1352 - from.field_1352;
-      double dy = to.field_1351 - from.field_1351;
-      double dz = to.field_1350 - from.field_1350;
+   public static Rotation fromTo(Vec3 from, Vec3 to) {
+      double dx = to.x - from.x;
+      double dy = to.y - from.y;
+      double dz = to.z - from.z;
       double horizontal = Math.sqrt(dx * dx + dz * dz);
-      float yaw = (float)(class_3532.method_15349(dz, dx) * 180.0F / (float)Math.PI) - 90.0F;
-      float pitch = (float)(-(class_3532.method_15349(dy, horizontal) * 180.0F / (float)Math.PI));
-      return new Rotation(class_3532.method_15393(yaw), class_3532.method_15363(pitch, -90.0F, 90.0F));
+      float yaw = (float)(Mth.atan2(dz, dx) * 180.0F / (float)Math.PI) - 90.0F;
+      float pitch = (float)(-(Mth.atan2(dy, horizontal) * 180.0F / (float)Math.PI));
+      return new Rotation(Mth.wrapDegrees(yaw), Mth.clamp(pitch, -90.0F, 90.0F));
    }
 
-   public static Rotation entityRotation(class_1297 entity) {
-      return new Rotation(entity.method_36454(), entity.method_36455());
+   public static Rotation entityRotation(Entity entity) {
+      return new Rotation(entity.getYRot(), entity.getXRot());
    }
 
    public static float yawDelta(float fromYaw, float toYaw) {
-      return class_3532.method_15393(toYaw - fromYaw);
+      return Mth.wrapDegrees(toYaw - fromYaw);
    }
 
    public static float pitchDelta(float fromPitch, float toPitch) {
@@ -41,8 +41,8 @@ public final class RotationUtils {
       return Math.hypot(yaw, pitch);
    }
 
-   public static double mouseScale(class_310 mc, class_746 player) {
-      double speed = (Double)mc.field_1690.method_42495().method_41753() * 0.6F + 0.2F;
-      return speed * speed * speed * (mc.field_1690.method_31044().method_31034() && player.method_31550() ? 1.0 : 8.0);
+   public static double mouseScale(Minecraft mc, LocalPlayer player) {
+      double speed = (Double)mc.options.sensitivity().get() * 0.6F + 0.2F;
+      return speed * speed * speed * (mc.options.getCameraType().isFirstPerson() && player.isScoping() ? 1.0 : 8.0);
    }
 }

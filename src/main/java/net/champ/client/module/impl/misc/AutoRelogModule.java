@@ -7,15 +7,15 @@ import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.util.LevelUtil;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_3928;
-import net.minecraft.class_412;
-import net.minecraft.class_437;
-import net.minecraft.class_500;
-import net.minecraft.class_638;
-import net.minecraft.class_639;
-import net.minecraft.class_642;
-import net.minecraft.class_746;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.LevelLoadingScreen;
+import net.minecraft.client.gui.screens.ConnectScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.player.LocalPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,10 +26,10 @@ public final class AutoRelogModule extends ClientModule {
    private static final int REARM_TICKS = 40;
    private final NumberSetting yLevel = this.addSetting("y-level", new NumberSetting("Y Level", 0.0F, -60.0F, 16.0F).step(1.0F));
    private final NumberSetting delay = this.addSetting("delay", new NumberSetting("Delay", 3.0F, 1.0F, 30.0F).step(0.5F));
-   private class_638 seenLevel;
-   private class_746 seenPlayer;
+   private ClientLevel seenLevel;
+   private LocalPlayer seenPlayer;
    private int aboveTicks;
-   private class_642 rejoin;
+   private ServerData rejoin;
    private boolean disconnected;
    private int rejoinTicks;
 
@@ -57,13 +57,13 @@ public final class AutoRelogModule extends ClientModule {
    }
 
    private void onTick() {
-      class_310 mc = class_310.method_1551();
+      Minecraft mc = Minecraft.getInstance();
       if (this.rejoin != null) {
          this.waitToRejoin(mc);
       } else {
-         class_746 player = mc.field_1724;
-         class_638 level = mc.field_1687;
-         if (player != null && level != null && !(mc.field_1755 instanceof class_3928)) {
+         LocalPlayer player = mc.player;
+         ClientLevel level = mc.level;
+         if (player != null && level != null && !(mc.screen instanceof LevelLoadingScreen)) {
             if (level != this.seenLevel || player != this.seenPlayer) {
                this.seenLevel = level;
                this.seenPlayer = player;
@@ -73,7 +73,7 @@ public final class AutoRelogModule extends ClientModule {
             if (!LevelUtil.isOverworld(level)) {
                this.aboveTicks = 0;
             } else {
-               double y = player.method_23318();
+               double y = player.getY();
                float line = this.yLevel.get();
                if (y >= line + 4.0F) {
                   if (this.aboveTicks < 40) {
@@ -93,32 +93,32 @@ public final class AutoRelogModule extends ClientModule {
       }
    }
 
-   private void relog(class_310 mc, double y) {
-      class_642 server = mc.method_1542() ? null : mc.method_1558();
-      if (server != null && !server.method_52811()) {
+   private void relog(Minecraft mc, double y) {
+      ServerData server = mc.isLocalServer() ? null : mc.getCurrentServer();
+      if (server != null && !server.isRealm()) {
          LOGGER.info("[Champ Client] Auto Relog: reached Y {}, relogging", (int)Math.floor(y));
          this.rejoin = server;
          this.disconnected = false;
          this.rejoinTicks = Math.round(this.delay.get() * 20.0F);
-         mc.method_63588(() -> {
-            if (this.rejoin == server && mc.field_1687 != null) {
-               mc.method_73360(class_638.field_61021);
+         mc.schedule(() -> {
+            if (this.rejoin == server && mc.level != null) {
+               mc.disconnectFromWorld(ClientLevel.DEFAULT_QUIT_MESSAGE);
                this.disconnected = true;
             }
          });
       }
    }
 
-   private void waitToRejoin(class_310 mc) {
+   private void waitToRejoin(Minecraft mc) {
       if (this.disconnected) {
-         if (mc.field_1687 == null && mc.field_1755 instanceof class_500) {
+         if (mc.level == null && mc.screen instanceof JoinMultiplayerScreen) {
             if (--this.rejoinTicks <= 0) {
-               class_642 server = this.rejoin;
-               class_437 serverList = mc.field_1755;
+               ServerData server = this.rejoin;
+               Screen serverList = mc.screen;
                this.rejoin = null;
-               mc.method_63588(() -> {
-                  if (mc.field_1755 == serverList && mc.field_1687 == null) {
-                     class_412.method_36877(serverList, mc, class_639.method_2950(server.field_3761), server, false, null);
+               mc.schedule(() -> {
+                  if (mc.screen == serverList && mc.level == null) {
+                     ConnectScreen.startConnecting(serverList, mc, ServerAddress.parseString(server.ip), server, false, null);
                   }
                });
             }

@@ -4,18 +4,18 @@ import net.champ.client.event.CancellableEvent;
 import net.champ.client.event.CancellableEventType;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
+import net.minecraft.world.entity.Entity;
 
 @Environment(EnvType.CLIENT)
 public final class PlayerAttackEntityEvent extends CancellableEvent {
    public static final CancellableEventType<PlayerAttackEntityEvent> TYPE = new CancellableEventType<>("PlayerAttackEntityEvent");
-   public class_1297 target;
+   public Entity target;
    private static final PlayerAttackEntityEvent INSTANCE = new PlayerAttackEntityEvent();
 
    private PlayerAttackEntityEvent() {
    }
 
-   public static boolean dispatch(class_1297 target) {
+   public static boolean dispatch(Entity target) {
       if (!TYPE.hasPreListeners()) {
          return false;
       }

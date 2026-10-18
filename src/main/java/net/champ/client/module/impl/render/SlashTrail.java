@@ -2,10 +2,10 @@ package net.champ.client.module.impl.render;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_3532;
-import net.minecraft.class_4588;
-import net.minecraft.class_4608;
-import net.minecraft.class_4587.class_4665;
+import net.minecraft.util.Mth;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
 
 @Environment(EnvType.CLIENT)
 final class SlashTrail {
@@ -36,7 +36,7 @@ final class SlashTrail {
       return this.size == 0 || now - this.times[this.newest] > lifetime;
    }
 
-   void emit(class_4665 pose, class_4588 out, long now, long lifetime, int rgb, float strength) {
+   void emit(Pose pose, VertexConsumer out, long now, long lifetime, int rgb, float strength) {
       int r = rgb >> 16 & 0xFF;
       int g = rgb >> 8 & 0xFF;
       int b = rgb & 0xFF;
@@ -57,8 +57,8 @@ final class SlashTrail {
             float dx = this.points[n + 3] - this.points[o + 3];
             float dy = this.points[n + 4] - this.points[o + 4];
             float dz = this.points[n + 5] - this.points[o + 5];
-            float speed = class_3532.method_15355(dx * dx + dy * dy + dz * dz) / ((float)dt / 1.0E9F);
-            float fast = class_3532.method_15363((speed - 0.6F) / 2.1999998F, 0.0F, 1.0F);
+            float speed = Mth.sqrt(dx * dx + dy * dy + dz * dz) / ((float)dt / 1.0E9F);
+            float fast = Mth.clamp((speed - 0.6F) / 2.1999998F, 0.0F, 1.0F);
             if (!(fast <= 0.0F)) {
                float aNewer = fade(ageNewer, lifetime) * fast * strength;
                float aOlder = fade(ageOlder, lifetime) * fast * strength;
@@ -94,30 +94,30 @@ final class SlashTrail {
    }
 
    private static float fade(long age, long lifetime) {
-      float left = 1.0F - class_3532.method_15363((float)age / (float)lifetime, 0.0F, 1.0F);
+      float left = 1.0F - Mth.clamp((float)age / (float)lifetime, 0.0F, 1.0F);
       return left * left * 0.6F;
    }
 
-   private static void vertex(class_4665 pose, class_4588 out, float[] quad, int v, int r, int g, int b) {
+   private static void vertex(Pose pose, VertexConsumer out, float[] quad, int v, int r, int g, int b) {
       int i = v * 4;
-      out.method_56824(pose, quad[i], quad[i + 1], quad[i + 2])
-         .method_1336(r, g, b, Math.round(class_3532.method_15363(quad[i + 3], 0.0F, 1.0F) * 255.0F))
-         .method_22913(0.5F, 0.5F)
-         .method_22922(class_4608.field_21444)
-         .method_60803(15728880)
-         .method_60831(pose, 0.0F, 0.0F, 1.0F);
+      out.addVertex(pose, quad[i], quad[i + 1], quad[i + 2])
+         .setColor(r, g, b, Math.round(Mth.clamp(quad[i + 3], 0.0F, 1.0F) * 255.0F))
+         .setUv(0.5F, 0.5F)
+         .setOverlay(OverlayTexture.NO_OVERLAY)
+         .setLight(15728880)
+         .setNormal(pose, 0.0F, 0.0F, 1.0F);
    }
 
-   static void sparkle(class_4665 pose, class_4588 out, float x, float y, float z, float size, float turn, int rgb, float alpha) {
+   static void sparkle(Pose pose, VertexConsumer out, float x, float y, float z, float size, float turn, int rgb, float alpha) {
       int r = rgb >> 16 & 0xFF;
       int g = rgb >> 8 & 0xFF;
       int b = rgb & 0xFF;
-      int core = Math.round(class_3532.method_15363(alpha, 0.0F, 1.0F) * 255.0F);
+      int core = Math.round(Mth.clamp(alpha, 0.0F, 1.0F) * 255.0F);
 
       for (int arm = 0; arm < 4; arm++) {
          float angle = turn + arm * (float) (Math.PI / 2);
-         float cos = class_3532.method_15362(angle);
-         float sin = class_3532.method_15374(angle);
+         float cos = Mth.cos(angle);
+         float sin = Mth.sin(angle);
          float length = size * (arm % 2 == 0 ? 1.0F : 0.7F);
          float width = size * 0.16F;
          float tx = x + cos * length;
@@ -137,12 +137,12 @@ final class SlashTrail {
       }
    }
 
-   private static void star(class_4665 pose, class_4588 out, float x, float y, float z, int r, int g, int b, int a) {
-      out.method_56824(pose, x, y, z)
-         .method_1336(r, g, b, a)
-         .method_22913(0.5F, 0.5F)
-         .method_22922(class_4608.field_21444)
-         .method_60803(15728880)
-         .method_60831(pose, 0.0F, 0.0F, 1.0F);
+   private static void star(Pose pose, VertexConsumer out, float x, float y, float z, int r, int g, int b, int a) {
+      out.addVertex(pose, x, y, z)
+         .setColor(r, g, b, a)
+         .setUv(0.5F, 0.5F)
+         .setOverlay(OverlayTexture.NO_OVERLAY)
+         .setLight(15728880)
+         .setNormal(pose, 0.0F, 0.0F, 1.0F);
    }
 }

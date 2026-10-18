@@ -20,10 +20,10 @@ import net.champ.client.module.ClientModule;
 import net.champ.client.module.setting.BlockColorListSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2248;
-import net.minecraft.class_2960;
-import net.minecraft.class_310;
-import net.minecraft.class_7923;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.resources.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 @Environment(EnvType.CLIENT)
 final class BlockListEditor {
@@ -69,7 +69,7 @@ final class BlockListEditor {
    private static final int LEV_INSERT = 1;
    private static final int LEV_SUBSTITUTE = 8;
    private static final int LEV_DELETE = 8;
-   private static final Reference2ObjectOpenHashMap<class_2248, BlockListEditor.BlockInfo> INFOS = new Reference2ObjectOpenHashMap();
+   private static final Reference2ObjectOpenHashMap<Block, BlockListEditor.BlockInfo> INFOS = new Reference2ObjectOpenHashMap();
    private static final Map<BlockColorListSetting, BlockListEditor.ListState> LISTS = new WeakHashMap<>();
    private static String language;
    private static int iconsFrame = -2;
@@ -758,11 +758,11 @@ final class BlockListEditor {
    }
 
    private static void refreshNames() {
-      String selected = class_310.method_1551().method_1526().method_4669();
+      String selected = Minecraft.getInstance().getLanguageManager().getSelected();
       if (!selected.equals(language)) {
          language = selected;
          if (INFOS.isEmpty()) {
-            for (class_2248 block : class_7923.field_41175) {
+            for (Block block : BuiltInRegistries.BLOCK) {
                INFOS.put(block, new BlockListEditor.BlockInfo(block));
             }
          }
@@ -772,7 +772,7 @@ final class BlockListEditor {
 
          while (var5.hasNext()) {
             BlockListEditor.BlockInfo info = (BlockListEditor.BlockInfo)var5.next();
-            info.name = info.block.method_9518().getString();
+            info.name = info.block.getName().getString();
             info.nameLower = info.name.toLowerCase(Locale.ROOT);
             if (!info.wallBanner) {
                uses.addTo(info.name, 1);
@@ -1043,7 +1043,7 @@ final class BlockListEditor {
 
    @Environment(EnvType.CLIENT)
    private static final class BlockInfo {
-      final class_2248 block;
+      final Block block;
       final int rawId;
       final String id;
       final String idLower;
@@ -1054,16 +1054,16 @@ final class BlockListEditor {
       String nameLower;
       String hint;
 
-      BlockInfo(class_2248 block) {
+      BlockInfo(Block block) {
          this.block = block;
-         this.rawId = class_7923.field_41175.method_10206(block);
-         class_2960 key = class_7923.field_41175.method_10221(block);
+         this.rawId = BuiltInRegistries.BLOCK.getId(block);
+         Identifier key = BuiltInRegistries.BLOCK.getKey(block);
          this.id = key.toString();
          this.idLower = this.id.toLowerCase(Locale.ROOT);
-         this.path = key.method_12832();
+         this.path = key.getPath();
          this.wallBanner = this.path.endsWith("_wall_banner");
          this.wallBannerId = !this.wallBanner && this.path.endsWith("_banner")
-            ? key.method_12836() + ":" + this.path.substring(0, this.path.length() - "banner".length()) + "wall_banner"
+            ? key.getNamespace() + ":" + this.path.substring(0, this.path.length() - "banner".length()) + "wall_banner"
             : null;
       }
    }
@@ -1109,8 +1109,8 @@ final class BlockListEditor {
          ArrayList<BlockListEditor.Row> rows = new ArrayList<>(entries.size());
 
          for (BlockColorListSetting.BlockEntry entry : entries) {
-            class_2960 key = class_2960.method_12829(entry.id());
-            class_2248 block = key == null ? null : (class_2248)class_7923.field_41175.method_17966(key).orElse(null);
+            Identifier key = Identifier.tryParse(entry.id());
+            Block block = key == null ? null : (Block)BuiltInRegistries.BLOCK.getOptional(key).orElse(null);
             BlockListEditor.BlockInfo info = block == null ? null : (BlockListEditor.BlockInfo)BlockListEditor.INFOS.get(block);
             if (info != null) {
                BlockListEditor.Row row = new BlockListEditor.Row(entry, info);

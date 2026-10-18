@@ -24,13 +24,13 @@ import net.champ.client.util.MobilePerformance;
 import net.champ.client.util.TracerEngine;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1297;
-import net.minecraft.class_156;
-import net.minecraft.class_1657;
-import net.minecraft.class_243;
-import net.minecraft.class_2583;
-import net.minecraft.class_310;
-import net.minecraft.class_5251;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.util.Util;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.chat.Style;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.TextColor;
 import org.joml.Vector4f;
 
 @Environment(EnvType.CLIENT)
@@ -39,7 +39,7 @@ public final class TracersModule extends ClientModule implements HudOverlayProvi
    private static final float ARROW_TIP = 0.73205F;
    private static final int WHITE = 16777215;
    private final Vector4f mobileClip = new Vector4f();
-   private ArrayList<class_1297> mobileTargets;
+   private ArrayList<Entity> mobileTargets;
    private final BooleanSetting players = this.addSetting("players", new BooleanSetting("Players", true));
    private final BooleanSetting animals = this.addSetting("animals", new BooleanSetting("Animals", false));
    private final BooleanSetting waterAnimals = this.addSetting("water-animals", new BooleanSetting("Water Animals", false));
@@ -93,15 +93,15 @@ public final class TracersModule extends ClientModule implements HudOverlayProvi
 
    @EventHandler
    public void onRender3D(Render3DEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (!mc.field_1690.field_1842 && this.style.is("Lines")) {
+      Minecraft mc = Minecraft.getInstance();
+      if (!mc.options.hideGui && this.style.is("Lines")) {
          boolean mobile = MobilePerformance.active();
 
          try {
-            for (class_1297 entity : this.targets(mc)) {
+            for (Entity entity : this.targets(mc)) {
                int color = this.colorOf(mc, entity);
-               class_243 feet = entity.method_30950(event.partialTick);
-               double height = entity.method_5829().method_17940();
+               Vec3 feet = entity.getPosition(event.partialTick);
+               double height = entity.getBoundingBox().getYsize();
 
                double up = switch (this.target.get()) {
                   case "Head" -> height;
@@ -109,9 +109,9 @@ public final class TracersModule extends ClientModule implements HudOverlayProvi
                   default -> 0.0;
                };
                if (mobile) {
-                  TracerEngine.draw(feet.field_1352, feet.field_1351 + up, feet.field_1350, color);
+                  TracerEngine.draw(feet.x, feet.y + up, feet.z, color);
                } else {
-                  TracerEngine.draw(feet.method_1031(0.0, up, 0.0), color);
+                  TracerEngine.draw(feet.add(0.0, up, 0.0), color);
                }
 
                if (this.stem.get()) {
@@ -126,21 +126,21 @@ public final class TracersModule extends ClientModule implements HudOverlayProvi
 
    @Override
    public boolean isHudOverlayEnabled() {
-      return this.isEnabled() && this.style.is("Offscreen") && !class_310.method_1551().field_1690.field_1842;
+      return this.isEnabled() && this.style.is("Offscreen") && !Minecraft.getInstance().options.hideGui;
    }
 
    @Override
    public void renderHudOverlay(ImDrawList dl, float screenW, float screenH) {
-      class_310 mc = class_310.method_1551();
-      float partialTick = mc.method_61966().method_60637(false);
+      Minecraft mc = Minecraft.getInstance();
+      float partialTick = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
       float blink = this.blinkOffscreen.get() ? this.blinkAlpha() : 1.0F;
       float reach = this.distanceOffscreen.get();
       float size = this.sizeOffscreen.get();
       boolean mobile = MobilePerformance.active();
 
       try {
-         for (class_1297 entity : this.targets(mc)) {
-            Vector4f clip = mobile ? TracerEngine.clip(entity.method_30950(partialTick), this.mobileClip) : TracerEngine.clip(entity.method_30950(partialTick));
+         for (Entity entity : this.targets(mc)) {
+            Vector4f clip = mobile ? TracerEngine.clip(entity.getPosition(partialTick), this.mobileClip) : TracerEngine.clip(entity.getPosition(partialTick));
             if (clip == null) {
                return;
             }
@@ -175,14 +175,14 @@ public final class TracersModule extends ClientModule implements HudOverlayProvi
       }
    }
 
-   private List<class_1297> targets(class_310 mc) {
-      if (mc.field_1687 != null && mc.field_1724 != null) {
+   private List<Entity> targets(Minecraft mc) {
+      if (mc.level != null && mc.player != null) {
          FreecamModule freecam = ModuleRegistry.get(FreecamModule.class);
          boolean skipSelf = this.ignoreSelf.get() || freecam == null || !freecam.isEnabled();
          double maxSq = (double)this.maxDistance.get() * this.maxDistance.get();
-         class_243 camera = mc.field_1773.method_19418().method_71156();
-         double view = ((Integer)mc.field_1690.method_42503().method_41753() + 1) * 16.0;
-         List<class_1297> result;
+         Vec3 camera = mc.gameRenderer.getMainCamera().position();
+         double view = ((Integer)mc.options.renderDistance().get() + 1) * 16.0;
+         List<Entity> result;
          if (MobilePerformance.active()) {
             if (this.mobileTargets == null) {
                this.mobileTargets = new ArrayList<>();
@@ -194,14 +194,14 @@ public final class TracersModule extends ClientModule implements HudOverlayProvi
             result = new ArrayList<>();
          }
 
-         for (class_1297 entity : mc.field_1687.method_18112()) {
-            if ((entity != mc.field_1724 || !skipSelf)
+         for (Entity entity : mc.level.entitiesForRendering()) {
+            if ((entity != mc.player || !skipSelf)
                && this.groupColor(entity) != null
-               && !(entity.method_5858(mc.field_1724) > maxSq)
+               && !(entity.distanceToSqr(mc.player) > maxSq)
                && (!this.ignoreFriends.get() || !isFriend(entity))
-               && (this.showInvisible.get() || !entity.method_5767())
-               && !(Math.abs(camera.field_1352 - entity.method_23317()) >= view)
-               && !(Math.abs(camera.field_1350 - entity.method_23321()) >= view)) {
+               && (this.showInvisible.get() || !entity.isInvisible())
+               && !(Math.abs(camera.x - entity.getX()) >= view)
+               && !(Math.abs(camera.z - entity.getZ()) >= view)) {
                result.add(entity);
             }
          }
@@ -212,12 +212,12 @@ public final class TracersModule extends ClientModule implements HudOverlayProvi
       }
    }
 
-   private ColorSetting groupColor(class_1297 entity) {
-      if (entity instanceof class_1657) {
+   private ColorSetting groupColor(Entity entity) {
+      if (entity instanceof Player) {
          return this.players.get() ? this.playersColor : null;
       }
 
-      return switch (entity.method_5864().method_5891()) {
+      return switch (entity.getType().getCategory()) {
          case field_6294 -> this.animals.get() ? this.animalsColor : null;
          case field_24460, field_6300, field_30092, field_34447 -> this.waterAnimals.get() ? this.waterAnimalsColor : null;
          case field_6302 -> this.monsters.get() ? this.monstersColor : null;
@@ -226,14 +226,14 @@ public final class TracersModule extends ClientModule implements HudOverlayProvi
       };
    }
 
-   private static boolean isFriend(class_1297 entity) {
-      return entity instanceof class_1657 player && FriendStore.getInstance().isFriend(player.method_7334().name());
+   private static boolean isFriend(Entity entity) {
+      return entity instanceof Player player && FriendStore.getInstance().isFriend(player.getGameProfile().name());
    }
 
-   private int colorOf(class_310 mc, class_1297 entity) {
+   private int colorOf(Minecraft mc, Entity entity) {
       boolean friend = isFriend(entity);
       if (!this.distanceColors.get()) {
-         if (entity instanceof class_1657 player) {
+         if (entity instanceof Player player) {
             int base = this.playersColor.argb();
             int alpha = base & 0xFF000000;
             if (friend) {
@@ -250,8 +250,8 @@ public final class TracersModule extends ClientModule implements HudOverlayProvi
       }
    }
 
-   private static int distanceColor(class_310 mc, class_1297 entity) {
-      double percent = mc.field_1773.method_19418().method_71156().method_1022(entity.method_33571()) / 60.0;
+   private static int distanceColor(Minecraft mc, Entity entity) {
+      double percent = mc.gameRenderer.getMainCamera().position().distanceTo(entity.getEyePosition()) / 60.0;
       if (percent > 1.0) {
          return -16711936;
       }
@@ -261,13 +261,13 @@ public final class TracersModule extends ClientModule implements HudOverlayProvi
       return 0xFF000000 | r << 16 | g << 8;
    }
 
-   private static int teamColor(class_1657 player) {
+   private static int teamColor(Player player) {
       Int2IntOpenHashMap counts = new Int2IntOpenHashMap();
-      player.method_5476().method_27658((segment, text) -> {
-         class_5251 color = segment.method_10973();
-         counts.addTo(color == null ? 16777215 : color.method_27716(), text.length());
+      player.getDisplayName().visit((segment, text) -> {
+         TextColor color = segment.getColor();
+         counts.addTo(color == null ? 16777215 : color.getValue(), text.length());
          return Optional.empty();
-      }, class_2583.field_24360);
+      }, Style.EMPTY);
       int best = 16777215;
       int bestCount = 0;
       ObjectIterator var4 = counts.int2IntEntrySet().iterator();
@@ -284,7 +284,7 @@ public final class TracersModule extends ClientModule implements HudOverlayProvi
    }
 
    private float blinkAlpha() {
-      double time = class_156.method_658() * (this.blinkOffscreenSpeed.get() / 4.0);
+      double time = Util.getMillis() * (this.blinkOffscreenSpeed.get() / 4.0);
       return (float)Math.abs(time % 1000.0 - 500.0) / 500.0F;
    }
 

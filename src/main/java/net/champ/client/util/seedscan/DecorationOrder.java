@@ -8,8 +8,8 @@ import java.util.Map;
 import java.util.Set;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1923;
-import net.minecraft.class_2338;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.core.BlockPos;
 
 @Environment(EnvType.CLIENT)
 public final class DecorationOrder {
@@ -44,16 +44,16 @@ public final class DecorationOrder {
    public Set<long[]> collect(
       ChunkDecoration own, Long2ObjectMap<ChunkDecoration> decorations, DecorationOrder.TerrainLookup terrain, DecorationOrder.Shown shown
    ) {
-      long ownKey = class_1923.method_8331(own.chunkX, own.chunkZ);
+      long ownKey = ChunkPos.asLong(own.chunkX, own.chunkZ);
       Map<DecorationOrder.Pair, int[]> fresh = new HashMap<>();
 
       for (int i = 0; i < own.size(); i++) {
          long pos = own.key(i);
          byte ownKind = lastStone(own, i);
          if (ownKind >= 0) {
-            int x = class_2338.method_10061(pos);
-            int y = class_2338.method_10071(pos);
-            int z = class_2338.method_10083(pos);
+            int x = BlockPos.getX(pos);
+            int y = BlockPos.getY(pos);
+            int z = BlockPos.getZ(pos);
             byte otherKind = -1;
             long other = 0L;
             boolean usable = true;
@@ -61,7 +61,7 @@ public final class DecorationOrder {
 
             for (int dx = -1; dx <= 1 && usable; dx++) {
                for (int dz = -1; dz <= 1 && usable; dz++) {
-                  long key = class_1923.method_8331((x >> 4) + dx, (z >> 4) + dz);
+                  long key = ChunkPos.asLong((x >> 4) + dx, (z >> 4) + dz);
                   ChunkDecoration d = (ChunkDecoration)decorations.get(key);
                   if (d != null) {
                      for (ChunkDecoration.Fog fog : d.fogs()) {

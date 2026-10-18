@@ -12,17 +12,17 @@ import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.ColorSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2248;
-import net.minecraft.class_2281;
-import net.minecraft.class_2331;
-import net.minecraft.class_2336;
-import net.minecraft.class_2363;
-import net.minecraft.class_2377;
-import net.minecraft.class_2480;
-import net.minecraft.class_2496;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
-import net.minecraft.class_3708;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.EnchantingTableBlock;
+import net.minecraft.world.level.block.EnderChestBlock;
+import net.minecraft.world.level.block.AbstractFurnaceBlock;
+import net.minecraft.world.level.block.HopperBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.SpawnerBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.block.BarrelBlock;
 
 @Environment(EnvType.CLIENT)
 public final class StorageEspModule extends ClientModule implements ChunkScanner.Consumer {
@@ -66,29 +66,29 @@ public final class StorageEspModule extends ClientModule implements ChunkScanner
          StorageEspModule.Type t = (StorageEspModule.Type)kind;
          return t.tracers.get() ? t.tracerColor.argb() : 0;
       }
-   }, () -> class_310.method_1551().field_1687 == null ? null : class_310.method_1551().field_1687.method_27983());
+   }, () -> Minecraft.getInstance().level == null ? null : Minecraft.getInstance().level.dimension());
 
    public StorageEspModule() {
       super("storage-esp", "Storage ESP", "Highlights storage blocks and spawners with per-type colours.", ModuleCategory.VISUALS);
    }
 
-   private StorageEspModule.Type typeOf(class_2248 block) {
-      if (block instanceof class_2281) {
+   private StorageEspModule.Type typeOf(Block block) {
+      if (block instanceof ChestBlock) {
          return this.chest;
-      } else if (block instanceof class_2336) {
+      } else if (block instanceof EnderChestBlock) {
          return this.enderChest;
-      } else if (block instanceof class_2480) {
+      } else if (block instanceof ShulkerBoxBlock) {
          return this.shulker;
-      } else if (block instanceof class_2496) {
+      } else if (block instanceof SpawnerBlock) {
          return this.spawner;
-      } else if (block instanceof class_2363) {
+      } else if (block instanceof AbstractFurnaceBlock) {
          return this.furnace;
-      } else if (block instanceof class_3708) {
+      } else if (block instanceof BarrelBlock) {
          return this.barrel;
-      } else if (block instanceof class_2331) {
+      } else if (block instanceof EnchantingTableBlock) {
          return this.enchanting;
       } else {
-         return block instanceof class_2377 ? this.hopper : null;
+         return block instanceof HopperBlock ? this.hopper : null;
       }
    }
 
@@ -125,14 +125,14 @@ public final class StorageEspModule extends ClientModule implements ChunkScanner
    }
 
    @Override
-   public boolean wants(class_2680 state) {
-      StorageEspModule.Type type = this.typeOf(state.method_26204());
+   public boolean wants(BlockState state) {
+      StorageEspModule.Type type = this.typeOf(state.getBlock());
       return type != null && type.enabled.get();
    }
 
    @Override
-   public void found(long pos, class_2680 state) {
-      this.layer.put(pos, this.typeOf(state.method_26204()));
+   public void found(long pos, BlockState state) {
+      this.layer.put(pos, this.typeOf(state.getBlock()));
    }
 
    @Override

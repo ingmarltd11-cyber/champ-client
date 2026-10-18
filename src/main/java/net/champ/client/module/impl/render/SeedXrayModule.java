@@ -14,9 +14,9 @@ import net.champ.client.module.setting.BlockColorListSetting;
 import net.champ.client.module.setting.BooleanSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2248;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
 
 /**
  * Seed Xray: ore-ESP met een eigen kleur per erts en optionele tracers.
@@ -40,14 +40,14 @@ public final class SeedXrayModule extends ClientModule implements ChunkScanner.C
    private final BlockLayer layer = new BlockLayer(new BlockLayer.Palette() {
       @Override
       public int color(Object kind) {
-         return SeedXrayModule.this.sOres.colorArgb((class_2248)kind);
+         return SeedXrayModule.this.sOres.colorArgb((Block)kind);
       }
 
       @Override
       public int tracerColor(Object kind) {
-         return SeedXrayModule.this.sOres.tracerColorArgb((class_2248)kind);
+         return SeedXrayModule.this.sOres.tracerColorArgb((Block)kind);
       }
-   }, () -> class_310.method_1551().field_1687 == null ? null : class_310.method_1551().field_1687.method_27983());
+   }, () -> Minecraft.getInstance().level == null ? null : Minecraft.getInstance().level.dimension());
    private Set<String> scannedIds = Set.of();
 
    public SeedXrayModule() {
@@ -83,13 +83,13 @@ public final class SeedXrayModule extends ClientModule implements ChunkScanner.C
    }
 
    @Override
-   public boolean wants(class_2680 state) {
-      return this.sOres.isEnabled(state.method_26204());
+   public boolean wants(BlockState state) {
+      return this.sOres.isEnabled(state.getBlock());
    }
 
    @Override
-   public void found(long pos, class_2680 state) {
-      this.layer.put(pos, state.method_26204());
+   public void found(long pos, BlockState state) {
+      this.layer.put(pos, state.getBlock());
    }
 
    @Override

@@ -4,52 +4,52 @@ import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10444;
-import net.minecraft.class_1799;
-import net.minecraft.class_310;
-import net.minecraft.class_811;
-import net.minecraft.class_10444.class_10445;
-import net.minecraft.class_10444.class_10446;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.client.renderer.item.ItemStackRenderState.FoilType;
+import net.minecraft.client.renderer.item.ItemStackRenderState.LayerRenderState;
 
 @Environment(EnvType.CLIENT)
-public final class ItemLook extends class_10444 {
+public final class ItemLook extends ItemStackRenderState {
    public final List<Object> identity = new ArrayList<>();
-   private final List<class_10446> layers = new ArrayList<>();
+   private final List<LayerRenderState> layers = new ArrayList<>();
 
    public void method_65605() {
-      super.method_65605();
+      super.clear();
       this.identity.clear();
       this.layers.clear();
    }
 
-   public class_10446 method_65601() {
-      class_10446 layer = super.method_65601();
+   public LayerRenderState method_65601() {
+      LayerRenderState layer = super.newLayer();
       this.layers.add(layer);
       return layer;
    }
 
    public void method_70946(Object element) {
-      if (!(element instanceof class_10445)) {
+      if (!(element instanceof FoilType)) {
          this.identity.add(element);
       }
    }
 
-   public boolean resolve(class_1799 stack) {
-      class_310 mc = class_310.method_1551();
+   public boolean resolve(ItemStack stack) {
+      Minecraft mc = Minecraft.getInstance();
 
       try {
-         mc.method_65386().method_65598(this, stack, class_811.field_4317, mc.field_1687, mc.field_1724, 0);
+         mc.getItemModelResolver().updateForTopItem(this, stack, ItemDisplayContext.GUI, mc.level, mc.player, 0);
       } catch (RuntimeException badModel) {
-         this.method_65605();
+         this.clear();
          return false;
       }
 
-      for (class_10446 layer : this.layers) {
-         layer.method_65615(class_10445.field_55341);
+      for (LayerRenderState layer : this.layers) {
+         layer.setFoilType(FoilType.NONE);
       }
 
       if (this.identity.isEmpty()) {
-         this.identity.add(stack.method_7909());
+         this.identity.add(stack.getItem());
       }
 
       return true;

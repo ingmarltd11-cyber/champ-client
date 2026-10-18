@@ -4,24 +4,24 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import net.champ.client.module.impl.misc.NameProtectModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2561;
-import net.minecraft.class_2703;
-import net.minecraft.class_634;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_634.class)
+@Mixin(ClientPacketListener.class)
 public abstract class MixinNameProtectClientPacketListener {
-   @Inject(method = "method_11113", at = @At("TAIL"))
-   private void champ$nameProtectPlayerList(class_2703 packet, CallbackInfo ci) {
+   @Inject(method = "handlePlayerInfoUpdate", at = @At("TAIL"))
+   private void champ$nameProtectPlayerList(ClientboundPlayerInfoUpdatePacket packet, CallbackInfo ci) {
       NameProtectModule.onPlayerInfoApplied(packet);
    }
 
-   @ModifyExpressionValue(method = "method_34075", at = @At(value = "INVOKE", target = "Lnet/minecraft/class_5892;comp_2276()Lnet/minecraft/class_2561;"))
-   private class_2561 champ$nameProtectDeathMessage(class_2561 message) {
+   @ModifyExpressionValue(method = "handlePlayerCombatKill", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/protocol/game/ClientboundPlayerCombatKillPacket;comp_2276()Lnet/minecraft/network/chat/Component;"))
+   private Component champ$nameProtectDeathMessage(Component message) {
       return NameProtectModule.protect(message);
    }
 }

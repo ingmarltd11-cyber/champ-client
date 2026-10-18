@@ -10,23 +10,23 @@ import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AfterTick;
-import net.minecraft.class_2561;
-import net.minecraft.class_310;
-import net.minecraft.class_412;
-import net.minecraft.class_4185;
-import net.minecraft.class_419;
-import net.minecraft.class_437;
-import net.minecraft.class_442;
-import net.minecraft.class_500;
-import net.minecraft.class_639;
-import net.minecraft.class_642;
+import net.minecraft.network.chat.Component;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ConnectScreen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.DisconnectedScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
+import net.minecraft.client.multiplayer.ServerData;
 
 @Environment(EnvType.CLIENT)
 public final class AutoReconnectModule extends ClientModule {
    private final NumberSetting delay = this.addSetting("delay", new NumberSetting("Delay", 5.0F, 3.0F, 60.0F).step(1.0F));
-   private class_642 lastServer;
-   private class_437 activeScreen;
-   private class_4185 reconnectButton;
+   private ServerData lastServer;
+   private Screen activeScreen;
+   private Button reconnectButton;
    private int ticksLeft;
 
    public AutoReconnectModule() {
@@ -36,18 +36,18 @@ public final class AutoReconnectModule extends ClientModule {
    }
 
    private void trackServer(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null && mc.field_1687 != null) {
-         class_642 server = mc.method_1542() ? null : mc.method_1558();
-         this.lastServer = server != null && !server.method_2994() && !server.method_52811() ? server : null;
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.level != null) {
+         ServerData server = mc.isLocalServer() ? null : mc.getCurrentServer();
+         this.lastServer = server != null && !server.isLan() && !server.isRealm() ? server : null;
       }
    }
 
-   private void onScreenInit(class_310 client, class_437 screen, int scaledWidth, int scaledHeight) {
-      if (screen instanceof class_442 || screen instanceof class_500) {
+   private void onScreenInit(Minecraft client, Screen screen, int scaledWidth, int scaledHeight) {
+      if (screen instanceof TitleScreen || screen instanceof JoinMultiplayerScreen) {
          this.lastServer = null;
-      } else if (screen instanceof class_419 && this.lastServer != null) {
-         class_642 server = this.lastServer;
+      } else if (screen instanceof DisconnectedScreen && this.lastServer != null) {
+         ServerData server = this.lastServer;
          boolean auto = this.isEnabled();
          if (screen == this.activeScreen) {
             Screens.getButtons(screen).remove(this.reconnectButton);
@@ -56,32 +56,32 @@ public final class AutoReconnectModule extends ClientModule {
             this.ticksLeft = Math.round(this.delay.get() * 20.0F);
          }
 
-         class_4185 button = class_4185.method_46430(reconnectLabel(auto, this.ticksLeft), btn -> {
-            btn.field_22763 = false;
+         Button button = Button.builder(reconnectLabel(auto, this.ticksLeft), btn -> {
+            btn.active = false;
             this.reconnect(client, server);
-         }).method_46434(scaledWidth - 150 - 10, scaledHeight - 20 - 10, 150, 20).method_46431();
+         }).bounds(scaledWidth - 150 - 10, scaledHeight - 20 - 10, 150, 20).build();
          this.reconnectButton = button;
          Screens.getButtons(screen).add(button);
          if (auto) {
             ScreenEvents.afterTick(screen).register((AfterTick)s -> {
                this.ticksLeft--;
                if (this.ticksLeft <= 0) {
-                  button.field_22763 = false;
+                  button.active = false;
                   this.reconnect(client, server);
                } else {
-                  button.method_25355(reconnectLabel(true, this.ticksLeft));
+                  button.setMessage(reconnectLabel(true, this.ticksLeft));
                }
             });
          }
       }
    }
 
-   private void reconnect(class_310 client, class_642 server) {
-      class_639 address = class_639.method_2950(server.field_3761);
-      class_412.method_36877(new class_500(new class_442()), client, address, server, false, null);
+   private void reconnect(Minecraft client, ServerData server) {
+      ServerAddress address = ServerAddress.parseString(server.ip);
+      ConnectScreen.startConnecting(new JoinMultiplayerScreen(new TitleScreen()), client, address, server, false, null);
    }
 
-   private static class_2561 reconnectLabel(boolean auto, int ticksLeft) {
-      return auto ? class_2561.method_43470(String.format(Locale.ROOT, "Reconnect (%.1f)", ticksLeft / 20.0)) : class_2561.method_43470("Reconnect");
+   private static Component reconnectLabel(boolean auto, int ticksLeft) {
+      return auto ? Component.literal(String.format(Locale.ROOT, "Reconnect (%.1f)", ticksLeft / 20.0)) : Component.literal("Reconnect");
    }
 }

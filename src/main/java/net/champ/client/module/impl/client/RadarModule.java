@@ -8,8 +8,8 @@ import net.champ.client.module.setting.ColorSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1657;
-import net.minecraft.class_746;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class RadarModule extends ClientModule {
@@ -47,7 +47,7 @@ public final class RadarModule extends ClientModule {
       return this.dotColor.argb();
    }
 
-   public boolean shows(class_1657 player) {
-      return !(player instanceof class_746) && !player.method_31481() && !player.method_29504() && !player.method_7325();
+   public boolean shows(Player player) {
+      return !(player instanceof LocalPlayer) && !player.isRemoved() && !player.isDeadOrDying() && !player.isSpectator();
    }
 }

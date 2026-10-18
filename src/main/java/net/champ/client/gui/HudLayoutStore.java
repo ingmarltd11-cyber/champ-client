@@ -18,7 +18,7 @@ import net.champ.client.imgui.ImGuiManager;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.class_310;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class HudLayoutStore {
@@ -486,7 +486,7 @@ public final class HudLayoutStore {
    }
 
    private static float vanillaGuiScale() {
-      return Math.max(1, class_310.method_1551().method_22683().method_4495());
+      return Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
    }
 
    private float firstFreeY(HudLayoutStore.HudElementState state, float startY, float gap) {

@@ -29,24 +29,24 @@ import net.champ.client.util.GeodeGlowScan;
 import net.champ.client.util.LevelUtil;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1923;
-import net.minecraft.class_1944;
-import net.minecraft.class_2246;
-import net.minecraft.class_2248;
-import net.minecraft.class_2338;
-import net.minecraft.class_2350;
-import net.minecraft.class_2672;
-import net.minecraft.class_2676;
-import net.minecraft.class_2680;
-import net.minecraft.class_2741;
-import net.minecraft.class_2818;
-import net.minecraft.class_2826;
-import net.minecraft.class_310;
-import net.minecraft.class_5543;
-import net.minecraft.class_634;
-import net.minecraft.class_638;
-import net.minecraft.class_9848;
-import net.minecraft.class_2338.class_2339;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.LightLayer;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
+import net.minecraft.network.protocol.game.ClientboundLightUpdatePacket;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.block.BuddingAmethystBlock;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.util.ARGB;
+import net.minecraft.core.BlockPos.MutableBlockPos;
 
 @Environment(EnvType.CLIENT)
 public final class SusChunkFinderModule extends ClientModule {
@@ -65,7 +65,7 @@ public final class SusChunkFinderModule extends ClientModule {
    private static final int GEODE_SETTLE_TICKS = 40;
    private static final int GEODE_CELL_SHIFT = 2;
    private static final int TORCH_LIGHT = 14;
-   private static final class_2350[] SIDES = class_2350.values();
+   private static final Direction[] SIDES = Direction.values();
    private final ModeSetting method = this.addSetting("method", new ModeSetting("Method", "Classic", "Classic", "ANBS+ Scan"));
    private final NumberSetting spreadRadius = this.addSetting("spread-radius", new NumberSetting("Simulation Distance", 5.0F, 2.0F, 16.0F).step(1.0F));
    private final NumberSetting sensitivity = this.addSetting("packet-sensitivity", new NumberSetting("Sensitivity", 6.0F, 1.0F, 20.0F).step(1.0F));
@@ -89,7 +89,7 @@ public final class SusChunkFinderModule extends ClientModule {
    private Long2IntOpenHashMap visible = new Long2IntOpenHashMap();
    private boolean visibleDirty = true;
    private int visibleAge;
-   private class_638 lastLevel;
+   private ClientLevel lastLevel;
    private int appliedRadius;
    private final Long2ObjectOpenHashMap<SusChunkFinderModule.GeodeSlice> geodeSlices = new Long2ObjectOpenHashMap();
    private final Long2IntOpenHashMap geodeWaiting = new Long2IntOpenHashMap();
@@ -123,7 +123,7 @@ public final class SusChunkFinderModule extends ClientModule {
    @Override
    protected void onEnable() {
       this.clearAll();
-      this.lastLevel = class_310.method_1551().field_1687;
+      this.lastLevel = Minecraft.getInstance().level;
       this.queueLoadedChunks();
    }
 
@@ -159,15 +159,15 @@ public final class SusChunkFinderModule extends ClientModule {
    }
 
    private void queueLoadedChunks() {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1687 != null && mc.field_1724 != null) {
-         int radius = (Integer)mc.field_1690.method_42503().method_41753() + 1;
-         class_1923 center = mc.field_1724.method_31476();
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.level != null && mc.player != null) {
+         int radius = (Integer)mc.options.renderDistance().get() + 1;
+         ChunkPos center = mc.player.chunkPosition();
 
-         for (int x = center.field_9181 - radius; x <= center.field_9181 + radius; x++) {
-            for (int z = center.field_9180 - radius; z <= center.field_9180 + radius; z++) {
-               if (LevelUtil.isLoaded(mc.field_1687, x, z)) {
-                  this.enqueue(class_1923.method_8331(x, z));
+         for (int x = center.x - radius; x <= center.x + radius; x++) {
+            for (int z = center.z - radius; z <= center.z + radius; z++) {
+               if (LevelUtil.isLoaded(mc.level, x, z)) {
+                  this.enqueue(ChunkPos.asLong(x, z));
                }
             }
          }
@@ -182,17 +182,17 @@ public final class SusChunkFinderModule extends ClientModule {
 
    @EventHandler
    public void onPacketApplied(PacketAppliedEvent event) {
-      if (event.packet instanceof class_2672 chunk) {
-         this.enqueue(class_1923.method_8331(chunk.method_11523(), chunk.method_11524()));
-      } else if (event.packet instanceof class_2676 light && this.method.is("ANBS+ Scan")) {
-         this.enqueue(class_1923.method_8331(light.method_11558(), light.method_11554()));
+      if (event.packet instanceof ClientboundLevelChunkWithLightPacket chunk) {
+         this.enqueue(ChunkPos.asLong(chunk.getX(), chunk.getZ()));
+      } else if (event.packet instanceof ClientboundLightUpdatePacket light && this.method.is("ANBS+ Scan")) {
+         this.enqueue(ChunkPos.asLong(light.getX(), light.getZ()));
       }
    }
 
    @EventHandler
    public void onTick(TickEvent event) {
-      class_310 mc = class_310.method_1551();
-      class_638 level = mc.field_1687;
+      Minecraft mc = Minecraft.getInstance();
+      ClientLevel level = mc.level;
       if (level != this.lastLevel) {
          this.clearAll();
          this.lastLevel = level;
@@ -211,10 +211,10 @@ public final class SusChunkFinderModule extends ClientModule {
          while (!this.queue.isEmpty() && System.nanoTime() < deadline) {
             long key = this.queue.dequeueLong();
             this.queued.remove(key);
-            int cx = class_1923.method_8325(key);
-            int cz = class_1923.method_8332(key);
+            int cx = ChunkPos.getX(key);
+            int cz = ChunkPos.getZ(key);
             if (LevelUtil.isLoaded(level, cx, cz)) {
-               this.updateChunk(key, level.method_8497(cx, cz), level);
+               this.updateChunk(key, level.getChunk(cx, cz), level);
                this.scannedChunks.add(key);
                this.visibleDirty = true;
             }
@@ -233,10 +233,10 @@ public final class SusChunkFinderModule extends ClientModule {
       }
    }
 
-   private void updateChunk(long key, class_2818 chunk, class_638 level) {
+   private void updateChunk(long key, LevelChunk chunk, ClientLevel level) {
       int r = this.spreadRadius.getInt();
-      int cx = class_1923.method_8325(key);
-      int cz = class_1923.method_8332(key);
+      int cx = ChunkPos.getX(key);
+      int cz = ChunkPos.getZ(key);
       int oldHeat = this.chunkScore.getOrDefault(key, 0);
       boolean oldUngrown = this.chunkUngrown.getOrDefault(key, false);
       if (oldHeat > 0) {
@@ -267,7 +267,7 @@ public final class SusChunkFinderModule extends ClientModule {
    private static void forArea(int cx, int cz, int r, LongConsumer action) {
       for (int dx = -r; dx <= r; dx++) {
          for (int dz = -r; dz <= r; dz++) {
-            action.accept(class_1923.method_8331(cx + dx, cz + dz));
+            action.accept(ChunkPos.asLong(cx + dx, cz + dz));
          }
       }
    }
@@ -281,13 +281,13 @@ public final class SusChunkFinderModule extends ClientModule {
       }
    }
 
-   private static boolean hasBlocksInRange(class_2818 chunk, int minY, int maxY) {
-      class_2826[] sections = chunk.method_12006();
-      int minSectionY = chunk.method_32891();
+   private static boolean hasBlocksInRange(LevelChunk chunk, int minY, int maxY) {
+      LevelChunkSection[] sections = chunk.getSections();
+      int minSectionY = chunk.getMinSectionY();
 
       for (int i = 0; i < sections.length; i++) {
-         class_2826 section = sections[i];
-         if (section != null && !section.method_38292()) {
+         LevelChunkSection section = sections[i];
+         if (section != null && !section.hasOnlyAir()) {
             int baseY = minSectionY + i << 4;
             if (baseY + 15 >= minY && baseY <= maxY) {
                for (int y = 0; y < 16; y++) {
@@ -295,7 +295,7 @@ public final class SusChunkFinderModule extends ClientModule {
                   if (worldY >= minY && worldY <= maxY) {
                      for (int x = 0; x < 16; x++) {
                         for (int z = 0; z < 16; z++) {
-                           if (!section.method_12254(x, y, z).method_26215()) {
+                           if (!section.getBlockState(x, y, z).isAir()) {
                               return true;
                            }
                         }
@@ -309,45 +309,45 @@ public final class SusChunkFinderModule extends ClientModule {
       return false;
    }
 
-   private SusChunkFinderModule.ChunkScore scoreChunk(class_2818 chunk, class_638 level) {
+   private SusChunkFinderModule.ChunkScore scoreChunk(LevelChunk chunk, ClientLevel level) {
       if (this.method.is("ANBS+ Scan")) {
          return new SusChunkFinderModule.ChunkScore(this.glow.scan(level, chunk, null) / 12, false);
       }
 
-      class_2826[] sections = chunk.method_12006();
-      int minSectionY = chunk.method_32891();
-      class_1923 pos = chunk.method_12004();
+      LevelChunkSection[] sections = chunk.getSections();
+      int minSectionY = chunk.getMinSectionY();
+      ChunkPos pos = chunk.getPos();
       boolean paletteOnly = isDonutFolia();
       int grown = 0;
       int ungrown = 0;
       boolean sawBud = false;
       boolean sawCluster = false;
-      class_2339 cursor = new class_2339();
+      MutableBlockPos cursor = new MutableBlockPos();
 
       for (int i = 0; i < sections.length; i++) {
-         class_2826 section = sections[i];
-         if (section != null && !section.method_38292()) {
+         LevelChunkSection section = sections[i];
+         if (section != null && !section.hasOnlyAir()) {
             if (paletteOnly) {
-               if (!sawBud && section.method_19523(SusChunkFinderModule::isBud)) {
+               if (!sawBud && section.maybeHas(SusChunkFinderModule::isBud)) {
                   sawBud = true;
                }
 
-               if (!sawCluster && section.method_19523(statex -> statex.method_27852(class_2246.field_27161))) {
+               if (!sawCluster && section.maybeHas(statex -> statex.is(Blocks.AMETHYST_CLUSTER))) {
                   sawCluster = true;
                }
-            } else if (section.method_19523(SusChunkFinderModule::isAmethystGrowth)) {
+            } else if (section.maybeHas(SusChunkFinderModule::isAmethystGrowth)) {
                int baseY = minSectionY + i << 4;
 
                for (int x = 0; x < 16; x++) {
                   for (int y = 0; y < 16; y++) {
                      for (int z = 0; z < 16; z++) {
-                        class_2680 state = section.method_12254(x, y, z);
-                        if (state.method_27852(class_2246.field_27161)) {
+                        BlockState state = section.getBlockState(x, y, z);
+                        if (state.is(Blocks.AMETHYST_CLUSTER)) {
                            grown++;
-                        } else if (isBud(state) && state.method_28498(class_2741.field_12525)) {
-                           class_2350 facing = (class_2350)state.method_11654(class_2741.field_12525);
-                           cursor.method_10103(pos.method_8326() + x, baseY + y, pos.method_8328() + z).method_10098(facing.method_10153());
-                           if (level.method_8320(cursor).method_27852(class_2246.field_27160)) {
+                        } else if (isBud(state) && state.hasProperty(BlockStateProperties.FACING)) {
+                           Direction facing = (Direction)state.getValue(BlockStateProperties.FACING);
+                           cursor.set(pos.getMinBlockX() + x, baseY + y, pos.getMinBlockZ() + z).move(facing.getOpposite());
+                           if (level.getBlockState(cursor).is(Blocks.BUDDING_AMETHYST)) {
                               ungrown++;
                            } else {
                               grown++;
@@ -371,19 +371,19 @@ public final class SusChunkFinderModule extends ClientModule {
       return new SusChunkFinderModule.ChunkScore(grown, ungrown > 0);
    }
 
-   private void collectGeode(long key, class_2818 chunk, class_638 level) {
+   private void collectGeode(long key, LevelChunk chunk, ClientLevel level) {
       this.geodeScanTicks.put(key, this.ticks);
       if (this.geodeSlices.remove(key) != null) {
          this.geodeClustersDirty = true;
       }
 
       this.geodeWaiting.remove(key);
-      int cx = class_1923.method_8325(key);
-      int cz = class_1923.method_8332(key);
+      int cx = ChunkPos.getX(key);
+      int cz = ChunkPos.getZ(key);
 
       for (int dx = -1; dx <= 1; dx++) {
          for (int dz = -1; dz <= 1; dz++) {
-            long near = class_1923.method_8331(cx + dx, cz + dz);
+            long near = ChunkPos.asLong(cx + dx, cz + dz);
             if ((dx != 0 || dz != 0) && (this.geodeWaiting.get(near) & waitBit(-dx, -dz)) != 0) {
                this.enqueue(near);
             }
@@ -391,13 +391,13 @@ public final class SusChunkFinderModule extends ClientModule {
       }
 
       if (LevelUtil.isOverworld(level)) {
-         class_2826[] sections = chunk.method_12006();
-         int minSectionY = chunk.method_32891();
+         LevelChunkSection[] sections = chunk.getSections();
+         int minSectionY = chunk.getMinSectionY();
          int minX = cx << 4;
          int minZ = cz << 4;
          LongArrayList lining = new LongArrayList();
          LongArrayList budding = new LongArrayList();
-         class_2339 cursor = new class_2339();
+         MutableBlockPos cursor = new MutableBlockPos();
          int waiting = 0;
 
          for (int i = 0; i < sections.length; i++) {
@@ -406,12 +406,12 @@ public final class SusChunkFinderModule extends ClientModule {
                break;
             }
 
-            class_2826 section = sections[i];
-            if (section != null && !section.method_38292() && section.method_19523(SusChunkFinderModule::isLining)) {
+            LevelChunkSection section = sections[i];
+            if (section != null && !section.hasOnlyAir() && section.maybeHas(SusChunkFinderModule::isLining)) {
                for (int y = 0; y < 16; y++) {
                   for (int z = 0; z < 16; z++) {
                      for (int x = 0; x < 16; x++) {
-                        class_2680 state = section.method_12254(x, y, z);
+                        BlockState state = section.getBlockState(x, y, z);
                         if (isLining(state)) {
                            int wx = minX + x;
                            int wy = baseY + y;
@@ -419,19 +419,19 @@ public final class SusChunkFinderModule extends ClientModule {
                            boolean exposed = false;
                            int missing = 0;
 
-                           for (class_2350 side : SIDES) {
-                              int nx = wx + side.method_10148();
-                              int ny = wy + side.method_10164();
-                              int nz = wz + side.method_10165();
-                              if (!level.method_31601(ny)) {
+                           for (Direction side : SIDES) {
+                              int nx = wx + side.getStepX();
+                              int ny = wy + side.getStepY();
+                              int nz = wz + side.getStepZ();
+                              if (!level.isOutsideBuildHeight(ny)) {
                                  int ncx = nx >> 4;
                                  int ncz = nz >> 4;
                                  boolean inside = ncx == cx && ncz == cz;
                                  if (!inside && !LevelUtil.isLoaded(level, ncx, ncz)) {
                                     missing |= waitBit(ncx - cx, ncz - cz);
                                  } else {
-                                    cursor.method_10103(nx, ny, nz);
-                                    if (isOpen(inside ? chunk.method_8320(cursor) : level.method_8320(cursor))) {
+                                    cursor.set(nx, ny, nz);
+                                    if (isOpen(inside ? chunk.getBlockState(cursor) : level.getBlockState(cursor))) {
                                        exposed = true;
                                        break;
                                     }
@@ -442,9 +442,9 @@ public final class SusChunkFinderModule extends ClientModule {
                            if (!exposed) {
                               waiting |= missing;
                            } else {
-                              long packed = class_2338.method_10064(wx, wy, wz);
+                              long packed = BlockPos.asLong(wx, wy, wz);
                               lining.add(packed);
-                              if (state.method_27852(class_2246.field_27160)) {
+                              if (state.is(Blocks.BUDDING_AMETHYST)) {
                                  budding.add(packed);
                               }
                            }
@@ -470,13 +470,13 @@ public final class SusChunkFinderModule extends ClientModule {
       return 1 << (dx + 1) * 3 + dz + 1;
    }
 
-   private LongOpenHashSet computeMined(class_638 level) {
-      if (this.geodeSlices.keySet().removeIf(key -> !LevelUtil.isLoaded(level, class_1923.method_8325(key), class_1923.method_8332(key)))) {
+   private LongOpenHashSet computeMined(ClientLevel level) {
+      if (this.geodeSlices.keySet().removeIf(key -> !LevelUtil.isLoaded(level, ChunkPos.getX(key), ChunkPos.getZ(key)))) {
          this.geodeClustersDirty = true;
       }
 
-      this.geodeWaiting.keySet().removeIf(key -> !LevelUtil.isLoaded(level, class_1923.method_8325(key), class_1923.method_8332(key)));
-      this.geodeScanTicks.keySet().removeIf(key -> !LevelUtil.isLoaded(level, class_1923.method_8325(key), class_1923.method_8332(key)));
+      this.geodeWaiting.keySet().removeIf(key -> !LevelUtil.isLoaded(level, ChunkPos.getX(key), ChunkPos.getZ(key)));
+      this.geodeScanTicks.keySet().removeIf(key -> !LevelUtil.isLoaded(level, ChunkPos.getX(key), ChunkPos.getZ(key)));
       if (this.geodeClustersDirty) {
          this.geodeClusters = this.clusterGeodes();
          this.geodeClustersDirty = false;
@@ -503,8 +503,8 @@ public final class SusChunkFinderModule extends ClientModule {
          SusChunkFinderModule.GeodeSlice slice = (SusChunkFinderModule.GeodeSlice)clusters.next();
 
          for (long packed : slice.lining()) {
-            long cell = class_2338.method_10064(
-               class_2338.method_10061(packed) >> 2, class_2338.method_10071(packed) >> 2, class_2338.method_10083(packed) >> 2
+            long cell = BlockPos.asLong(
+               BlockPos.getX(packed) >> 2, BlockPos.getY(packed) >> 2, BlockPos.getZ(packed) >> 2
             );
             LongArrayList members = (LongArrayList)cells.get(cell);
             if (members == null) {
@@ -533,14 +533,14 @@ public final class SusChunkFinderModule extends ClientModule {
             while (!frontier.isEmpty()) {
                long cell = frontier.dequeueLong();
                lining.addAll((LongList)cells.get(cell));
-               int x = class_2338.method_10061(cell);
-               int y = class_2338.method_10071(cell);
-               int z = class_2338.method_10083(cell);
+               int x = BlockPos.getX(cell);
+               int y = BlockPos.getY(cell);
+               int z = BlockPos.getZ(cell);
 
                for (int dx = -1; dx <= 1; dx++) {
                   for (int dy = -1; dy <= 1; dy++) {
                      for (int dz = -1; dz <= 1; dz++) {
-                        long next = class_2338.method_10064(x + dx, y + dy, z + dz);
+                        long next = BlockPos.asLong(x + dx, y + dy, z + dz);
                         if (cells.containsKey(next) && seen.add(next)) {
                            frontier.enqueue(next);
                         }
@@ -570,8 +570,8 @@ public final class SusChunkFinderModule extends ClientModule {
             count++;
          }
 
-         int x = class_2338.method_10061(packed);
-         int z = class_2338.method_10083(packed);
+         int x = BlockPos.getX(packed);
+         int z = BlockPos.getZ(packed);
          minX = Math.min(minX, x);
          minZ = Math.min(minZ, z);
          maxX = Math.max(maxX, x);
@@ -582,13 +582,13 @@ public final class SusChunkFinderModule extends ClientModule {
 
       int centerX = (int)Math.floorDiv(sumX, lining.length);
       int centerZ = (int)Math.floorDiv(sumZ, lining.length);
-      return new SusChunkFinderModule.GeodeCluster(lining, count, minX, minZ, maxX, maxZ, class_1923.method_8331(centerX >> 4, centerZ >> 4));
+      return new SusChunkFinderModule.GeodeCluster(lining, count, minX, minZ, maxX, maxZ, ChunkPos.asLong(centerX >> 4, centerZ >> 4));
    }
 
-   private boolean settled(class_638 level, SusChunkFinderModule.GeodeCluster cluster) {
+   private boolean settled(ClientLevel level, SusChunkFinderModule.GeodeCluster cluster) {
       for (int cx = cluster.minX() - 1 >> 4; cx <= cluster.maxX() + 1 >> 4; cx++) {
          for (int cz = cluster.minZ() - 1 >> 4; cz <= cluster.maxZ() + 1 >> 4; cz++) {
-            long key = class_1923.method_8331(cx, cz);
+            long key = ChunkPos.asLong(cx, cz);
             if (!LevelUtil.isLoaded(level, cx, cz) || !this.geodeScanTicks.containsKey(key)) {
                return false;
             }
@@ -602,22 +602,22 @@ public final class SusChunkFinderModule extends ClientModule {
       return true;
    }
 
-   private static boolean unlit(class_638 level, long[] lining) {
-      class_2339 cursor = new class_2339();
+   private static boolean unlit(ClientLevel level, long[] lining) {
+      MutableBlockPos cursor = new MutableBlockPos();
       Long2IntOpenHashMap peaks = new Long2IntOpenHashMap();
 
       for (long packed : lining) {
-         int x = class_2338.method_10061(packed);
-         int y = class_2338.method_10071(packed);
-         int z = class_2338.method_10083(packed);
+         int x = BlockPos.getX(packed);
+         int y = BlockPos.getY(packed);
+         int z = BlockPos.getZ(packed);
 
-         for (class_2350 side : SIDES) {
-            cursor.method_10103(x + side.method_10148(), y + side.method_10164(), z + side.method_10165());
-            if (isAmethystGrowth(level.method_8320(cursor))) {
+         for (Direction side : SIDES) {
+            cursor.set(x + side.getStepX(), y + side.getStepY(), z + side.getStepZ());
+            if (isAmethystGrowth(level.getBlockState(cursor))) {
                return false;
             }
 
-            int light = level.method_8314(class_1944.field_9282, cursor);
+            int light = level.getBrightness(LightLayer.BLOCK, cursor);
             if (light > 0 && sourceLight(level, cursor, light, peaks) != 14) {
                return false;
             }
@@ -627,25 +627,25 @@ public final class SusChunkFinderModule extends ClientModule {
       return true;
    }
 
-   private static int sourceLight(class_638 level, class_2338 start, int light, Long2IntOpenHashMap peaks) {
+   private static int sourceLight(ClientLevel level, BlockPos start, int light, Long2IntOpenHashMap peaks) {
       LongArrayList path = new LongArrayList();
-      class_2339 at = start.method_25503();
-      class_2339 probe = new class_2339();
+      MutableBlockPos at = start.mutable();
+      MutableBlockPos probe = new MutableBlockPos();
 
       int peak;
       while (true) {
-         long key = at.method_10063();
+         long key = at.asLong();
          if (peaks.containsKey(key)) {
             peak = peaks.get(key);
             break;
          }
 
          path.add(key);
-         class_2350 uphill = null;
+         Direction uphill = null;
          int best = light;
 
-         for (class_2350 side : SIDES) {
-            int value = level.method_8314(class_1944.field_9282, probe.method_25505(at, side));
+         for (Direction side : SIDES) {
+            int value = level.getBrightness(LightLayer.BLOCK, probe.setWithOffset(at, side));
             if (value > best) {
                best = value;
                uphill = side;
@@ -657,7 +657,7 @@ public final class SusChunkFinderModule extends ClientModule {
             break;
          }
 
-         at.method_10098(uphill);
+         at.move(uphill);
          light = best;
       }
 
@@ -668,34 +668,34 @@ public final class SusChunkFinderModule extends ClientModule {
       return peak;
    }
 
-   private static boolean isLining(class_2680 state) {
-      return state.method_27852(class_2246.field_27159) || state.method_27852(class_2246.field_27160);
+   private static boolean isLining(BlockState state) {
+      return state.is(Blocks.AMETHYST_BLOCK) || state.is(Blocks.BUDDING_AMETHYST);
    }
 
-   private static boolean isOpen(class_2680 state) {
-      return class_5543.method_31626(state) || isAmethystGrowth(state);
+   private static boolean isOpen(BlockState state) {
+      return BuddingAmethystBlock.canClusterGrowAtState(state) || isAmethystGrowth(state);
    }
 
-   private static boolean isBud(class_2680 state) {
-      class_2248 block = state.method_26204();
-      return block == class_2246.field_27164 || block == class_2246.field_27163 || block == class_2246.field_27162;
+   private static boolean isBud(BlockState state) {
+      Block block = state.getBlock();
+      return block == Blocks.SMALL_AMETHYST_BUD || block == Blocks.MEDIUM_AMETHYST_BUD || block == Blocks.LARGE_AMETHYST_BUD;
    }
 
-   private static boolean isAmethystGrowth(class_2680 state) {
-      return state.method_27852(class_2246.field_27161) || isBud(state);
+   private static boolean isAmethystGrowth(BlockState state) {
+      return state.is(Blocks.AMETHYST_CLUSTER) || isBud(state);
    }
 
    private static boolean isDonutFolia() {
-      class_634 connection = class_310.method_1551().method_1562();
+      ClientPacketListener connection = Minecraft.getInstance().getConnection();
       if (connection == null) {
          return false;
       }
 
-      String brand = connection.method_52790();
+      String brand = connection.serverBrand();
       return brand != null && brand.contains("DonutFolia");
    }
 
-   private Long2IntOpenHashMap computeVisible(class_638 level) {
+   private Long2IntOpenHashMap computeVisible(ClientLevel level) {
       Long2IntOpenHashMap eligible = new Long2IntOpenHashMap();
       ObjectIterator withPacket = this.heat.long2IntEntrySet().iterator();
 
@@ -703,8 +703,8 @@ public final class SusChunkFinderModule extends ClientModule {
          Entry entry = (Entry)withPacket.next();
          long key = entry.getLongKey();
          if (!this.vetoes.containsKey(key)) {
-            int cx = class_1923.method_8325(key);
-            int cz = class_1923.method_8332(key);
+            int cx = ChunkPos.getX(key);
+            int cz = ChunkPos.getZ(key);
             if (LevelUtil.isLoaded(level, cx, cz) && this.scannedNeighbours(cx, cz) >= 3) {
                eligible.put(key, entry.getIntValue());
             }
@@ -730,12 +730,12 @@ public final class SusChunkFinderModule extends ClientModule {
    }
 
    private static boolean isPeak(Long2IntOpenHashMap field, long key, int value, int reach) {
-      int cx = class_1923.method_8325(key);
-      int cz = class_1923.method_8332(key);
+      int cx = ChunkPos.getX(key);
+      int cz = ChunkPos.getZ(key);
 
       for (int dx = -reach; dx <= reach; dx++) {
          for (int dz = -reach; dz <= reach; dz++) {
-            if ((dx != 0 || dz != 0) && field.get(class_1923.method_8331(cx + dx, cz + dz)) > value) {
+            if ((dx != 0 || dz != 0) && field.get(ChunkPos.asLong(cx + dx, cz + dz)) > value) {
                return false;
             }
          }
@@ -749,7 +749,7 @@ public final class SusChunkFinderModule extends ClientModule {
 
       for (int dx = -1; dx <= 1; dx++) {
          for (int dz = -1; dz <= 1; dz++) {
-            if ((dx != 0 || dz != 0) && this.scannedChunks.contains(class_1923.method_8331(cx + dx, cz + dz))) {
+            if ((dx != 0 || dz != 0) && this.scannedChunks.contains(ChunkPos.asLong(cx + dx, cz + dz))) {
                count++;
             }
          }
@@ -760,15 +760,15 @@ public final class SusChunkFinderModule extends ClientModule {
 
    @EventHandler
    public void onRender3D(Render3DEvent event) {
-      if (class_310.method_1551().field_1687 != null) {
+      if (Minecraft.getInstance().level != null) {
          this.chunkOverlay.draw(this.visible.keySet(), this.chunkColor.argb(), event.partialTick);
          if (this.tracers.get()) {
-            this.chunkAreas.drawTracers(this.visible.keySet(), 63.0, class_9848.method_61334(this.chunkColor.argb()));
+            this.chunkAreas.drawTracers(this.visible.keySet(), 63.0, ARGB.opaque(this.chunkColor.argb()));
          }
 
          this.minedOverlay.draw(this.minedChunks, this.minedColor.argb(), event.partialTick);
          if (this.tracers.get()) {
-            this.minedAreas.drawTracers(this.minedChunks, 63.0, class_9848.method_61334(this.minedColor.argb()));
+            this.minedAreas.drawTracers(this.minedChunks, 63.0, ARGB.opaque(this.minedColor.argb()));
          }
       }
    }

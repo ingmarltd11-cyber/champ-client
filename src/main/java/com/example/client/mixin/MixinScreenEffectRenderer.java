@@ -5,30 +5,30 @@ import net.champ.client.module.impl.render.CustomFovModule;
 import net.champ.client.module.impl.render.NoRenderModule;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1058;
-import net.minecraft.class_4587;
-import net.minecraft.class_4597;
-import net.minecraft.class_4603;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.ScreenEffectRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_4603.class)
+@Mixin(ScreenEffectRenderer.class)
 public abstract class MixinScreenEffectRenderer {
-   @ModifyExpressionValue(method = "method_23067", at = @At(value = "NEW", target = "()Lnet/minecraft/class_4587;"))
-   private class_4587 champ$undoCustomFov(class_4587 poseStack) {
+   @ModifyExpressionValue(method = "renderScreenEffect", at = @At(value = "NEW", target = "()Lcom/mojang/blaze3d/vertex/PoseStack;"))
+   private PoseStack champ$undoCustomFov(PoseStack poseStack) {
       float scale = CustomFovModule.screenEffectScale();
       if (scale != 1.0F) {
-         poseStack.method_23760().method_23761().scale(scale, scale, 1.0F);
+         poseStack.last().pose().scale(scale, scale, 1.0F);
       }
 
       return poseStack;
    }
 
-   @Inject(method = "method_23070", at = @At("HEAD"), cancellable = true)
-   private static void champ$cancelFireOverlay(class_4587 poseStack, class_4597 bufferSource, class_1058 sprite, CallbackInfo ci) {
+   @Inject(method = "renderFire", at = @At("HEAD"), cancellable = true)
+   private static void champ$cancelFireOverlay(PoseStack poseStack, MultiBufferSource bufferSource, TextureAtlasSprite sprite, CallbackInfo ci) {
       if (NoRenderModule.hideFireOverlay()) {
          ci.cancel();
       }

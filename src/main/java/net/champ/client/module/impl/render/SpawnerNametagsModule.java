@@ -23,17 +23,17 @@ import net.champ.client.util.MobilePerformance;
 import net.champ.client.util.StableTopK;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12180;
-import net.minecraft.class_1299;
-import net.minecraft.class_1923;
-import net.minecraft.class_1937;
-import net.minecraft.class_1952;
-import net.minecraft.class_2246;
-import net.minecraft.class_2338;
-import net.minecraft.class_243;
-import net.minecraft.class_2636;
-import net.minecraft.class_2680;
-import net.minecraft.class_310;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.SpawnData;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class SpawnerNametagsModule extends ClientModule implements HudOverlayProvider, ChunkScanner.Consumer {
@@ -72,27 +72,27 @@ public final class SpawnerNametagsModule extends ClientModule implements HudOver
       this.mobileCandidates.reset(0);
    }
 
-   public static String mobName(class_2636 spawner) {
-      class_1952 data = ((AccessorSpawnerNametagsBaseSpawner)spawner.method_11390()).champ$spawnerNametagsNextSpawnData();
+   public static String mobName(SpawnerBlockEntity spawner) {
+      SpawnData data = ((AccessorSpawnerNametagsBaseSpawner)spawner.getSpawner()).champ$spawnerNametagsNextSpawnData();
       if (data == null) {
          return null;
       }
 
-      String id = data.comp_64().method_68564("id", "");
-      return id.isEmpty() ? null : class_1299.method_5898(id).map(type -> type.method_5897().getString()).orElse(null);
+      String id = data.comp_64().getStringOr("id", "");
+      return id.isEmpty() ? null : EntityType.byString(id).map(type -> type.getDescription().getString()).orElse(null);
    }
 
-   public static int activationRange(class_2636 spawner) {
-      return ((AccessorSpawnerNametagsBaseSpawner)spawner.method_11390()).champ$spawnerNametagsRequiredPlayerRange();
-   }
-
-   @Override
-   public boolean wants(class_2680 state) {
-      return state.method_27852(class_2246.field_10260);
+   public static int activationRange(SpawnerBlockEntity spawner) {
+      return ((AccessorSpawnerNametagsBaseSpawner)spawner.getSpawner()).champ$spawnerNametagsRequiredPlayerRange();
    }
 
    @Override
-   public void found(long pos, class_2680 state) {
+   public boolean wants(BlockState state) {
+      return state.is(Blocks.SPAWNER);
+   }
+
+   @Override
+   public void found(long pos, BlockState state) {
       this.spawners.add(pos);
    }
 
@@ -112,29 +112,29 @@ public final class SpawnerNametagsModule extends ClientModule implements HudOver
 
       while (it.hasNext()) {
          long pos = it.nextLong();
-         if (class_1923.method_8331(class_2338.method_10061(pos) >> 4, class_2338.method_10083(pos) >> 4) == chunkKey && !stillThere.test(pos)) {
+         if (ChunkPos.asLong(BlockPos.getX(pos) >> 4, BlockPos.getZ(pos) >> 4) == chunkKey && !stillThere.test(pos)) {
             it.remove();
          }
       }
    }
 
-   private List<SpawnerNametagsModule.Shown> inRange(class_310 mc) {
+   private List<SpawnerNametagsModule.Shown> inRange(Minecraft mc) {
       if (MobilePerformance.active()) {
          return this.mobileInRange(mc);
       }
 
       this.mobileShown.clear();
       List<SpawnerNametagsModule.Shown> shown = new ArrayList<>();
-      if (!this.spawners.isEmpty() && mc.field_1687 != null && mc.field_1724 != null) {
-         class_1937 level = mc.field_1687;
-         class_243 player = mc.field_1724.method_73189();
+      if (!this.spawners.isEmpty() && mc.level != null && mc.player != null) {
+         Level level = mc.level;
+         Vec3 player = mc.player.position();
          double range = this.sRange.get();
          LongIterator it = this.spawners.iterator();
 
          while (it.hasNext()) {
-            class_2338 pos = class_2338.method_10092(it.nextLong());
-            double distanceSq = player.method_1028(pos.method_10263() + 0.5, pos.method_10264() + 0.5, pos.method_10260() + 0.5);
-            if (!(distanceSq > range * range) && level.method_8321(pos) instanceof class_2636 spawner) {
+            BlockPos pos = BlockPos.of(it.nextLong());
+            double distanceSq = player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+            if (!(distanceSq > range * range) && level.getBlockEntity(pos) instanceof SpawnerBlockEntity spawner) {
                int activation = activationRange(spawner);
                boolean inside = activation < 0 || distanceSq < (double)activation * activation;
                shown.add(new SpawnerNametagsModule.Shown(pos, Math.sqrt(distanceSq), mobName(spawner), activation, inside));
@@ -148,11 +148,11 @@ public final class SpawnerNametagsModule extends ClientModule implements HudOver
       }
    }
 
-   private List<SpawnerNametagsModule.Shown> mobileInRange(class_310 mc) {
+   private List<SpawnerNametagsModule.Shown> mobileInRange(Minecraft mc) {
       this.mobileShown.clear();
       this.mobileCandidates.reset(48);
-      if (!this.spawners.isEmpty() && mc.field_1687 != null && mc.field_1724 != null) {
-         class_243 player = mc.field_1724.method_73189();
+      if (!this.spawners.isEmpty() && mc.level != null && mc.player != null) {
+         Vec3 player = mc.player.position();
          double range = this.sRange.get();
          double rangeSq = range * range;
 
@@ -161,15 +161,15 @@ public final class SpawnerNametagsModule extends ClientModule implements HudOver
 
             while (it.hasNext()) {
                long packed = it.nextLong();
-               double distanceSq = player.method_1028(
-                  class_2338.method_10061(packed) + 0.5, class_2338.method_10071(packed) + 0.5, class_2338.method_10083(packed) + 0.5
+               double distanceSq = player.distanceToSqr(
+                  BlockPos.getX(packed) + 0.5, BlockPos.getY(packed) + 0.5, BlockPos.getZ(packed) + 0.5
                );
                if (!(distanceSq > rangeSq)) {
                   double distance = Math.sqrt(distanceSq);
                   SpawnerNametagsModule.Candidate worst = this.mobileCandidates.worst();
                   if (worst == null || Double.compare(distance, worst.distance()) < 0) {
-                     class_2338 pos = class_2338.method_10092(packed);
-                     if (mc.field_1687.method_8321(pos) instanceof class_2636 spawner) {
+                     BlockPos pos = BlockPos.of(packed);
+                     if (mc.level.getBlockEntity(pos) instanceof SpawnerBlockEntity spawner) {
                         this.mobileCandidates.offer(new SpawnerNametagsModule.Candidate(pos, distance, distanceSq, spawner));
                      }
                   }
@@ -206,8 +206,8 @@ public final class SpawnerNametagsModule extends ClientModule implements HudOver
 
    @Override
    public void renderHudOverlay(ImDrawList dl, float screenW, float screenH) {
-      class_310 mc = class_310.method_1551();
-      if (!mc.field_1690.field_1842) {
+      Minecraft mc = Minecraft.getInstance();
+      if (!mc.options.hideGui) {
          List<SpawnerNametagsModule.Shown> shown = this.inRange(mc);
          int accent = WorldText.hudAccent();
 
@@ -233,15 +233,15 @@ public final class SpawnerNametagsModule extends ClientModule implements HudOver
       }
    }
 
-   public static float[] labelAnchor(class_310 mc, class_2338 pos, float screenW, float screenH) {
-      float[] anchor = WorldLabel.project(mc, new class_243(pos.method_10263() + 0.5, pos.method_10264() + 1.2, pos.method_10260() + 0.5), screenW, screenH);
+   public static float[] labelAnchor(Minecraft mc, BlockPos pos, float screenW, float screenH) {
+      float[] anchor = WorldLabel.project(mc, new Vec3(pos.getX() + 0.5, pos.getY() + 1.2, pos.getZ() + 0.5), screenW, screenH);
       if (anchor == null) {
          return null;
       }
 
       for (int corner = 0; corner < 4; corner++) {
          float[] top = WorldLabel.project(
-            mc, new class_243(pos.method_10263() + (corner & 1), pos.method_10264() + 1.0, pos.method_10260() + (corner >> 1)), screenW, screenH
+            mc, new Vec3(pos.getX() + (corner & 1), pos.getY() + 1.0, pos.getZ() + (corner >> 1)), screenW, screenH
          );
          if (top != null) {
             anchor[1] = Math.min(anchor[1], top[1]);
@@ -254,7 +254,7 @@ public final class SpawnerNametagsModule extends ClientModule implements HudOver
    @EventHandler
    public void onRender3D(Render3DEvent event) {
       if (this.sRadius.get()) {
-         class_310 mc = class_310.method_1551();
+         Minecraft mc = Minecraft.getInstance();
          List<SpawnerNametagsModule.Shown> shown = this.inRange(mc);
          if (!shown.isEmpty()) {
             int accent = GuiPalette.abgr(WorldText.hudAccent()) & 16777215;
@@ -264,7 +264,7 @@ public final class SpawnerNametagsModule extends ClientModule implements HudOver
                   float alpha = (spawner.inside() ? 0.8F : 0.4F) * this.fade(spawner.distance());
                   int color = Math.round(alpha * 255.0F) << 24 | accent;
                   if (color >>> 24 >= 4) {
-                     drawRing(class_243.method_24953(spawner.pos()), spawner.range(), color);
+                     drawRing(Vec3.atCenterOf(spawner.pos()), spawner.range(), color);
                   }
                }
             }
@@ -272,15 +272,15 @@ public final class SpawnerNametagsModule extends ClientModule implements HudOver
       }
    }
 
-   private static void drawRing(class_243 centre, double radius, int color) {
-      class_243 previous = null;
+   private static void drawRing(Vec3 centre, double radius, int color) {
+      Vec3 previous = null;
       boolean mobile = MobilePerformance.active();
 
       for (int i = 0; i <= 64; i++) {
          double angle = (Math.PI * 2) * i / 64.0;
-         class_243 point = centre.method_1031((mobile ? RING_COS[i] : Math.cos(angle)) * radius, 0.0, (mobile ? RING_SIN[i] : Math.sin(angle)) * radius);
+         Vec3 point = centre.add((mobile ? RING_COS[i] : Math.cos(angle)) * radius, 0.0, (mobile ? RING_SIN[i] : Math.sin(angle)) * radius);
          if (previous != null) {
-            class_12180.method_75546(previous, point, color, 1.5F).method_75533();
+            Gizmos.line(previous, point, color, 1.5F).setAlwaysOnTop();
          }
 
          previous = point;
@@ -296,10 +296,10 @@ public final class SpawnerNametagsModule extends ClientModule implements HudOver
    }
 
    @Environment(EnvType.CLIENT)
-   private record Candidate(class_2338 pos, double distance, double distanceSq, class_2636 spawner) {
+   private record Candidate(BlockPos pos, double distance, double distanceSq, SpawnerBlockEntity spawner) {
    }
 
    @Environment(EnvType.CLIENT)
-   private record Shown(class_2338 pos, double distance, String mob, int range, boolean inside) {
+   private record Shown(BlockPos pos, double distance, String mob, int range, boolean inside) {
    }
 }

@@ -9,7 +9,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 final class MacroWorker {
@@ -82,7 +82,7 @@ final class MacroWorker {
 
    <T> T call(Supplier<T> task) {
       this.check();
-      CompletableFuture<T> future = class_310.method_1551().method_5385(task);
+      CompletableFuture<T> future = Minecraft.getInstance().submit(task);
 
       try {
          return future.get(10L, TimeUnit.SECONDS);

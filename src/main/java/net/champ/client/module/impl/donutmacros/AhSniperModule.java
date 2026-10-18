@@ -11,9 +11,9 @@ import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.module.setting.StringSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_310;
-import net.minecraft.class_7439;
-import net.minecraft.class_746;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.client.player.LocalPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,8 +54,8 @@ public final class AhSniperModule extends ClientModule {
 
    @Override
    protected void onEnable() {
-      class_310 mc = class_310.method_1551();
-      if (mc.field_1724 != null && mc.method_1562() != null && mc.method_1548() != null) {
+      Minecraft mc = Minecraft.getInstance();
+      if (mc.player != null && mc.getConnection() != null && mc.getUser() != null) {
          long max = ServerText.parseMoney(this.maxPrice.get());
          if (max <= 0L) {
             this.say(ModuleChat.body().warn("Set Buy Below to a price like 50m."));
@@ -84,7 +84,7 @@ public final class AhSniperModule extends ClientModule {
                   }
                }
 
-               SniperBot created = new SniperBot(this, this.worker, target, this.refresh.getInt(), this.maxBuys.getInt(), sell, mc.method_1548().method_1676());
+               SniperBot created = new SniperBot(this, this.worker, target, this.refresh.getInt(), this.maxBuys.getInt(), sell, mc.getUser().getName());
                this.bot = created;
                this.worker.start(created::run, failure -> {
                   LOGGER.error("[Champ Client] AH Sniper stopped", failure);
@@ -100,7 +100,7 @@ public final class AhSniperModule extends ClientModule {
    }
 
    void stopFromBot(SniperBot from) {
-      class_310.method_1551().execute(() -> {
+      Minecraft.getInstance().execute(() -> {
          if (this.bot == from && this.isEnabled()) {
             this.setEnabled(false);
          }
@@ -112,11 +112,11 @@ public final class AhSniperModule extends ClientModule {
       SniperBot stopped = this.bot;
       this.bot = null;
       this.worker.stop();
-      class_310 mc = class_310.method_1551();
-      class_746 player = mc.field_1724;
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
       if (stopped != null && player != null) {
-         if (player.field_7512 != player.field_7498) {
-            player.method_7346();
+         if (player.containerMenu != player.inventoryMenu) {
+            player.closeContainer();
          } else {
             Dialogs.close(mc);
          }
@@ -128,7 +128,7 @@ public final class AhSniperModule extends ClientModule {
    @EventHandler
    public void onPacket(PacketReceiveNettyEvent event) {
       SniperBot current = this.bot;
-      if (current != null && event.packet instanceof class_7439 chat && chat.comp_763() != null) {
+      if (current != null && event.packet instanceof ClientboundSystemChatPacket chat && chat.comp_763() != null) {
          current.onChat(chat.comp_763().getString());
       }
    }

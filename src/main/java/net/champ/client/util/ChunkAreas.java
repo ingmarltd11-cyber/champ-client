@@ -8,8 +8,8 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1923;
-import net.minecraft.class_243;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.Vec3;
 
 @Environment(EnvType.CLIENT)
 public final class ChunkAreas {
@@ -29,7 +29,7 @@ public final class ChunkAreas {
             if (MobilePerformance.active()) {
                TracerEngine.draw(this.areaX.getDouble(i), y, this.areaZ.getDouble(i), color);
             } else {
-               TracerEngine.draw(new class_243(this.areaX.getDouble(i), y, this.areaZ.getDouble(i)), color);
+               TracerEngine.draw(new Vec3(this.areaX.getDouble(i), y, this.areaZ.getDouble(i)), color);
             }
          }
       }
@@ -56,14 +56,14 @@ public final class ChunkAreas {
                while (!this.queue.isEmpty()) {
                   long key = this.queue.dequeueLong();
                   this.area.add(key);
-                  int cx = class_1923.method_8325(key);
-                  int cz = class_1923.method_8332(key);
+                  int cx = ChunkPos.getX(key);
+                  int cz = ChunkPos.getZ(key);
                   sumX += (cx << 4) + 8.0;
                   sumZ += (cz << 4) + 8.0;
 
                   for (int dx = -1; dx <= 1; dx++) {
                      for (int dz = -1; dz <= 1; dz++) {
-                        long next = class_1923.method_8331(cx + dx, cz + dz);
+                        long next = ChunkPos.asLong(cx + dx, cz + dz);
                         if (chunks.contains(next) && this.seen.add(next)) {
                            this.queue.enqueue(next);
                         }
@@ -73,15 +73,15 @@ public final class ChunkAreas {
 
                double mx = sumX / this.area.size();
                double mz = sumZ / this.area.size();
-               if (!chunks.contains(class_1923.method_8331((int)Math.floor(mx) >> 4, (int)Math.floor(mz) >> 4))) {
+               if (!chunks.contains(ChunkPos.asLong((int)Math.floor(mx) >> 4, (int)Math.floor(mz) >> 4))) {
                   double best = Double.MAX_VALUE;
                   double bx = mx;
                   double bz = mz;
 
                   for (int i = 0; i < this.area.size(); i++) {
                      long key = this.area.getLong(i);
-                     double x = (class_1923.method_8325(key) << 4) + 8.0;
-                     double z = (class_1923.method_8332(key) << 4) + 8.0;
+                     double x = (ChunkPos.getX(key) << 4) + 8.0;
+                     double z = (ChunkPos.getZ(key) << 4) + 8.0;
                      double d = (x - mx) * (x - mx) + (z - mz) * (z - mz);
                      if (d < best) {
                         best = d;

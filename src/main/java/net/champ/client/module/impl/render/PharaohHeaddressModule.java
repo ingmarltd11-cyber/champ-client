@@ -7,7 +7,7 @@ import net.champ.client.module.setting.ModeSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_9848;
+import net.minecraft.util.ARGB;
 
 @Environment(EnvType.CLIENT)
 public final class PharaohHeaddressModule extends HeadCosmeticModule {
@@ -109,9 +109,9 @@ public final class PharaohHeaddressModule extends HeadCosmeticModule {
          int accent = CosmeticAccent.argb();
          int metal = metal(accent);
          palette[0] = metal;
-         palette[1] = class_9848.method_61321(accent, 0.78F);
+         palette[1] = ARGB.scaleRGB(accent, 0.78F);
          palette[2] = gem(accent);
-         palette[3] = class_9848.method_61321(metal, 0.62F);
+         palette[3] = ARGB.scaleRGB(metal, 0.62F);
       }
 
       return palette;

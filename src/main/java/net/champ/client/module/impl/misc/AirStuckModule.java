@@ -5,8 +5,8 @@ import net.champ.client.module.ClientModule;
 import net.champ.client.module.ModuleCategory;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_2828;
-import net.minecraft.class_9836;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
 
 @Environment(EnvType.CLIENT)
 public final class AirStuckModule extends ClientModule {
@@ -33,7 +33,7 @@ public final class AirStuckModule extends ClientModule {
    }
 
    private void onPacketSend(PacketSendEvent event) {
-      if (event.packet instanceof class_9836 || event.packet instanceof class_2828) {
+      if (event.packet instanceof ServerboundClientTickEndPacket || event.packet instanceof ServerboundMovePlayerPacket) {
          event.setCancelled(true);
       }
    }

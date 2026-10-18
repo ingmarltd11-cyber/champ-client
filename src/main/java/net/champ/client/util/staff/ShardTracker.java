@@ -3,31 +3,31 @@ package net.champ.client.util.staff;
 import net.champ.client.gui.DonutGoliathMapData;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_1937;
-import net.minecraft.class_310;
-import net.minecraft.class_634;
-import net.minecraft.class_638;
-import net.minecraft.class_746;
+import net.minecraft.world.level.Level;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
 
 @Environment(EnvType.CLIENT)
 public final class ShardTracker {
    private static final int OFF_MAP = Integer.MIN_VALUE;
-   private class_638 level;
-   private class_746 self;
+   private ClientLevel level;
+   private LocalPlayer self;
    private String brand;
    private int goliath = Integer.MIN_VALUE;
 
-   public boolean moved(class_310 mc) {
-      class_638 nowLevel = mc.field_1687;
-      class_746 nowSelf = mc.field_1724;
+   public boolean moved(Minecraft mc) {
+      ClientLevel nowLevel = mc.level;
+      LocalPlayer nowSelf = mc.player;
       if (nowLevel != null && nowSelf != null) {
-         class_634 connection = mc.method_1562();
-         String nowBrand = connection == null ? null : connection.method_52790();
+         ClientPacketListener connection = mc.getConnection();
+         String nowBrand = connection == null ? null : connection.serverBrand();
          int nowGoliath = goliath(nowLevel, nowSelf);
          boolean moved = this.level != null
             && (
                nowLevel != this.level
-                  || nowSelf != this.self && !this.self.method_29504()
+                  || nowSelf != this.self && !this.self.isDeadOrDying()
                   || nowGoliath != this.goliath
                   || nowBrand != null && this.brand != null && !nowBrand.equals(this.brand)
             );
@@ -49,7 +49,7 @@ public final class ShardTracker {
       this.goliath = Integer.MIN_VALUE;
    }
 
-   private static int goliath(class_638 level, class_746 self) {
-      return level.method_27983() != class_1937.field_25179 ? Integer.MIN_VALUE : DonutGoliathMapData.goliathAt(self.method_23317(), self.method_23321());
+   private static int goliath(ClientLevel level, LocalPlayer self) {
+      return level.dimension() != Level.OVERWORLD ? Integer.MIN_VALUE : DonutGoliathMapData.goliathAt(self.getX(), self.getZ());
    }
 }

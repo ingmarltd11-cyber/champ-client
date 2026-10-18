@@ -5,11 +5,11 @@ import java.util.Locale;
 import net.champ.client.gui.WorldLabel;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_12179;
-import net.minecraft.class_12180;
-import net.minecraft.class_238;
-import net.minecraft.class_243;
-import net.minecraft.class_310;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class ShotView {
@@ -19,15 +19,15 @@ public final class ShotView {
    private static final float FILL_ALPHA = 0.22F;
    private static final float LINE_WIDTH = 1.5F;
    private static final double LABEL_RISE = 0.25;
-   private class_238 from;
-   private class_238 to;
+   private AABB from;
+   private AABB to;
    private long movedAt;
    private long shownAt;
    private int color;
    private float damage;
    private float selfDamage;
 
-   public void show(class_238 box, int color, float damage, float selfDamage) {
+   public void show(AABB box, int color, float damage, float selfDamage) {
       long now = System.currentTimeMillis();
       if (!this.showing(now)) {
          this.from = box;
@@ -56,16 +56,16 @@ public final class ShotView {
       long now = System.currentTimeMillis();
       if (this.showing(now)) {
          float alpha = this.alpha(now);
-         class_12180.method_75541(this.box(now), class_12179.method_75537(fade(this.color, alpha), 1.5F, fade(this.color, alpha * 0.22F))).method_75533();
+         Gizmos.cuboid(this.box(now), GizmoStyle.strokeAndFill(fade(this.color, alpha), 1.5F, fade(this.color, alpha * 0.22F))).setAlwaysOnTop();
       }
    }
 
    public void label(ImDrawList dl, float screenW, float screenH) {
       long now = System.currentTimeMillis();
       if (this.showing(now)) {
-         class_238 box = this.box(now);
-         class_243 top = new class_243(box.method_1005().field_1352, box.field_1325 + 0.25, box.method_1005().field_1350);
-         float[] screen = WorldLabel.project(class_310.method_1551(), top, screenW, screenH);
+         AABB box = this.box(now);
+         Vec3 top = new Vec3(box.getCenter().x, box.maxY + 0.25, box.getCenter().z);
+         float[] screen = WorldLabel.project(Minecraft.getInstance(), top, screenW, screenH);
          if (screen != null) {
             WorldLabel.drawText(
                dl,
@@ -88,11 +88,11 @@ public final class ShotView {
       return idle <= 0L ? 1.0F : Math.max(0.0F, 1.0F - (float)idle / 350.0F);
    }
 
-   private class_238 box(long now) {
+   private AABB box(long now) {
       float t = Math.min(1.0F, (float)(now - this.movedAt) / 120.0F);
       float eased = 1.0F - (1.0F - t) * (1.0F - t) * (1.0F - t);
-      return new class_238(
-         this.from.method_61125().method_35590(this.to.method_61125(), eased), this.from.method_61126().method_35590(this.to.method_61126(), eased)
+      return new AABB(
+         this.from.getMinPosition().lerp(this.to.getMinPosition(), eased), this.from.getMaxPosition().lerp(this.to.getMaxPosition(), eased)
       );
    }
 

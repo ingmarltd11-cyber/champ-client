@@ -2,16 +2,16 @@ package com.example.client.mixin;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.class_10874;
+import com.mojang.blaze3d.opengl.DirectStateAccess;
 import org.lwjgl.opengl.GL11;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Environment(EnvType.CLIENT)
-@Mixin(class_10874.class)
+@Mixin(DirectStateAccess.class)
 public class MixinGlDevice {
-   @Redirect(method = "method_68813", at = @At(value = "FIELD", target = "Lnet/minecraft/class_10865;field_58039:Z", opcode = 178))
+   @Redirect(method = "create", at = @At(value = "FIELD", target = "Lcom/mojang/blaze3d/opengl/GlDevice;USE_GL_ARB_direct_state_access:Z", opcode = 178))
    private static boolean champ$blockDsaForAmd() {
       String renderer = GL11.glGetString(7937);
       return renderer == null || !renderer.contains("AMD");

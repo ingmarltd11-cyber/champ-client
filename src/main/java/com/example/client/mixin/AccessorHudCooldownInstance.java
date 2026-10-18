@@ -6,7 +6,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Environment(EnvType.CLIENT)
-@Mixin(targets = "net/minecraft/class_1796$class_1797")
+@Mixin(targets = "net/minecraft/world/item/ItemCooldowns$CooldownInstance")
 public interface AccessorHudCooldownInstance {
    @Accessor("comp_3083")
    int champ$hudStartTime();
