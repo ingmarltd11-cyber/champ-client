@@ -15,13 +15,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Environment(EnvType.CLIENT)
 @Mixin(LivingEntity.class)
 public abstract class MixinSwingAnimationLivingEntity {
-   @ModifyExpressionValue(method = {"updateSwingTime", "swing"}, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;getCurrentSwingDuration()I"))
+   @ModifyExpressionValue(method = {"updateSwingTime", "swing(Lnet/minecraft/world/InteractionHand;Z)V"}, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;getCurrentSwingDuration()I"))
    private int champ$swingTempo(int ticks) {
       SwingAnimationModule module = SwingAnimationModule.active;
       return module != null && (Object) this == Minecraft.getInstance().player ? module.swingTicks(ticks) : ticks;
    }
 
-   @Inject(method = "swing", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/LivingEntity;swinging:Z", opcode = 181))
+   @Inject(method = "swing(Lnet/minecraft/world/InteractionHand;Z)V", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/LivingEntity;swinging:Z", opcode = 181))
    private void champ$latchSwing(InteractionHand hand, boolean broadcast, CallbackInfo ci) {
       SwingAnimationModule module = SwingAnimationModule.active;
       if (module != null && (Object) this == Minecraft.getInstance().player) {

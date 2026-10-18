@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Environment(EnvType.CLIENT)
 @Mixin(FallingBlockRenderer.class)
 public abstract class MixinFallingBlockRenderer {
-   @Inject(method = "shouldRender", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "shouldRender(Lnet/minecraft/world/entity/item/FallingBlockEntity;Lnet/minecraft/client/renderer/culling/Frustum;DDD)Z", at = @At("HEAD"), cancellable = true)
    private void champ$cancelFallingBlock(FallingBlockEntity entity, Frustum frustum, double x, double y, double z, CallbackInfoReturnable<Boolean> cir) {
       if (NoRenderModule.hideFallingBlocks()) {
          cir.setReturnValue(false);

@@ -19,7 +19,7 @@ public abstract class MixinSpamMinecraft {
    @Shadow
    public ClientLevel level;
 
-   @Inject(method = "disconnect", at = @At("HEAD"))
+   @Inject(method = "disconnect(Lnet/minecraft/client/gui/screens/Screen;ZZ)V", at = @At("HEAD"))
    private void champ$spamGameLeft(Screen screen, boolean keepResourcePacks, boolean stopSound, CallbackInfo ci) {
       if (SpamModule.active != null && this.level != null) {
          SpamModule.onGameLeft();

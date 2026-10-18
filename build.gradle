@@ -1,3 +1,5 @@
+import net.fabricmc.loom.api.mappings.layered.MappingsNamespace
+
 plugins {
     id 'java'
     id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
@@ -67,6 +69,21 @@ tasks.named("jar", Jar) {
 
 tasks.withType(JavaCompile).configureEach {
     options.release = 21
+}
+
+// Pre-flight: controleert mixin-selectors tegen de echte Minecraft-classes,
+// zodat een verkeerde descriptor niet pas bij het opstarten crasht.
+tasks.register("validateMixins", Exec) {
+    group = "verification"
+    description = "Validate mixin selectors/handlers against Minecraft classes"
+    doFirst {
+        def jars = loom.getMinecraftJars(MappingsNamespace.NAMED)
+        commandLine "node", "tools/ValidateMixins.mjs", "src/main/java", jars.first().toAbsolutePath().toString()
+    }
+}
+
+tasks.named("check") {
+    dependsOn "validateMixins"
 }
 
 java {

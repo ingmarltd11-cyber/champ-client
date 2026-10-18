@@ -31,7 +31,7 @@ public abstract class MixinClientConnection {
    @Shadow
    public abstract PacketFlow getReceiving();
 
-   @Inject(method = "channelRead0", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "channelRead0(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/network/protocol/Packet;)V", at = @At("HEAD"), cancellable = true)
    private void champ$onPacketReceive(ChannelHandlerContext ctx, Packet<?> packet, CallbackInfo ci) {
       if (this.getReceiving() == PacketFlow.CLIENTBOUND) {
          if (PacketReceiveNettyEvent.dispatchSync(packet)) {
@@ -42,7 +42,7 @@ public abstract class MixinClientConnection {
       }
    }
 
-   @Inject(method = "send", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;Z)V", at = @At("HEAD"), cancellable = true)
    private void champ$onPacketSend(Packet<?> packet, ChannelFutureListener listener, boolean flush, CallbackInfo ci) {
       if (this.getReceiving() == PacketFlow.CLIENTBOUND) {
          if (PacketSendEvent.dispatchSync(packet)) {

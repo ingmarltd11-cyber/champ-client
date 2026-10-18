@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Environment(EnvType.CLIENT)
 @Mixin(AvatarRenderer.class)
 public abstract class MixinPlayerRenderer {
-   @Inject(method = "extractRenderState", at = @At("TAIL"))
+   @Inject(method = "extractRenderState(Lnet/minecraft/world/entity/Avatar;Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;F)V", at = @At("TAIL"))
    private void champ$injectSkin(Avatar entity, AvatarRenderState state, float partialTick, CallbackInfo ci) {
       SkinChangeModule mod = ModuleRegistry.get(SkinChangeModule.class);
       if (mod != null && mod.isEnabled()) {
@@ -27,7 +27,7 @@ public abstract class MixinPlayerRenderer {
       }
    }
 
-   @Inject(method = "submitNameTag", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "submitNameTag(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V", at = @At("HEAD"), cancellable = true)
    private void champ$suppressVanillaNameTag(AvatarRenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraState, CallbackInfo ci) {
       if (NametagsModule.hideVanillaNametags()) {
          ci.cancel();

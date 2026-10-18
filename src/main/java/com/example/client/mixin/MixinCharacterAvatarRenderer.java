@@ -32,7 +32,7 @@ public abstract class MixinCharacterAvatarRenderer<T extends Avatar & ClientAvat
       this.addLayer(new CharacterLayer(this));
    }
 
-   @Inject(method = "extractRenderState", at = @At("TAIL"))
+   @Inject(method = "extractRenderState(Lnet/minecraft/world/entity/Avatar;Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;F)V", at = @At("TAIL"))
    private void champ$extractCharacter(Avatar entity, AvatarRenderState state, float partialTick, CallbackInfo ci) {
       CharacterModule.extract(entity, state);
    }
