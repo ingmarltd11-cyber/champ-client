@@ -1,4 +1,4 @@
-package net.champ.addon.module.mace;
+package net.champ.client.module.impl.mace;
 
 import net.champ.addon.Addons;
 import net.champ.addon.module.ModuleBase;

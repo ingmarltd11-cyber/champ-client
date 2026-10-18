@@ -1,4 +1,4 @@
-package net.champ.addon.module.combat;
+package net.champ.client.module.impl.combat;
 
 import net.champ.addon.util.Slots;
 import net.minecraft.client.Minecraft;

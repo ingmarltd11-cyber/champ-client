@@ -1,4 +1,4 @@
-package net.champ.addon.module.donut;
+package net.champ.client.module.impl.donut;
 
 import net.champ.addon.module.ModuleBase;
 import net.champ.addon.util.Inv;

@@ -1,8 +1,8 @@
-package net.champ.addon.module.spear;
+package net.champ.client.module.impl.spear;
 
 import net.champ.addon.Addons;
 import net.champ.addon.module.ModuleBase;
-import net.champ.addon.module.combat.InstantPack;
+import net.champ.client.module.impl.combat.InstantPack;
 import net.champ.addon.util.Modules;
 import net.champ.addon.util.Slots;
 import net.champ.client.event.impl.KeyEvent;

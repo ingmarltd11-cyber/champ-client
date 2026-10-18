@@ -1,4 +1,4 @@
-package net.champ.addon.module.misc;
+package net.champ.client.module.impl.misc;
 
 import net.champ.addon.module.ModuleBase;
 import net.champ.addon.util.Slots;

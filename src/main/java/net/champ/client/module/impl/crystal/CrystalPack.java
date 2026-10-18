@@ -1,4 +1,4 @@
-package net.champ.addon.module.crystal;
+package net.champ.client.module.impl.crystal;
 
 import net.champ.addon.Addons;
 import net.champ.addon.module.ModuleBase;

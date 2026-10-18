@@ -1,16 +1,16 @@
 package net.champ.addon;
 
-import net.champ.addon.module.combat.AutoCartModule;
-import net.champ.addon.module.combat.CartPack;
-import net.champ.addon.module.combat.InstantPack;
-import net.champ.addon.module.crystal.CrystalPack;
-import net.champ.addon.module.donut.DonutPack;
-import net.champ.addon.module.mace.MacePack;
-import net.champ.addon.module.misc.MiscPack;
-import net.champ.addon.module.misc.MiscPack2;
-import net.champ.addon.module.movement.MovementPack;
-import net.champ.addon.module.spear.SpearPack;
-import net.champ.addon.module.visual.VisualPack;
+import net.champ.client.module.impl.combat.AutoCartModule;
+import net.champ.client.module.impl.combat.CartPack;
+import net.champ.client.module.impl.combat.InstantPack;
+import net.champ.client.module.impl.crystal.CrystalPack;
+import net.champ.client.module.impl.donut.DonutPack;
+import net.champ.client.module.impl.mace.MacePack;
+import net.champ.client.module.impl.misc.MiscPack;
+import net.champ.client.module.impl.misc.MiscPack2;
+import net.champ.client.module.impl.movement.MovementPack;
+import net.champ.client.module.impl.spear.SpearPack;
+import net.champ.client.module.impl.visual.VisualPack;
 import net.champ.client.module.ClientModule;
 import net.champ.client.module.ModuleCategory;
 

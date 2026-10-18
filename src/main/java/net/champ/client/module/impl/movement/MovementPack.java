@@ -1,4 +1,4 @@
-package net.champ.addon.module.movement;
+package net.champ.client.module.impl.movement;
 
 import net.champ.addon.module.ModuleBase;
 import net.champ.addon.util.Slots;

@@ -1,6 +1,6 @@
 package net.champ.addon.mixin;
 
-import net.champ.addon.module.combat.InstantPack;
+import net.champ.client.module.impl.combat.InstantPack;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;

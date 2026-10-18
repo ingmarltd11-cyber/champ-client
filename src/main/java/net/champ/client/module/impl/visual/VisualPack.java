@@ -1,4 +1,4 @@
-package net.champ.addon.module.visual;
+package net.champ.client.module.impl.visual;
 
 import net.champ.addon.module.ModuleBase;
 import net.champ.addon.util.Modules;
