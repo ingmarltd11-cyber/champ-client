@@ -189,7 +189,7 @@ public final class TranslationGuard {
          Options options = Minecraft.getInstance().options;
          if (options != null) {
             for (KeyMapping mapping : options.keyMappings) {
-               Identifier category = mapping.getCategory().comp_4879();
+               Identifier category = mapping.getCategory().id();
                if (namespaces.contains(category.getNamespace())) {
                   collected.add(mapping.getName());
                   collected.add("key.category." + category.getNamespace() + "." + category.getPath());
@@ -267,7 +267,7 @@ public final class TranslationGuard {
          this.hidden = hidden;
       }
 
-      public String method_4679(String key, String fallback) {
+      public String getOrDefault(String key, String fallback) {
          TranslationGuard.Snapshot current = TranslationGuard.snapshot;
          if (current != null) {
             return current.provided().contains(key) ? current.clean().getOrDefault(key, fallback) : this.real.getOrDefault(key, fallback);
@@ -276,7 +276,7 @@ public final class TranslationGuard {
          }
       }
 
-      public boolean method_4678(String key) {
+      public boolean has(String key) {
          TranslationGuard.Snapshot current = TranslationGuard.snapshot;
          if (current != null) {
             return current.provided().contains(key) ? current.clean().containsKey(key) : this.real.has(key);
@@ -285,11 +285,11 @@ public final class TranslationGuard {
          }
       }
 
-      public boolean method_29428() {
+      public boolean isDefaultRightToLeft() {
          return this.real.isDefaultRightToLeft();
       }
 
-      public FormattedCharSequence method_30934(FormattedText text) {
+      public FormattedCharSequence getVisualOrder(FormattedText text) {
          return this.real.getVisualOrder(text);
       }
    }

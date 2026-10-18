@@ -68,7 +68,7 @@ public final class StaffAlarm {
       if (!this.ringing.isEmpty()) {
          SoundManager sounds = Minecraft.getInstance().getSoundManager();
          if (sounds != null) {
-            this.ringing.forEach(sounds::method_4870);
+            this.ringing.forEach(sounds::stop);
          }
 
          this.ringing.clear();
@@ -86,7 +86,7 @@ public final class StaffAlarm {
          float pitch;
          switch (this.mode) {
             case "Beep":
-               sound = (SoundEvent)SoundEvents.NOTE_BLOCK_BIT.comp_349();
+               sound = (SoundEvent)SoundEvents.NOTE_BLOCK_BIT.value();
                pitch = 1.6F;
                break;
             case "Bell":
@@ -98,12 +98,12 @@ public final class StaffAlarm {
                pitch = 1.0F;
                break;
             default:
-               sound = (SoundEvent)SoundEvents.NOTE_BLOCK_PLING.comp_349();
+               sound = (SoundEvent)SoundEvents.NOTE_BLOCK_PLING.value();
                pitch = note % 2 == 0 ? 1.5F : 1.0F;
          }
 
          SoundInstance instance = new SimpleSoundInstance(
-            sound.comp_3319(), SoundSource.MASTER, this.volume, pitch, SoundInstance.createUnseededRandom(), false, 0, Attenuation.NONE, 0.0, 0.0, 0.0, true
+            sound.location(), SoundSource.MASTER, this.volume, pitch, SoundInstance.createUnseededRandom(), false, 0, Attenuation.NONE, 0.0, 0.0, 0.0, true
          );
          if (this.ringing.size() >= 8) {
             this.ringing.removeFirst();

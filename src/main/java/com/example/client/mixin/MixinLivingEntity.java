@@ -18,7 +18,7 @@ public abstract class MixinLivingEntity {
    private void champ$modifySwingDuration(CallbackInfoReturnable<Integer> cir) {
       SlowSwingModule module = ModuleRegistry.get(SlowSwingModule.class);
       if (module != null && module.isEnabled()) {
-         if (this == Minecraft.getInstance().player) {
+         if ((Object) this == Minecraft.getInstance().player) {
             cir.setReturnValue(module.getModifiedSwingDuration((Integer)cir.getReturnValue()));
          }
       }

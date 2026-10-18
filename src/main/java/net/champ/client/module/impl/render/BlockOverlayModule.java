@@ -233,12 +233,12 @@ public final class BlockOverlayModule extends ClientModule {
 
       for (AABB b : this.boxes) {
          boolean onPlane = switch (this.face) {
-            case field_11034 -> Math.abs(local.x - b.maxX) < e;
-            case field_11039 -> Math.abs(local.x - b.minX) < e;
-            case field_11036 -> Math.abs(local.y - b.maxY) < e;
-            case field_11033 -> Math.abs(local.y - b.minY) < e;
-            case field_11035 -> Math.abs(local.z - b.maxZ) < e;
-            case field_11043 -> Math.abs(local.z - b.minZ) < e;
+            case EAST -> Math.abs(local.x - b.maxX) < e;
+            case WEST -> Math.abs(local.x - b.minX) < e;
+            case UP -> Math.abs(local.y - b.maxY) < e;
+            case DOWN -> Math.abs(local.y - b.minY) < e;
+            case SOUTH -> Math.abs(local.z - b.maxZ) < e;
+            case NORTH -> Math.abs(local.z - b.minZ) < e;
             default -> throw new MatchException(null, null);
          };
          if (onPlane && b.inflate(e).contains(local)) {
@@ -543,31 +543,31 @@ public final class BlockOverlayModule extends ClientModule {
       Vec3 c = b.getCenter();
 
       return switch (d) {
-         case field_11034 -> new Vec3(b.maxX, c.y, c.z);
-         case field_11039 -> new Vec3(b.minX, c.y, c.z);
-         case field_11036 -> new Vec3(c.x, b.maxY, c.z);
-         case field_11033 -> new Vec3(c.x, b.minY, c.z);
-         case field_11035 -> new Vec3(c.x, c.y, b.maxZ);
-         case field_11043 -> new Vec3(c.x, c.y, b.minZ);
+         case EAST -> new Vec3(b.maxX, c.y, c.z);
+         case WEST -> new Vec3(b.minX, c.y, c.z);
+         case UP -> new Vec3(c.x, b.maxY, c.z);
+         case DOWN -> new Vec3(c.x, b.minY, c.z);
+         case SOUTH -> new Vec3(c.x, c.y, b.maxZ);
+         case NORTH -> new Vec3(c.x, c.y, b.minZ);
          default -> throw new MatchException(null, null);
       };
    }
 
    private static List<double[]> faceEdges(AABB b, Direction d) {
       double[][] c = switch (d.getAxis()) {
-         case field_11048 -> {
+         case X -> {
             double x = d == Direction.EAST ? b.maxX : b.minX;
             yield new double[][]{
                {x, b.minY, b.minZ}, {x, b.maxY, b.minZ}, {x, b.maxY, b.maxZ}, {x, b.minY, b.maxZ}
             };
          }
-         case field_11052 -> {
+         case Y -> {
             double y = d == Direction.UP ? b.maxY : b.minY;
             yield new double[][]{
                {b.minX, y, b.minZ}, {b.maxX, y, b.minZ}, {b.maxX, y, b.maxZ}, {b.minX, y, b.maxZ}
             };
          }
-         case field_11051 -> {
+         case Z -> {
             double z = d == Direction.SOUTH ? b.maxZ : b.minZ;
             yield new double[][]{
                {b.minX, b.minY, z}, {b.maxX, b.minY, z}, {b.maxX, b.maxY, z}, {b.minX, b.maxY, z}

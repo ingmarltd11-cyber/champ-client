@@ -29,7 +29,7 @@ public abstract class MixinKeyboardHandler {
 
    @Inject(method = "keyPress", at = @At("HEAD"), cancellable = true)
    private void champ$onKeyPress(long window, int action, KeyEvent event, CallbackInfo ci) {
-      if (KeyInputEvent.dispatch(event.comp_4795(), event.comp_4796(), action, event.comp_4797())) {
+      if (KeyInputEvent.dispatch(event.key(), event.scancode(), action, event.modifiers())) {
          ci.cancel();
       }
    }

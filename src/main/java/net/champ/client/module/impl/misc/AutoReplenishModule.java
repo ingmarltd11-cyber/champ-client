@@ -99,7 +99,7 @@ public final class AutoReplenishModule extends ClientModule {
                         return;
                      }
 
-                     if (this.isMovingFast(player) || ((AccessorLocalPlayer)player).champ$lastSentInput().comp_3164()) {
+                     if (this.isMovingFast(player) || ((AccessorLocalPlayer)player).champ$lastSentInput().shift()) {
                         return;
                      }
 

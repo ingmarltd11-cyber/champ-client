@@ -289,7 +289,7 @@ public final class AtmosphereModule extends ClientModule {
       }
 
       BlockPos at = BlockPos.containing(mc.gameRenderer.getMainCamera().position());
-      return ((Biome)mc.level.getBiome(at).comp_349()).coldEnoughToSnow(at, mc.level.getSeaLevel()) ? 1.0F : 0.0F;
+      return ((Biome)mc.level.getBiome(at).value()).coldEnoughToSnow(at, mc.level.getSeaLevel()) ? 1.0F : 0.0F;
    }
 
    public void fog(Camera camera, ClientLevel level, Vector4f color) {

@@ -255,7 +255,7 @@ public final class SkinChangeModule extends ClientModule {
 
          PlayerSkin skin = this.swapped.get(original);
          if (skin == null) {
-            skin = new PlayerSkin(custom.body(), original.comp_1627(), original.comp_1628(), custom.model(), original.comp_1630());
+            skin = new PlayerSkin(custom.body(), original.cape(), original.elytra(), custom.model(), original.secure());
             this.swapped.put(original, skin);
          }
 

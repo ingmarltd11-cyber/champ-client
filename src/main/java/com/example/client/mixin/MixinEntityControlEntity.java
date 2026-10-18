@@ -15,6 +15,6 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 public abstract class MixinEntityControlEntity {
    @ModifyVariable(method = "move", at = @At("HEAD"), argsOnly = true)
    private Vec3 champ$entityControlVehicleMove(Vec3 movement, MoverType type) {
-      return !EntityControlVehicleHook.anyActive ? movement : EntityControlVehicleHook.onEntityMove((Entity)this, type, movement);
+      return !EntityControlVehicleHook.anyActive ? movement : EntityControlVehicleHook.onEntityMove((Entity)(Object)this, type, movement);
    }
 }

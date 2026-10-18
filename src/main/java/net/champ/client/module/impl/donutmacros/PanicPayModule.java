@@ -132,8 +132,8 @@ public final class PanicPayModule extends ClientModule {
 
    @EventHandler
    public void onPacket(PacketReceiveNettyEvent event) {
-      if (this.running && event.packet instanceof ClientboundSystemChatPacket chat && chat.comp_763() != null) {
-         String raw = chat.comp_763().getString();
+      if (this.running && event.packet instanceof ClientboundSystemChatPacket chat && chat.content() != null) {
+         String raw = chat.content().getString();
          String line = ServerText.normalize(raw);
          long now = System.currentTimeMillis();
          Matcher wait = RATE_LIMIT.matcher(line);

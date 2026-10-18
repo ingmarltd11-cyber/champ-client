@@ -287,10 +287,10 @@ public final class CrystalDamage {
          }
 
          return switch (this.entity.level().getDifficulty()) {
-            case field_5801 -> 0.0F;
-            case field_5805 -> Math.min(damage / 2.0F + 1.0F, damage);
-            case field_5802 -> damage;
-            case field_5807 -> damage * 1.5F;
+            case PEACEFUL -> 0.0F;
+            case EASY -> Math.min(damage / 2.0F + 1.0F, damage);
+            case NORMAL -> damage;
+            case HARD -> damage * 1.5F;
             default -> throw new MatchException(null, null);
          };
       }

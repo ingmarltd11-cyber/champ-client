@@ -15,7 +15,7 @@ public abstract class MixinBoatNoclipAbstractBoat {
    @ModifyReturnValue(method = "canCollideWith", at = @At("RETURN"))
    private boolean champ$boatNoclipCollide(boolean original) {
       if (original && BoatNoclipModule.active != null) {
-         AbstractBoat boat = (AbstractBoat)this;
+         AbstractBoat boat = (AbstractBoat)(Object)(Object)this;
          return !boat.level().isClientSide() || boat.getControllingPassenger() != Minecraft.getInstance().player;
       } else {
          return original;

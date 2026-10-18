@@ -21,37 +21,37 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MixinBorderlessWindow implements BorderlessFullscreen.Switchable {
    @Shadow
    @Final
-   private long field_5187;
+   private long handle;
    @Shadow
    @Final
-   private ScreenManager field_5195;
+   private ScreenManager screenManager;
    @Shadow
-   private boolean field_5191;
+   private boolean fullscreen;
    @Shadow
-   private boolean field_5177;
+   private boolean actuallyFullscreen;
    @Shadow
-   private int field_5175;
+   private int x;
    @Shadow
-   private int field_5185;
+   private int y;
    @Shadow
-   private int field_5174;
+   private int width;
    @Shadow
-   private int field_5184;
+   private int height;
    @Shadow
-   private int field_5183;
+   private int windowedX;
    @Shadow
-   private int field_5198;
+   private int windowedY;
    @Shadow
-   private int field_5182;
+   private int windowedWidth;
    @Shadow
-   private int field_5197;
+   private int windowedHeight;
    @Unique
    private boolean champ$borderless;
 
    @Inject(method = "setMode", at = @At("HEAD"), cancellable = true)
    private void champ$setMode(CallbackInfo ci) {
       if (this.fullscreen && BorderlessFullscreen.wanted()) {
-         Monitor monitor = this.screenManager.findBestMonitor((Window)this);
+         Monitor monitor = this.screenManager.findBestMonitor((Window)(Object)(Object)this);
          if (monitor != null) {
             boolean exclusive = GLFW.glfwGetWindowMonitor(this.handle) != 0L;
             if (!exclusive && !this.champ$borderless) {

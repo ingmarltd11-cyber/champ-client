@@ -197,7 +197,7 @@ public final class LegitAutoToolModule extends ClientModule {
          return true;
       }
 
-      for (Component line : ((ItemLore)stack.getOrDefault(DataComponents.LORE, ItemLore.EMPTY)).comp_2400()) {
+      for (Component line : ((ItemLore)stack.getOrDefault(DataComponents.LORE, ItemLore.EMPTY)).lines()) {
          if (AntiVanishText.normalize(line.getString()).contains("breaks 9 blocks at once")) {
             return true;
          }
@@ -219,7 +219,7 @@ public final class LegitAutoToolModule extends ClientModule {
          double[] own = new double[]{0.0};
          stack.forEachModifier(EquipmentSlot.MAINHAND, (attribute, modifier) -> {
             if (attribute == Attributes.MINING_EFFICIENCY) {
-               own[0] += modifier.comp_2449();
+               own[0] += modifier.amount();
             }
          });
          speed += (float)own[0];

@@ -20,7 +20,7 @@ public abstract class MixinNameProtectClientPacketListener {
       NameProtectModule.onPlayerInfoApplied(packet);
    }
 
-   @ModifyExpressionValue(method = "handlePlayerCombatKill", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/protocol/game/ClientboundPlayerCombatKillPacket;comp_2276()Lnet/minecraft/network/chat/Component;"))
+   @ModifyExpressionValue(method = "handlePlayerCombatKill", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/protocol/game/ClientboundPlayerCombatKillPacket;message()Lnet/minecraft/network/chat/Component;"))
    private Component champ$nameProtectDeathMessage(Component message) {
       return NameProtectModule.protect(message);
    }

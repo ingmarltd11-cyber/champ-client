@@ -38,7 +38,7 @@ public abstract class MixinNameProtectTextDisplay {
 
    @ModifyExpressionValue(
       method = "cacheDisplay",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Display$TextDisplay$TextRenderState;comp_1334()Lnet/minecraft/network/chat/Component;")
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Display$TextDisplay$TextRenderState;text()Lnet/minecraft/network/chat/Component;")
    )
    private Component champ$nameProtectText(Component text) {
       return NameProtectModule.protect(text);

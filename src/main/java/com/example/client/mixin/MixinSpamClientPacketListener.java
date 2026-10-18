@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ClientPacketListener.class)
 public abstract class MixinSpamClientPacketListener {
    @Shadow
-   private ClientLevel field_3699;
+   private ClientLevel level;
 
    @Inject(
       method = "handleLogin",

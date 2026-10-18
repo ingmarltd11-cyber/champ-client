@@ -48,7 +48,7 @@ final class Dialogs {
 
          List<ActionButton> raw = new ArrayList<>();
          if (dialog instanceof MultiActionDialog multi) {
-            raw.addAll(multi.comp_4317());
+            raw.addAll(multi.actions());
          }
 
          if (dialog instanceof SimpleDialog simple) {
@@ -56,13 +56,13 @@ final class Dialogs {
          }
 
          if (dialog instanceof ButtonListDialog list) {
-            list.comp_4395().ifPresent(raw::add);
+            list.exitAction().ifPresent(raw::add);
          }
 
          List<Dialogs.Button> buttons = new ArrayList<>(raw.size());
 
          for (ActionButton button : raw) {
-            Component label = button.comp_4390().comp_4298();
+            Component label = button.button().label();
             String text = visibleText(label);
             buttons.add(new Dialogs.Button(button, ServerText.normalize(text), ServerText.key(text), label));
          }
@@ -70,26 +70,26 @@ final class Dialogs {
          List<String> body = new ArrayList<>();
          List<ItemStack> items = new ArrayList<>();
 
-         for (DialogBody part : dialog.comp_4305().comp_4304()) {
+         for (DialogBody part : dialog.common().body()) {
             if (part instanceof PlainMessage message) {
-               body.add(ServerText.normalize(visibleText(message.comp_4330())));
+               body.add(ServerText.normalize(visibleText(message.contents())));
             }
 
             if (part instanceof ItemBody item) {
-               items.add(item.comp_4324());
-               item.comp_4325().ifPresent(message -> body.add(ServerText.normalize(visibleText(message.comp_4330()))));
+               items.add(item.item());
+               item.description().ifPresent(message -> body.add(ServerText.normalize(visibleText(message.contents()))));
             }
          }
 
          List<String> textInputs = new ArrayList<>();
 
-         for (Input input : dialog.comp_4305().comp_4394()) {
-            if (input.comp_4313() instanceof TextInput) {
-               textInputs.add(input.comp_4312());
+         for (Input input : dialog.common().inputs()) {
+            if (input.control() instanceof TextInput) {
+               textInputs.add(input.key());
             }
          }
 
-         return new Dialogs.View(dialog, ServerText.normalize(visibleText(dialog.comp_4305().comp_4301())), buttons, body, textInputs, items);
+         return new Dialogs.View(dialog, ServerText.normalize(visibleText(dialog.common().title())), buttons, body, textInputs, items);
       }
    }
 
@@ -120,15 +120,15 @@ final class Dialogs {
 
          Map<String, ValueGetter> values = new HashMap<>();
 
-         for (Input input : view.dialog().comp_4305().comp_4394()) {
-            if (input.comp_4313() instanceof TextInput textInput) {
-               values.put(input.comp_4312(), ValueGetter.of(text.getOrDefault(input.comp_4312(), textInput.comp_4354())));
-            } else if (input.comp_4313() instanceof BooleanInput bool) {
-               values.put(input.comp_4312(), booleanValue(bool));
+         for (Input input : view.dialog().common().inputs()) {
+            if (input.control() instanceof TextInput textInput) {
+               values.put(input.key(), ValueGetter.of(text.getOrDefault(input.key(), textInput.initial())));
+            } else if (input.control() instanceof BooleanInput bool) {
+               values.put(input.key(), booleanValue(bool));
             }
          }
 
-         Optional<ClickEvent> event = button.raw().comp_4391().flatMap(action -> action.createAction(values));
+         Optional<ClickEvent> event = button.raw().action().flatMap(action -> action.createAction(values));
          screen.runAction(event);
          return true;
       } else {
@@ -143,13 +143,13 @@ final class Dialogs {
    }
 
    private static ValueGetter booleanValue(BooleanInput input) {
-      final boolean value = input.comp_4333();
+      final boolean value = input.initial();
       return new ValueGetter() {
-         public String method_72069() {
-            return value ? input.comp_4334() : input.comp_4335();
+         public String asTemplateSubstitution() {
+            return value ? input.onTrue() : input.onFalse();
          }
 
-         public Tag method_72073() {
+         public Tag asTag() {
             return ByteTag.valueOf(value);
          }
       };

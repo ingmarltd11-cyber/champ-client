@@ -22,6 +22,6 @@ public abstract class MixinElytraFlyLivingEntity {
 
       Minecraft mc = Minecraft.getInstance();
       LocalPlayer player = mc.player;
-      return this == player && mc.isSameThread() ? module.modifyFallFlying(player, original) : original;
+      return (Object) this == player && mc.isSameThread() ? module.modifyFallFlying(player, original) : original;
    }
 }

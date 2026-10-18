@@ -34,7 +34,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class MixinRotationMultiPlayerGameMode {
    @Shadow
    @Final
-   private Minecraft field_3712;
+   private Minecraft minecraft;
 
    @WrapMethod(method = "useItem")
    private InteractionResult champ$useItemRotation(Player player, InteractionHand hand, Operation<InteractionResult> original) {
@@ -78,7 +78,7 @@ public abstract class MixinRotationMultiPlayerGameMode {
          double reach = self.entityInteractionRange();
          AttackRange range = (AttackRange)self.getMainHandItem().get(DataComponents.ATTACK_RANGE);
          if (range != null) {
-            box = box.inflate(range.comp_5262());
+            box = box.inflate(range.hitboxMargin());
             reach = range.effectiveMaxRange(self);
          }
 

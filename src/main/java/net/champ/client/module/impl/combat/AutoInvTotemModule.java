@@ -113,12 +113,12 @@ public final class AutoInvTotemModule extends ClientModule {
       AccessorLocalPlayer sent = (AccessorLocalPlayer)player;
       Input input = sent.champ$lastSentInput();
       return !sent.champ$wasSprinting()
-         && !input.comp_3159()
-         && !input.comp_3160()
-         && !input.comp_3161()
-         && !input.comp_3162()
-         && !input.comp_3163()
-         && !input.comp_3164();
+         && !input.forward()
+         && !input.backward()
+         && !input.left()
+         && !input.right()
+         && !input.jump()
+         && !input.shift();
    }
 
    @Override

@@ -238,8 +238,8 @@ public final class AntiVanishModule extends ClientModule {
 
    private boolean handleInbound(Packet<?> packet) {
       if (packet instanceof ClientboundPlayerInfoRemovePacket remove) {
-         if (remove.comp_1105().size() < 4) {
-            for (UUID id : remove.comp_1105()) {
+         if (remove.profileIds().size() < 4) {
+            for (UUID id : remove.profileIds()) {
                this.observations.offer(AntiVanishModule.Observation.tabRemove(id));
             }
          }
@@ -247,32 +247,32 @@ public final class AntiVanishModule extends ClientModule {
          int unlisted = 0;
 
          for (Entry entry : info.entries()) {
-            if (entry != null && !entry.comp_1108()) {
+            if (entry != null && !entry.listed()) {
                unlisted++;
             }
          }
 
          if (unlisted > 0 && unlisted < 4) {
             for (Entry entry : info.entries()) {
-               if (entry != null && !entry.comp_1108()) {
-                  this.observations.offer(AntiVanishModule.Observation.tabHide(entry.comp_1106()));
+               if (entry != null && !entry.listed()) {
+                  this.observations.offer(AntiVanishModule.Observation.tabHide(entry.profileId()));
                }
             }
          }
       } else if (packet instanceof ClientboundPlayerInfoUpdatePacket info && info.actions().contains(Action.UPDATE_GAME_MODE)) {
          this.queueGamemodeUpdates(info);
       } else if (packet instanceof ClientboundSystemChatPacket chat) {
-         String text = chat.comp_763() == null ? "" : chat.comp_763().getString();
+         String text = chat.content() == null ? "" : chat.content().getString();
          if (!text.isBlank()) {
             this.observations.offer(AntiVanishModule.Observation.systemChat(text));
          }
 
-         String departedName = departedPlayerName(chat.comp_763());
+         String departedName = departedPlayerName(chat.content());
          if (!departedName.isBlank()) {
             this.observations.offer(AntiVanishModule.Observation.playerLeft(departedName));
          }
       } else {
-         if (packet instanceof ClientboundCommandSuggestionsPacket suggestions && this.completionRequestIds.remove(suggestions.comp_2262())) {
+         if (packet instanceof ClientboundCommandSuggestionsPacket suggestions && this.completionRequestIds.remove(suggestions.id())) {
             List<String> names = new ArrayList<>();
 
             for (Suggestion suggestion : suggestions.toSuggestions().getList()) {
@@ -287,12 +287,12 @@ public final class AntiVanishModule extends ClientModule {
          }
 
          if (packet instanceof ClientboundSetEntityDataPacket metadata) {
-            this.observations.offer(AntiVanishModule.Observation.entityMetadata(metadata.comp_1127()));
+            this.observations.offer(AntiVanishModule.Observation.entityMetadata(metadata.id()));
          } else if (packet instanceof ClientboundExplodePacket explosion) {
-            this.observations.offer(AntiVanishModule.Observation.explosion(explosion.comp_2883(), explosion.comp_4594()));
+            this.observations.offer(AntiVanishModule.Observation.explosion(explosion.center(), explosion.radius()));
          } else if (packet instanceof ClientboundSoundEntityPacket sound) {
             this.observations
-               .offer(AntiVanishModule.Observation.entitySound(sound.getId(), soundId(((SoundEvent)sound.getSound().comp_349()).comp_3319())));
+               .offer(AntiVanishModule.Observation.entitySound(sound.getId(), soundId(((SoundEvent)sound.getSound().value()).location())));
          } else if (packet instanceof ClientboundLevelParticlesPacket particles) {
             Identifier id = BuiltInRegistries.PARTICLE_TYPE.getKey(particles.getParticle().getType());
             this.observations
@@ -314,8 +314,8 @@ public final class AntiVanishModule extends ClientModule {
    }
 
    private void onSoundPacket(ClientboundSoundPacket packet) {
-      if (packet != null && packet.getSound() != null && packet.getSound().comp_349() != null) {
-         String id = soundId(((SoundEvent)packet.getSound().comp_349()).comp_3319());
+      if (packet != null && packet.getSound() != null && packet.getSound().value() != null) {
+         String id = soundId(((SoundEvent)packet.getSound().value()).location());
          this.observations
             .offer(
                AntiVanishModule.Observation.position(
@@ -982,8 +982,8 @@ public final class AntiVanishModule extends ClientModule {
    private void queueGamemodeUpdates(ClientboundPlayerInfoUpdatePacket info) {
       if (!info.actions().contains(Action.ADD_PLAYER)) {
          for (Entry entry : info.entries()) {
-            if (entry != null && entry.comp_1110() != null && entry.comp_1106() != null) {
-               this.observations.offer(AntiVanishModule.Observation.gamemode(entry.comp_1106(), entry.comp_1110().getName()));
+            if (entry != null && entry.gameMode() != null && entry.profileId() != null) {
+               this.observations.offer(AntiVanishModule.Observation.gamemode(entry.profileId(), entry.gameMode().getName()));
             }
          }
       }

@@ -38,9 +38,9 @@ public final class VehicleAntiKick {
          ClientPacketListener connection = mc.getConnection();
          if (vehicle != null && connection != null && this.lastPacketY != Double.MAX_VALUE) {
             ServerboundMoveVehiclePacket current = ServerboundMoveVehiclePacket.fromEntity(vehicle);
-            Vec3 pos = current.comp_3350();
+            Vec3 pos = current.position();
             connection.send(
-               new ServerboundMoveVehiclePacket(new Vec3(pos.x, this.lastPacketY, pos.z), current.comp_3351(), current.comp_3352(), current.comp_3353())
+               new ServerboundMoveVehiclePacket(new Vec3(pos.x, this.lastPacketY, pos.z), current.yRot(), current.xRot(), current.onGround())
             );
          }
 
@@ -59,12 +59,12 @@ public final class VehicleAntiKick {
          Entity vehicle = player != null ? player.getVehicle() : null;
          if (vehicle != null) {
             this.trackVehicle(vehicle);
-            Vec3 pos = packet.comp_3350();
+            Vec3 pos = packet.position();
             double currentY = pos.y;
             if (this.delayLeft <= 0 && !this.sentPacket && this.shouldFlyDown(currentY) && EntityControlVehicleHook.isOnAir(vehicle) && !vehicle.isFlyingVehicle()
                )
              {
-               ((AccessorBoatFlyServerboundMoveVehiclePacket)packet)
+               ((AccessorBoatFlyServerboundMoveVehiclePacket)(Object) packet)
                   .champ$setPosition(new Vec3(pos.x, this.lastPacketY - 0.0313, pos.z));
                this.sentPacket = true;
                this.delayLeft = delay;

@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(GameRenderer.class)
 public abstract class MixinCustomFovGameRenderer {
    @Shadow
-   public abstract boolean method_35765();
+   public abstract boolean isPanoramicMode();
 
    @ModifyReturnValue(method = "getFov", at = @At("RETURN"))
    private float champ$customFov(float original, @Local(argsOnly = true) boolean useFovSetting) {

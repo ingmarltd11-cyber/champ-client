@@ -169,7 +169,7 @@ public final class KillAuraModule extends ClientModule {
             return false;
          }
       } else {
-         return player.onGround() && (jump || player.input.keyPresses.comp_3163()) && this.critWait++ < 8;
+         return player.onGround() && (jump || player.input.keyPresses.jump()) && this.critWait++ < 8;
       }
    }
 
@@ -282,7 +282,7 @@ public final class KillAuraModule extends ClientModule {
 
       for (Entity entity : player.level().getEntities(player, new AABB(start, end).inflate(1.0))) {
          if (entity != target && entity instanceof LivingEntity && PiercingWeapon.canHitEntity(player, entity) && !MeleeAttacks.isEnemy(player, entity)) {
-            AABB box = entity.getBoundingBox().inflate(range.comp_5262());
+            AABB box = entity.getBoundingBox().inflate(range.hitboxMargin());
             if (box.contains(start) || box.clip(start, end).isPresent()) {
                return true;
             }

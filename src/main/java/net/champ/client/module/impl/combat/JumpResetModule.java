@@ -47,7 +47,7 @@ public final class JumpResetModule extends ClientModule {
          Minecraft mc = Minecraft.getInstance();
          LocalPlayer player = mc.player;
          if (player != null && mc.screen == null) {
-            if (player.onGround() && player.isSprinting() && player.input.keyPresses.comp_3159()) {
+            if (player.onGround() && player.isSprinting() && player.input.keyPresses.forward()) {
                if (!player.isInWater() && !player.isInLava() && !player.onClimbable() && !player.isPassenger() && !player.isFallFlying()) {
                   InputControl.jump();
                }

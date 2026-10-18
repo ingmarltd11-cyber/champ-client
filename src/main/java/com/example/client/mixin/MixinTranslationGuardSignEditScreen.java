@@ -18,10 +18,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(AbstractSignEditScreen.class)
 public abstract class MixinTranslationGuardSignEditScreen {
    @Shadow
-   private SignText field_43362;
+   private SignText text;
    @Shadow
    @Final
-   private String[] field_40425;
+   private String[] messages;
 
    @Inject(method = "<init>(Lnet/minecraft/world/level/block/entity/SignBlockEntity;ZZLnet/minecraft/network/chat/Component;)V", at = @At("TAIL"))
    private void champ$guardMessages(SignBlockEntity sign, boolean front, boolean filtered, Component title, CallbackInfo ci) {

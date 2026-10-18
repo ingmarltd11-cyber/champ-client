@@ -23,14 +23,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(AbstractContainerScreen.class)
 public abstract class MixinNoInvLeakContainerScreen {
    @Shadow
-   protected Slot field_2787;
+   protected Slot hoveredSlot;
    @Shadow
-   protected int field_2776;
+   protected int leftPos;
    @Shadow
-   protected int field_2800;
+   protected int topPos;
 
    @Shadow
-   public abstract AbstractContainerMenu method_17577();
+   public abstract AbstractContainerMenu getMenu();
 
    @WrapOperation(method = "renderSlot", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/inventory/Slot;getItem()Lnet/minecraft/world/item/ItemStack;"))
    private ItemStack champ$noInvLeakSlot(Slot slot, Operation<ItemStack> original) {

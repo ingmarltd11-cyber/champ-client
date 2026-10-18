@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Minecraft.class)
 public abstract class MixinSpamMinecraft {
    @Shadow
-   public ClientLevel field_1687;
+   public ClientLevel level;
 
    @Inject(method = "disconnect", at = @At("HEAD"))
    private void champ$spamGameLeft(Screen screen, boolean keepResourcePacks, boolean stopSound, CallbackInfo ci) {

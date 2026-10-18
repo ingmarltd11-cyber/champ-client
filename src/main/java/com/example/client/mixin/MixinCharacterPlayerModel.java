@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MixinCharacterPlayerModel {
    @Inject(method = "translateToHand", at = @At("HEAD"), cancellable = true)
    private void champ$characterHand(AvatarRenderState state, HumanoidArm arm, PoseStack poseStack, CallbackInfo ci) {
-      if (CharacterLayer.translateToHand((PlayerModel)this, state, arm, poseStack)) {
+      if (CharacterLayer.translateToHand((PlayerModel)(Object)(Object)this, state, arm, poseStack)) {
          ci.cancel();
       }
    }

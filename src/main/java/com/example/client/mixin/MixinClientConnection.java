@@ -23,13 +23,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Connection.class)
 public abstract class MixinClientConnection {
    @Unique
-   private final BooleanSupplier champ$connectionActive = this::method_10758;
+   private final BooleanSupplier champ$connectionActive = this::isConnected;
 
    @Shadow
-   public abstract boolean method_10758();
+   public abstract boolean isConnected();
 
    @Shadow
-   public abstract PacketFlow method_36121();
+   public abstract PacketFlow getReceiving();
 
    @Inject(method = "channelRead0", at = @At("HEAD"), cancellable = true)
    private void champ$onPacketReceive(ChannelHandlerContext ctx, Packet<?> packet, CallbackInfo ci) {

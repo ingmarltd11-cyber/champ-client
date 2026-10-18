@@ -20,6 +20,6 @@ public abstract class MixinJesusLivingEntity {
       }
 
       JesusModule jesus = JesusModule.active;
-      return jesus != null && this == Minecraft.getInstance().player ? jesus.canWalkOnFluid(fluidState) : false;
+      return jesus != null && (Object) this == Minecraft.getInstance().player ? jesus.canWalkOnFluid(fluidState) : false;
    }
 }

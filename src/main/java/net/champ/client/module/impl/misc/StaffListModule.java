@@ -14,7 +14,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
-import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
@@ -272,8 +271,8 @@ public final class StaffListModule extends ClientModule {
       EnumSet<Action> actions = info.actions();
       if (actions.contains(Action.UPDATE_GAME_MODE) && !actions.contains(Action.ADD_PLAYER)) {
          for (Entry entry : info.entries()) {
-            if (entry != null && entry.comp_1106() != null) {
-               this.switches.offer(new StaffListModule.GameModeSwitch(entry.comp_1106(), entry.comp_1110()));
+            if (entry != null && entry.profileId() != null) {
+               this.switches.offer(new StaffListModule.GameModeSwitch(entry.profileId(), entry.gameMode()));
             }
          }
       }
@@ -506,10 +505,10 @@ public final class StaffListModule extends ClientModule {
    }
 
    private void pruneSightings(long now) {
-      Iterator<Entry<UUID, StaffListModule.Sighting>> it = this.sightings.entrySet().iterator();
+      Iterator<Map.Entry<UUID, StaffListModule.Sighting>> it = this.sightings.entrySet().iterator();
 
       while (it.hasNext()) {
-         Entry<UUID, StaffListModule.Sighting> entry = it.next();
+         Map.Entry<UUID, StaffListModule.Sighting> entry = it.next();
          StaffListModule.Sighting seen = entry.getValue();
          if (this.staff.containsKey(entry.getKey())) {
             seen.untrackedSince = 0L;
@@ -533,7 +532,7 @@ public final class StaffListModule extends ClientModule {
    }
 
    private void raise() {
-      Entry<UUID, String> first = this.pendingAlerts.entrySet().iterator().next();
+      Map.Entry<UUID, String> first = this.pendingAlerts.entrySet().iterator().next();
       UUID id = first.getKey();
       String name = first.getValue();
       int others = this.pendingAlerts.size() - 1;

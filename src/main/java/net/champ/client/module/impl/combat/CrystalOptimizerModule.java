@@ -276,13 +276,13 @@ public final class CrystalOptimizerModule extends ClientModule {
          return this.attack;
       }
 
-      public void method_34219(InteractionHand hand) {
+      public void onInteraction(InteractionHand hand) {
       }
 
-      public void method_34220(InteractionHand hand, Vec3 location) {
+      public void onInteraction(InteractionHand hand, Vec3 location) {
       }
 
-      public void method_34218() {
+      public void onAttack() {
          this.attack = true;
       }
    }

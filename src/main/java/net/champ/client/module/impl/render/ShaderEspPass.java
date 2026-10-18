@@ -324,60 +324,60 @@ final class ShaderEspPass {
          this.sharedBuffer.close();
       }
 
-      public VertexConsumer method_73477(RenderType renderType) {
+      public VertexConsumer getBuffer(RenderType renderType) {
          return this.sinks.computeIfAbsent(renderType, type -> new ShaderEspPass.Nowhere());
       }
 
-      public void method_37104() {
+      public void endLastBatch() {
       }
 
-      public void method_22993() {
+      public void endBatch() {
       }
 
-      public void method_22994(RenderType renderType) {
+      public void endBatch(RenderType renderType) {
       }
    }
 
    @Environment(EnvType.CLIENT)
    private static final class Nowhere implements VertexConsumer {
-      public VertexConsumer method_22912(float x, float y, float z) {
+      public VertexConsumer addVertex(float x, float y, float z) {
          return this;
       }
 
-      public void method_23919(float x, float y, float z, int color, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ) {
+      public void addVertex(float x, float y, float z, int color, float u, float v, int overlay, int light, float normalX, float normalY, float normalZ) {
       }
 
-      public void method_22919(Pose pose, BakedQuad quad, float red, float green, float blue, float alpha, int light, int overlay) {
+      public void putBulkData(Pose pose, BakedQuad quad, float red, float green, float blue, float alpha, int light, int overlay) {
       }
 
-      public void method_22920(Pose pose, BakedQuad quad, float[] brightness, float red, float green, float blue, float alpha, int[] lights, int overlay) {
+      public void putBulkData(Pose pose, BakedQuad quad, float[] brightness, float red, float green, float blue, float alpha, int[] lights, int overlay) {
       }
 
-      public VertexConsumer method_1336(int red, int green, int blue, int alpha) {
+      public VertexConsumer setColor(int red, int green, int blue, int alpha) {
          return this;
       }
 
-      public VertexConsumer method_39415(int argb) {
+      public VertexConsumer setColor(int argb) {
          return this;
       }
 
-      public VertexConsumer method_22913(float u, float v) {
+      public VertexConsumer setUv(float u, float v) {
          return this;
       }
 
-      public VertexConsumer method_60796(int u, int v) {
+      public VertexConsumer setUv1(int u, int v) {
          return this;
       }
 
-      public VertexConsumer method_22921(int u, int v) {
+      public VertexConsumer setUv2(int u, int v) {
          return this;
       }
 
-      public VertexConsumer method_22914(float x, float y, float z) {
+      public VertexConsumer setNormal(float x, float y, float z) {
          return this;
       }
 
-      public VertexConsumer method_75298(float width) {
+      public VertexConsumer setLineWidth(float width) {
          return this;
       }
    }

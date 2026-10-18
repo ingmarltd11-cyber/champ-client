@@ -19,7 +19,7 @@ public final class BorderlessFullscreen {
    public static void tick() {
       Window window = Minecraft.getInstance().getWindow();
       if (window.isFullscreen()) {
-         BorderlessFullscreen.Switchable switchable = (BorderlessFullscreen.Switchable)window;
+         BorderlessFullscreen.Switchable switchable = (BorderlessFullscreen.Switchable)(Object)window;
          if (wanted() != switchable.champ$isBorderless()) {
             switchable.champ$reapplyMode();
          }

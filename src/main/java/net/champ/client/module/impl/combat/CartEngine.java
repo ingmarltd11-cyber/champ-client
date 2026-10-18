@@ -1,5 +1,6 @@
 package net.champ.client.module.impl.combat;
 
+import com.example.client.mixin.AccessorCombatMinecraft;
 import net.champ.addon.util.Slots;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -51,7 +52,7 @@ public final class CartEngine {
     private static void place(Minecraft mc, net.minecraft.world.entity.player.Player player, BlockPos pos) {
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false);
         // Zelfde plaatsing als normale rechtermuisknop: client-side oplossing via gebruik.
-        mc.startUseItem();
+        ((AccessorCombatMinecraft) mc).champ$startUseItem();
     }
 
     public static boolean hasItem(net.minecraft.world.item.Item item) {
@@ -62,8 +63,7 @@ public final class CartEngine {
     /** Bepaalt het doel-positie: onder kijkrichting of onder de speler zelf. */
     static BlockPos targetUnderAim(Level level, net.minecraft.world.entity.player.Player player) {
         var hit = player.pick(4.5D, 0F, false);
-        if (hit instanceof BlockHitResult bhr && level.getBlockState(bhr.getBlockPos()).isSolidRender(
-                level, bhr.getBlockPos())) return bhr.getBlockPos();
+        if (hit instanceof BlockHitResult bhr && level.getBlockState(bhr.getBlockPos()).isSolidRender()) return bhr.getBlockPos();
         return null;
     }
 }

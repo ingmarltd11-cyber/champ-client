@@ -1353,7 +1353,7 @@ public final class HudRenderer {
                if (texture != null) {
                   dl.addImage(texture.id(), ix, iy, ix + icon, iy + icon, 0.0F, 0.0F, 1.0F, 1.0F, HudChrome.scaleAlpha(-1, iconAlpha));
                } else {
-                  int color = GuiPalette.abgr(0xFF000000 | ((MobEffect)row.effect().comp_349()).getColor());
+                  int color = GuiPalette.abgr(0xFF000000 | ((MobEffect)row.effect().value()).getColor());
                   dl.addCircleFilled(ix + icon * 0.5F, iy + icon * 0.5F, icon * 0.3F, HudChrome.scaleAlpha(color, iconAlpha), 16);
                }
 
@@ -1685,17 +1685,17 @@ public final class HudRenderer {
       PlayerInfo info = conn == null ? null : conn.getPlayerInfo(id);
       Identifier skin;
       if (info != null) {
-         skin = info.getSkin().comp_1626().comp_3627();
+         skin = info.getSkin().body().texturePath();
          this.staffSkins.put(id, skin);
          if (hidden) {
-            skin = NameProtectModule.hiddenHead(id, info.getSkin()).comp_1626().comp_3627();
+            skin = NameProtectModule.hiddenHead(id, info.getSkin()).body().texturePath();
          }
       } else if (hidden) {
-         skin = NameProtectModule.hiddenHead(id, DefaultPlayerSkin.get(id)).comp_1626().comp_3627();
+         skin = NameProtectModule.hiddenHead(id, DefaultPlayerSkin.get(id)).body().texturePath();
       } else {
          skin = this.staffSkins.get(id);
          if (skin == null) {
-            skin = DefaultPlayerSkin.get(id).comp_1626().comp_3627();
+            skin = DefaultPlayerSkin.get(id).body().texturePath();
          }
       }
 
@@ -3433,7 +3433,7 @@ public final class HudRenderer {
 
       for (MobEffectInstance instance : client.player.getActiveEffects()) {
          Holder<MobEffect> effect = instance.getEffect();
-         String name = I18n.get(((MobEffect)effect.comp_349()).getDescriptionId(), new Object[0]);
+         String name = I18n.get(((MobEffect)effect.value()).getDescriptionId(), new Object[0]);
          int amp = instance.getAmplifier();
          String amplifier = amp > 0 ? toRomanNumeral(amp + 1) : "";
          int ticks = instance.getDuration();

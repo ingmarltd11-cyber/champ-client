@@ -7,8 +7,12 @@ import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.champ.client.module.setting.StringSetting;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.equipment.Equippable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -87,7 +91,7 @@ public final class MiscPack {
 
         @Override protected void onEnableInternal() { nextSend = now() + seconds(); }
         @Override protected void tick() {
-            Player p = Slots.player();
+            LocalPlayer p = Slots.player();
             if (p == null) return;
             if (now() < nextSend) return;
             nextSend = now() + seconds();
@@ -144,12 +148,15 @@ public final class MiscPack {
             if (p == null) return;
             // armor-slots 0=boots..3=helmet in inventory; container-slots 5-8.
             for (int armor = 0; armor < 4; armor++) {
-                int best = -1, bestScore = armorScore(p.getItemBySlot(slotFor(armor)));
+                int best = -1, bestScore = armorScore(p.getItemBySlot(slotFor(armor)), slotFor(armor));
                 for (int slot = 9; slot <= 35; slot++) {
                     var s = p.containerMenu.getSlot(slot).getItem();
-                    if (s.isEmpty() || !(s.getItem() instanceof net.minecraft.world.item.ArmorItem ai)) continue;
-                    if (!fitsSlot(ai, armor)) continue;
-                    int score = armorScore(s);
+                    if (s.isEmpty()) continue;
+                    // Elytra is wel equippable op de chest-slot maar geen armour.
+                    if (s.has(DataComponents.GLIDER)) continue;
+                    Equippable equippable = s.get(DataComponents.EQUIPPABLE);
+                    if (equippable == null || equippable.slot() != slotFor(armor)) continue;
+                    int score = armorScore(s, slotFor(armor));
                     if (score > bestScore) { bestScore = score; best = slot; }
                 }
                 if (best >= 0) {
@@ -169,13 +176,17 @@ public final class MiscPack {
             };
         }
 
-        private boolean fitsSlot(net.minecraft.world.item.ArmorItem ai, int armor) {
-            return ai.getType().getSlot() == slotFor(armor);
-        }
-
-        private int armorScore(net.minecraft.world.item.ItemStack s) {
-            if (s.isEmpty() || !(s.getItem() instanceof net.minecraft.world.item.ArmorItem ai)) return -1;
-            return ai.getDefense() * 10 + (int) (ai.getToughness() * 5);
+        private int armorScore(net.minecraft.world.item.ItemStack s, net.minecraft.world.entity.EquipmentSlot slot) {
+            if (s.isEmpty()) return -1;
+            if (s.has(DataComponents.GLIDER)) return -1;
+            final double[] total = new double[2];
+            s.forEachModifier(slot, (attribute, modifier) -> {
+                if (Attributes.ARMOR.equals(attribute)) total[0] += modifier.amount();
+                else if (Attributes.ARMOR_TOUGHNESS.equals(attribute)) total[1] += modifier.amount();
+            });
+            // Geen armor-attribuut (pompoen e.d.): nooit beter dan gedragen armour.
+            if (total[0] <= 0) return -1;
+            return (int) (total[0] * 10 + total[1] * 5);
         }
     }
 

@@ -41,7 +41,7 @@ public final class GameSession {
          properties = UserApiService.OFFLINE_PROPERTIES;
       }
 
-      ProfileResult profile = offline ? null : mc.services().comp_837().fetchProfile(credentials.uuid(), true);
+      ProfileResult profile = offline ? null : mc.services().sessionService().fetchProfile(credentials.uuid(), true);
       return new GameSession.Prepared(user, api, properties, profile, offline);
    }
 

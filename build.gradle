@@ -7,11 +7,15 @@ version = project.version
 group = project.group
 
 loom {
-    splitEnvironmentSourceSets()
     mods {
         champplus {
             sourceSet sourceSets.main
         }
+    }
+    mixin {
+        useLegacyMixinAp = true
+        defaultRefmapName = "champ.refmap.json"
+        add(sourceSets.main)
     }
 }
 
@@ -20,6 +24,45 @@ dependencies {
     mappings loom.officialMojangMappings()
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    // Dear ImGui + Netty proxy: compile deps here ...
+    def imguiVersion = "1.90.0"
+    ["imgui-java-binding", "imgui-java-lwjgl3",
+     "imgui-java-natives-windows", "imgui-java-natives-linux", "imgui-java-natives-macos"].each {
+        modImplementation "io.github.spair:${it}:${imguiVersion}"
+    }
+    def nettyVersion = "4.2.7.Final"
+    ["netty-handler-proxy", "netty-codec-socks"].each {
+        modImplementation "io.netty:${it}:${nettyVersion}"
+    }
+}
+
+// ... and nested manually below. (Loom's `include` double-embeds:
+// processIncludeJars nests them into the jar AND remapJar nests the same
+// set again -> "already contains entry".)
+configurations {
+    nest {
+        canBeResolved = true
+        canBeConsumed = false
+        transitive = true
+    }
+}
+
+dependencies {
+    def imguiVersion = "1.90.0"
+    ["imgui-java-binding", "imgui-java-lwjgl3",
+     "imgui-java-natives-windows", "imgui-java-natives-linux", "imgui-java-natives-macos"].each {
+        nest "io.github.spair:${it}:${imguiVersion}"
+    }
+    def nettyVersion = "4.2.7.Final"
+    nest "io.netty:netty-handler-proxy:${nettyVersion}"
+    nest "io.netty:netty-codec-socks:${nettyVersion}"
+}
+
+tasks.named("jar", Jar) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(configurations.nest) {
+        into "META-INF/jars"
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {

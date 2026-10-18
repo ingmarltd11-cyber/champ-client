@@ -35,7 +35,7 @@ public abstract class MixinNameProtectGui {
 
    @ModifyExpressionValue(
       method = "displayScoreboardSidebar",
-      at = @At(value = "FIELD", opcode = 180, ordinal = 0, target = "Lnet/minecraft/client/gui/Gui$1DisplayEntry;comp_2131:Lnet/minecraft/network/chat/Component;")
+      at = @At(value = "FIELD", opcode = 180, ordinal = 0, target = "Lnet/minecraft/client/gui/Gui$1DisplayEntry;name:Lnet/minecraft/network/chat/Component;")
    )
    private Component champ$nameProtectSidebarLineWidth(Component original) {
       return NameProtectModule.protect(original);
@@ -43,7 +43,7 @@ public abstract class MixinNameProtectGui {
 
    @ModifyExpressionValue(
       method = "displayScoreboardSidebar",
-      at = @At(value = "FIELD", opcode = 180, ordinal = 1, target = "Lnet/minecraft/client/gui/Gui$1DisplayEntry;comp_2131:Lnet/minecraft/network/chat/Component;")
+      at = @At(value = "FIELD", opcode = 180, ordinal = 1, target = "Lnet/minecraft/client/gui/Gui$1DisplayEntry;name:Lnet/minecraft/network/chat/Component;")
    )
    private Component champ$nameProtectSidebarLineDraw(Component original) {
       return NameProtectModule.protect(original);

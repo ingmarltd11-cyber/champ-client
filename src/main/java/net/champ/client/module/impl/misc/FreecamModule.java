@@ -189,13 +189,13 @@ public final class FreecamModule extends ClientModule {
       boolean carry = this.keepWalking.get();
       boolean typed = carry && (opening || this.bodyFollowsKeys.get());
       if (typed) {
-         this.setWalk(1, options.keyUp.isDown() || keys.comp_3159());
-         this.setWalk(2, options.keyDown.isDown() || keys.comp_3160());
-         this.setWalk(4, options.keyLeft.isDown() || keys.comp_3161());
-         this.setWalk(8, options.keyRight.isDown() || keys.comp_3162());
-         this.setWalk(16, options.keyJump.isDown() || keys.comp_3163());
-         this.setWalk(32, options.keyShift.isDown() || keys.comp_3164() || opening && player.isShiftKeyDown());
-         this.setWalk(64, options.keySprint.isDown() || keys.comp_3165());
+         this.setWalk(1, options.keyUp.isDown() || keys.forward());
+         this.setWalk(2, options.keyDown.isDown() || keys.backward());
+         this.setWalk(4, options.keyLeft.isDown() || keys.left());
+         this.setWalk(8, options.keyRight.isDown() || keys.right());
+         this.setWalk(16, options.keyJump.isDown() || keys.jump());
+         this.setWalk(32, options.keyShift.isDown() || keys.shift() || opening && player.isShiftKeyDown());
+         this.setWalk(64, options.keySprint.isDown() || keys.sprint());
       } else if (player.isShiftKeyDown()) {
          this.walk |= 32;
       }

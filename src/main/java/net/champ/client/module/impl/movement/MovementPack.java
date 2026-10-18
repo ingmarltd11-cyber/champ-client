@@ -8,6 +8,7 @@ import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.BlockHitResult;
@@ -38,7 +39,7 @@ public final class MovementPack {
         }
 
         @Override protected void tick() {
-            Player p = Slots.player();
+            LocalPlayer p = Slots.player();
             var mc = Slots.mc();
             var level = mc.level;
             if (p == null || level == null) return;
@@ -46,7 +47,7 @@ public final class MovementPack {
             BlockPos below = p.blockPosition().below();
             if (!level.getBlockState(below).isAir()) return;
             // Rand: sneak zodat je niet valt (alleen als er niks onder je is).
-            if (autoSneak.get()) p.setSneaking(true);
+            if (autoSneak.get()) p.setShiftKeyDown(true);
             // Blok onder je voeten plaatsen vanaf het laatste solide blok.
             BlockPos anchor = below;
             for (Direction d : Direction.Plane.HORIZONTAL) {
@@ -61,7 +62,7 @@ public final class MovementPack {
             mc.gameMode.useItemOn(p, InteractionHand.MAIN_HAND,
                     new BlockHitResult(Vec3.atCenterOf(anchor), Direction.UP, anchor, false));
             wait = (int) delay.get();
-            p.setSneaking(false);
+            p.setShiftKeyDown(false);
         }
 
         private int findAnyBlock() {

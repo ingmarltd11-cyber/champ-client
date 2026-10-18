@@ -447,7 +447,7 @@ final class TargetCard {
          skin = NameProtectModule.hiddenHead(player.getUUID(), skin);
       }
 
-      Identifier path = skin.comp_1626().comp_3627();
+      Identifier path = skin.body().texturePath();
 
       GpuTexture texture;
       try {

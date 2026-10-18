@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class MixinTranslationGuardKeybind {
    @Shadow
    @Final
-   private String field_11767;
+   private String name;
 
    @ModifyReturnValue(method = "getNestedComponent", at = @At("RETURN"))
    private Component champ$guardKeybind(Component original) {

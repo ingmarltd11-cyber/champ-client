@@ -128,8 +128,8 @@ public final class AhSniperModule extends ClientModule {
    @EventHandler
    public void onPacket(PacketReceiveNettyEvent event) {
       SniperBot current = this.bot;
-      if (current != null && event.packet instanceof ClientboundSystemChatPacket chat && chat.comp_763() != null) {
-         current.onChat(chat.comp_763().getString());
+      if (current != null && event.packet instanceof ClientboundSystemChatPacket chat && chat.content() != null) {
+         current.onChat(chat.content().getString());
       }
    }
 

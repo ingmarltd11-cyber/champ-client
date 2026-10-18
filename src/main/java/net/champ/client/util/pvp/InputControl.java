@@ -35,12 +35,12 @@ public final class InputControl {
    }
 
    public static Input shape(LocalPlayer player, Input keys) {
-      boolean forward = keys.comp_3159();
-      boolean back = keys.comp_3160();
-      boolean left = keys.comp_3161();
-      boolean right = keys.comp_3162();
-      boolean up = keys.comp_3163();
-      boolean sprint = keys.comp_3165() || SprintModule.holding();
+      boolean forward = keys.forward();
+      boolean back = keys.backward();
+      boolean left = keys.left();
+      boolean right = keys.right();
+      boolean up = keys.jump();
+      boolean sprint = keys.sprint() || SprintModule.holding();
       if (idle) {
          sprint = false;
          up = false;
@@ -69,13 +69,13 @@ public final class InputControl {
       backward = false;
       releaseForward = false;
       dropSprint = false;
-      return forward == keys.comp_3159()
-            && back == keys.comp_3160()
-            && left == keys.comp_3161()
-            && right == keys.comp_3162()
-            && up == keys.comp_3163()
-            && sprint == keys.comp_3165()
+      return forward == keys.forward()
+            && back == keys.backward()
+            && left == keys.left()
+            && right == keys.right()
+            && up == keys.jump()
+            && sprint == keys.sprint()
          ? keys
-         : new Input(forward, back, left, right, up, keys.comp_3164(), sprint);
+         : new Input(forward, back, left, right, up, keys.shift(), sprint);
    }
 }

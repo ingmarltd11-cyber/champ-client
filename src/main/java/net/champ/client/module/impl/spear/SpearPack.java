@@ -54,7 +54,7 @@ public final class SpearPack {
             var lookup = level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT);
             var key = net.minecraft.resources.ResourceKey.create(
                     net.minecraft.core.registries.Registries.ENCHANTMENT,
-                    net.minecraft.resources.ResourceLocation.withDefaultNamespace("lunge"));
+                    net.minecraft.resources.Identifier.withDefaultNamespace("lunge"));
             var holder = lookup.getOrThrow(key);
             return net.minecraft.world.item.enchantment.EnchantmentHelper.getItemEnchantmentLevel(holder, stack);
         } catch (Exception e) {

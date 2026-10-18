@@ -13,6 +13,7 @@ import net.champ.client.module.ClientModule;
 import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.ColorSetting;
+import net.champ.client.module.setting.Setting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
@@ -30,7 +31,12 @@ public final class SpawnerNotifierModule extends ClientModule implements ChunkSc
    private final BooleanSetting sSound = this.addSetting("sound", new BooleanSetting("Sound", true));
    private final BooleanSetting sRender = this.addSetting("render", new BooleanSetting("Render", true));
    private final ColorSetting sColor = this.addSetting("color", new ColorSetting("Color", -587246251));
-   private final EspStyle style = new EspStyle((x$0, x$1) -> (S)this.addSetting(x$0, x$1), "Outline", 0.1F, 256.0F);
+   private final EspStyle style = new EspStyle(new EspStyle.Registrar() {
+      @Override
+      public <S extends Setting> S add(String id, S setting) {
+         return SpawnerNotifierModule.this.addSetting(id, setting);
+      }
+   }, "Outline", 0.1F, 256.0F);
    private final BlockLayer layer = new BlockLayer(new BlockLayer.Palette() {
       @Override
       public int color(Object kind) {

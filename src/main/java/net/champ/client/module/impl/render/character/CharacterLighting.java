@@ -31,17 +31,17 @@ public final class CharacterLighting {
 
    static Lights current() {
       return switch (entry) {
-         case field_60025 -> nether() ? NETHER : Lights.WORLD;
-         case field_60026 -> ITEMS_FLAT;
-         case field_60027 -> ITEMS_3D;
-         case field_60028, field_60029 -> INVENTORY;
+         case LEVEL -> nether() ? NETHER : Lights.WORLD;
+         case ITEMS_FLAT -> ITEMS_FLAT;
+         case ITEMS_3D -> ITEMS_3D;
+         case ENTITY_IN_UI, PLAYER_SKIN -> INVENTORY;
          default -> throw new MatchException(null, null);
       };
    }
 
    private static boolean nether() {
       ClientLevel level = Minecraft.getInstance().level;
-      return level != null && level.dimensionType().comp_5221() == CardinalLightType.NETHER;
+      return level != null && level.dimensionType().cardinalLightType() == CardinalLightType.NETHER;
    }
 
    private static Lights transformed(Matrix4f matrix) {

@@ -16,19 +16,19 @@ public final class ItemLook extends ItemStackRenderState {
    public final List<Object> identity = new ArrayList<>();
    private final List<LayerRenderState> layers = new ArrayList<>();
 
-   public void method_65605() {
+   public void clear() {
       super.clear();
       this.identity.clear();
       this.layers.clear();
    }
 
-   public LayerRenderState method_65601() {
+   public LayerRenderState newLayer() {
       LayerRenderState layer = super.newLayer();
       this.layers.add(layer);
       return layer;
    }
 
-   public void method_70946(Object element) {
+   public void appendModelIdentityElement(Object element) {
       if (!(element instanceof FoilType)) {
          this.identity.add(element);
       }

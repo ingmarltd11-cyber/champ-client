@@ -13,6 +13,7 @@ import net.champ.client.module.setting.NumberSetting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -67,7 +68,7 @@ public final class CrystalPack {
             Vec3 target = Vec3.atCenterOf(pos);
             float[] a = Targets.anglesTo(Targets.eye(p), target);
             SilentAim.request(a[0], a[1], 3);
-            Slots.mc().gameMode.useItemOn(p, InteractionHand.MAIN_HAND,
+            Slots.mc().gameMode.useItemOn((LocalPlayer) p, InteractionHand.MAIN_HAND,
                     new BlockHitResult(target, Direction.UP, pos, false));
         }
     }

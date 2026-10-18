@@ -59,10 +59,10 @@ final class CharacterJoints {
       float speed = Math.min(1.0F, state.walkAnimationSpeed / state.speedValue);
 
       float flex = switch (pose) {
-         case field_3409 -> 0.16F + 0.45F * Math.max(0.0F, -swing) + 0.3F * speed;
-         case field_3410 -> 0.3F + 0.2F * speed;
-         case field_3406 -> 0.55F;
-         case field_42877 -> 0.4F;
+         case EMPTY -> 0.16F + 0.45F * Math.max(0.0F, -swing) + 0.3F * speed;
+         case ITEM -> 0.3F + 0.2F * speed;
+         case BLOCK -> 0.55F;
+         case BRUSH -> 0.4F;
          default -> 0.0F;
       };
       if (flex <= 0.0F) {

@@ -154,7 +154,7 @@ record Product(
 
    private static int levelOf(ItemEnchantments present, String key) {
       for (Entry<Holder<Enchantment>> entry : present.entrySet()) {
-         String path = ((Holder)entry.getKey()).unwrapKey().map(k -> k.identifier().getPath()).orElse("");
+         String path = entry.getKey().unwrapKey().map(k -> k.identifier().getPath()).orElse("");
          if (ServerText.key(path).equals(key)) {
             return entry.getIntValue();
          }

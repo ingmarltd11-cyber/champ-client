@@ -58,6 +58,12 @@ public final class DonutPack {
         }
     }
 
+    /** Bereik-check (vervangt het verwijderde Player.canInteractWithBlock uit oudere mappings). */
+    static boolean canReach(LocalPlayer p, BlockPos pos) {
+        double range = p.blockInteractionRange();
+        return p.getEyePosition().distanceToSqr(Vec3.atCenterOf(pos)) < range * range;
+    }
+
     static void warnNotDonut(Player p, String module) {
         p.displayClientMessage(Component.literal(
                 "[Champ Client] " + module + " is voor Donut SMP — je zit ergens anders!"), false);
@@ -162,7 +168,7 @@ public final class DonutPack {
                 BlockState st = level.getBlockState(cursor);
                 if (Slots.blockId(st.getBlock()).equals(b.blockId())) { done[i] = true; remaining--; continue; }
                 if (!(st.isAir() || st.canBeReplaced())) continue;       // er staat al iets anders
-                if (!p.canInteractWithBlock(cursor, 0.0)) continue;      // buiten bereik
+                if (!canReach(p, cursor)) continue;      // buiten bereik
                 Direction support = supportFace(level, cursor);
                 if (support == null) continue;                           // niets om tegenaan te plaatsen
                 BlockPos pos = cursor.immutable();
@@ -426,7 +432,7 @@ public final class DonutPack {
             if (target != null) {
                 BlockState st = level.getBlockState(target);
                 if (st.isAir()) { mined++; target = null; }
-                else if (!p.canInteractWithBlock(target, 0.0) || !inRegion(target)) target = null;
+                else if (!canReach(p, target) || !inRegion(target)) target = null;
             }
             if (target == null && !pickTarget(p, level)) {
                 if (++idleTicks % 100 == 1) reportIdle(p, level);
@@ -489,7 +495,7 @@ public final class DonutPack {
                 double dx = x + 0.5 - eye.x, dy = y + 0.5 - eye.y, dz = z + 0.5 - eye.z;
                 double score = dx * dx + dy * dy + dz * dz + (maxY - y) * 3.0;   // bovenste lagen eerst
                 if (score >= best) continue;
-                if (!p.canInteractWithBlock(m, 0.0)) continue;
+                if (!canReach(p, m)) continue;
                 Direction face = exposedFace(level, m, dx, dy, dz);
                 if (face == null) continue;
                 best = score;
@@ -557,7 +563,7 @@ public final class DonutPack {
         @Override protected void onEnableInternal() { warned = false; found = false; artificial = 0; sweep.reset(); }
 
         @Override protected void tick() {
-            Player p = Slots.player();
+            LocalPlayer p = Slots.player();
             var mc = Slots.mc();
             var level = mc.level;
             if (p == null || level == null || found) return;

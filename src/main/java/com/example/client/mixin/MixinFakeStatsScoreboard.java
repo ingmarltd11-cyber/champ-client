@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MixinFakeStatsScoreboard {
    @Inject(method = "setDisplayObjective", at = @At("HEAD"), cancellable = true)
    private void champ$fakeSidebar(DisplaySlot slot, Objective objective, CallbackInfo ci) {
-      if (FakeStats.redirect((Scoreboard)this, slot, objective)) {
+      if (FakeStats.redirect((Scoreboard)(Object)this, slot, objective)) {
          ci.cancel();
       }
    }

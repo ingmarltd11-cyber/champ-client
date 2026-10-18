@@ -116,8 +116,8 @@ public final class AutoClickerModule extends ClientModule {
       }
 
       return switch (key.getType()) {
-         case field_1672 -> GLFW.glfwGetMouseButton(mc.getWindow().handle(), value) == 1;
-         case field_1668 -> ChampKeyPolling.isKeyDown(mc.getWindow(), value);
+         case MOUSE -> GLFW.glfwGetMouseButton(mc.getWindow().handle(), value) == 1;
+         case KEYSYM -> ChampKeyPolling.isKeyDown(mc.getWindow(), value);
          default -> mapping.isDown();
       };
    }

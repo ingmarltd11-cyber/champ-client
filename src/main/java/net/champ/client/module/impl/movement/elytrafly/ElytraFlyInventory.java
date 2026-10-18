@@ -150,7 +150,7 @@ public final class ElytraFlyInventory {
          Equippable equippable = (Equippable)current.get(DataComponents.EQUIPPABLE);
          if (current.has(DataComponents.GLIDER)) {
             equipChestplate(player);
-         } else if (equippable != null && equippable.comp_3174().getIndex() == EquipmentSlot.CHEST.getIndex()) {
+         } else if (equippable != null && equippable.slot().getIndex() == EquipmentSlot.CHEST.getIndex()) {
             equipElytra(player);
          } else if (!equipChestplate(player)) {
             equipElytra(player);

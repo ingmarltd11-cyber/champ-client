@@ -247,7 +247,7 @@ final class AtmosphereShaderSky {
       pass.setUniform("DynamicTransforms", transforms);
       pass.setUniform("ChampSky", this.uniforms.slice());
       pass.setVertexBuffer(0, this.cube);
-      pass.setIndexBuffer(indices.method_68274(36), indices.method_31924());
+      pass.setIndexBuffer(indices.getBuffer(36), indices.type());
       pass.drawIndexed(0, 0, 36, 1);
    }
 

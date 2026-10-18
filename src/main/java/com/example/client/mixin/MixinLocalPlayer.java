@@ -31,7 +31,7 @@ public abstract class MixinLocalPlayer {
 
    @Inject(method = "tick", at = @At("HEAD"))
    private void champ$walkServerRotation(CallbackInfo ci) {
-      LocalPlayer self = (LocalPlayer)this;
+      LocalPlayer self = (LocalPlayer)(Object)this;
       if (Minecraft.getInstance().player == self) {
          ServerRotation.applyForMovement(self);
       }
@@ -39,12 +39,12 @@ public abstract class MixinLocalPlayer {
 
    @Inject(method = "tick", at = @At("RETURN"))
    private void champ$finishServerRotation(CallbackInfo ci) {
-      ServerRotation.finishTick((LocalPlayer)this);
+      ServerRotation.finishTick((LocalPlayer)(Object)(Object)this);
    }
 
    @Inject(method = "aiStep", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/ClientInput;tick()V", shift = Shift.AFTER))
    private void champ$freecamAfterInput(CallbackInfo ci) {
-      LocalPlayer self = (LocalPlayer)this;
+      LocalPlayer self = (LocalPlayer)(Object)this;
       Minecraft mc = Minecraft.getInstance();
       if (mc.player == self) {
          FreecamModule.drive(mc);
@@ -53,7 +53,7 @@ public abstract class MixinLocalPlayer {
 
    @Inject(method = "sendPosition", at = @At("HEAD"))
    private void champ$freecamBeforeSend(CallbackInfo ci) {
-      LocalPlayer self = (LocalPlayer)this;
+      LocalPlayer self = (LocalPlayer)(Object)this;
       Minecraft mc = Minecraft.getInstance();
       if (mc.player == self) {
          FreecamModule.drive(mc);
@@ -62,7 +62,7 @@ public abstract class MixinLocalPlayer {
 
    @Inject(method = "sendPosition", at = @At("RETURN"))
    private void champ$swapOutServerRotation(CallbackInfo ci) {
-      LocalPlayer self = (LocalPlayer)this;
+      LocalPlayer self = (LocalPlayer)(Object)this;
       if (Minecraft.getInstance().player == self) {
          ServerRotation.afterSend(self);
       }

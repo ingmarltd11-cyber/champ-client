@@ -20,6 +20,6 @@ public abstract class MixinEntityControlLocalPlayer {
 
    @ModifyReturnValue(method = "jumpableVehicle", at = @At("RETURN"))
    private PlayerRideableJumping champ$boatFlyCancelJump(PlayerRideableJumping original) {
-      return original != null && BoatFlyModule.cancelsMountJump((LocalPlayer)this) ? null : original;
+      return original != null && BoatFlyModule.cancelsMountJump((LocalPlayer)(Object)(Object)this) ? null : original;
    }
 }

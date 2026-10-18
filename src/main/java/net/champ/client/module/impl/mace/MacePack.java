@@ -13,7 +13,7 @@ import net.champ.client.module.setting.KeySetting;
 import net.champ.client.module.setting.NumberSetting;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.ThrownEnderpearl;
+import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;

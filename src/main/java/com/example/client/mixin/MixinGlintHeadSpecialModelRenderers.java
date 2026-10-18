@@ -20,10 +20,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MixinGlintHeadSpecialModelRenderers {
    @Shadow
    @Final
-   private static LateBoundIdMapper<Identifier, MapCodec<? extends Unbaked>> field_55453;
+   private static LateBoundIdMapper<Identifier, MapCodec<? extends Unbaked>> ID_MAPPER;
 
    @Inject(method = "bootstrap", at = @At("TAIL"))
    private static void champ$registerGlintHead(CallbackInfo ci) {
-      field_55453.put(GlintHeadRenderer.ID, GlintHeadRenderer.Unbaked.MAP_CODEC);
+      ID_MAPPER.put(GlintHeadRenderer.ID, GlintHeadRenderer.Unbaked.MAP_CODEC);
    }
 }

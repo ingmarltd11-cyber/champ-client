@@ -24,7 +24,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MixinLightTexture {
    @Shadow
    @Final
-   private GpuTexture field_57927;
+   private GpuTexture texture;
 
    @Inject(
       method = "updateLightTexture",

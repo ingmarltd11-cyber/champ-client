@@ -220,7 +220,7 @@ final class SniperBot {
       List<SniperBot.Sort> options = new ArrayList<>();
       List<Integer> colors = new ArrayList<>();
 
-      for (Component line : ((ItemLore)filter.getOrDefault(DataComponents.LORE, ItemLore.EMPTY)).comp_2400()) {
+      for (Component line : ((ItemLore)filter.getOrDefault(DataComponents.LORE, ItemLore.EMPTY)).lines()) {
          String text = ServerText.normalize(Dialogs.visibleText(line));
          SniperBot.Sort option = text.contains("recent")
             ? SniperBot.Sort.RECENT

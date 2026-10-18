@@ -362,7 +362,7 @@ public final class ElytraFlyModule extends ClientModule {
                }
             }
 
-            if (this.autoHover.get() && player.input.keyPresses.comp_3164() && !isFreecamActive() && player.isFallFlying() && !bounce) {
+            if (this.autoHover.get() && player.input.keyPresses.shift() && !isFreecamActive() && player.isFallFlying() && !bounce) {
                BlockPos below = player.blockPosition().below();
                BlockState underState = mc.level.getBlockState(below);
                BlockState under2State = mc.level.getBlockState(below.below());

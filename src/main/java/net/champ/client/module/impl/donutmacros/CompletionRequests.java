@@ -86,7 +86,7 @@ final class CompletionRequests {
 
    boolean ingest(Packet<?> packet) {
       if (packet instanceof ClientboundCommandSuggestionsPacket suggestions) {
-         CompletionRequests.Request request = this.requests.get(suggestions.comp_2262());
+         CompletionRequests.Request request = this.requests.get(suggestions.id());
          if (request == null) {
             return false;
          }

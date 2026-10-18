@@ -21,12 +21,12 @@ public final class ImGuiScreen extends Screen {
       super(Component.literal("CHAMP"));
    }
 
-   protected void method_25426() {
+   protected void init() {
       super.init();
       ImGuiManager.getInstance().activate(this.clickGui::render);
    }
 
-   public void method_25432() {
+   public void removed() {
       super.removed();
       this.clickGui.handleEscape();
       ImGuiManager.getInstance().deactivate();
@@ -35,29 +35,29 @@ public final class ImGuiScreen extends Screen {
       HudTheme.get().save();
    }
 
-   public void method_25420(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+   public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
       if (ThemeStore.get().menuBlur.get()) {
          super.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
       }
    }
 
-   public void method_29638(List<Path> paths) {
+   public void onFilesDrop(List<Path> paths) {
       this.clickGui.onFilesDropped(paths);
    }
 
-   public void method_25394(GuiGraphics graphics, int mouseX, int mouseY, float tickDelta) {
+   public void render(GuiGraphics graphics, int mouseX, int mouseY, float tickDelta) {
       ImGuiManager.getInstance().requestCursor(graphics);
    }
 
-   public boolean method_25404(KeyEvent event) {
-      return event.comp_4795() == 256 && this.clickGui.handleEscape() ? true : super.keyPressed(event);
+   public boolean keyPressed(KeyEvent event) {
+      return event.key() == 256 && this.clickGui.handleEscape() ? true : super.keyPressed(event);
    }
 
    public boolean capturesKeys() {
       return this.clickGui.capturesKeys();
    }
 
-   public boolean method_25421() {
+   public boolean isPauseScreen() {
       return false;
    }
 }

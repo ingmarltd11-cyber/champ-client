@@ -276,7 +276,7 @@ public final class ChunkOverlay {
 
    @Environment(EnvType.CLIENT)
    private record Plane(Vec3[] outline, int color) implements Gizmo {
-      public void method_75531(GizmoPrimitives primitives, float alpha) {
+      public void emit(GizmoPrimitives primitives, float alpha) {
          primitives.addTriangleFan(this.outline, ChunkOverlay.fade(this.color, alpha));
       }
    }

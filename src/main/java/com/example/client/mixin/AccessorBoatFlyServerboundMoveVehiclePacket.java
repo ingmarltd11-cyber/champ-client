@@ -12,6 +12,6 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @Mixin(ServerboundMoveVehiclePacket.class)
 public interface AccessorBoatFlyServerboundMoveVehiclePacket {
    @Mutable
-   @Accessor("comp_3350")
+   @Accessor("position")
    void champ$setPosition(Vec3 var1);
 }

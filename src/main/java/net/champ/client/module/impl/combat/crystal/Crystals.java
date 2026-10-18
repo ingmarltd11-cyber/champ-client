@@ -209,7 +209,7 @@ public final class Crystals {
          return true;
       } else if (!stack.has(DataComponents.CONSUMABLE) && !stack.has(DataComponents.BLOCKS_ATTACKS) && !stack.has(DataComponents.KINETIC_WEAPON)) {
          Equippable equippable = (Equippable)stack.get(DataComponents.EQUIPPABLE);
-         return equippable != null && equippable.comp_3213()
+         return equippable != null && equippable.swappable()
             ? false
             : stack.is(ItemTags.SWORDS)
                || stack.is(Items.MACE)
@@ -265,7 +265,7 @@ public final class Crystals {
          }
 
          int countBefore = stack.getCount();
-         if (mc.gameMode.useItemOn(player, hand, hit) instanceof Success success && success.comp_2909() == SwingSource.CLIENT) {
+         if (mc.gameMode.useItemOn(player, hand, hit) instanceof Success success && success.swingSource() == SwingSource.CLIENT) {
             player.swing(hand);
             if (!stack.isEmpty() && (stack.getCount() != countBefore || player.hasInfiniteMaterials())) {
                mc.gameRenderer.itemInHandRenderer.itemUsed(hand);
@@ -311,14 +311,14 @@ public final class Crystals {
       float bonus = 0.0F;
 
       for (Entry<Holder<Enchantment>> entry : weapon.getEnchantments().entrySet()) {
-         Enchantment enchantment = (Enchantment)((Holder)entry.getKey()).comp_349();
+         Enchantment enchantment = (Enchantment)((Holder)entry.getKey()).value();
 
          for (ConditionalEffect<EnchantmentValueEffect> effect : enchantment.getEffects(EnchantmentEffectComponents.DAMAGE)) {
-            if (effect.comp_2681().isPresent() || !(effect.comp_2680() instanceof AddValue add)) {
+            if (effect.requirements().isPresent() || !(effect.effect() instanceof AddValue add)) {
                return false;
             }
 
-            bonus += add.comp_2704().calculate(entry.getIntValue());
+            bonus += add.value().calculate(entry.getIntValue());
          }
       }
 
@@ -330,7 +330,7 @@ public final class Crystals {
       damage.setBaseValue(player.getAttributeBaseValue(Attributes.ATTACK_DAMAGE));
 
       for (MobEffectInstance effect : player.getActiveEffects()) {
-         ((MobEffect)effect.getEffect().comp_349()).createModifiers(effect.getAmplifier(), (attribute, modifier) -> include(damage, attribute, modifier));
+         ((MobEffect)effect.getEffect().value()).createModifiers(effect.getAmplifier(), (attribute, modifier) -> include(damage, attribute, modifier));
       }
 
       for (EquipmentSlot slot : EquipmentSlot.VALUES) {
@@ -345,7 +345,7 @@ public final class Crystals {
 
    private static void include(AttributeInstance damage, Holder<Attribute> attribute, AttributeModifier modifier) {
       if (Attributes.ATTACK_DAMAGE.equals(attribute)) {
-         damage.removeModifier(modifier.comp_2447());
+         damage.removeModifier(modifier.id());
          damage.addTransientModifier(modifier);
       }
    }
@@ -462,8 +462,8 @@ public final class Crystals {
       }
 
       return switch (key.getType()) {
-         case field_1672 -> GLFW.glfwGetMouseButton(mc.getWindow().handle(), value) == 1;
-         case field_1668 -> ChampKeyPolling.isKeyDown(mc.getWindow(), value);
+         case MOUSE -> GLFW.glfwGetMouseButton(mc.getWindow().handle(), value) == 1;
+         case KEYSYM -> ChampKeyPolling.isKeyDown(mc.getWindow(), value);
          default -> false;
       };
    }

@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(LivingEntity.class)
 public abstract class MixinNoJumpDelayLivingEntity {
    @Shadow
-   private int field_6228;
+   private int noJumpDelay;
 
    @WrapOperation(method = "aiStep", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/LivingEntity;noJumpDelay:I", opcode = 181))
    private void champ$noJumpDelay(LivingEntity self, int ticks, Operation<Void> original) {

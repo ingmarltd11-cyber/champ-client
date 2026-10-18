@@ -140,14 +140,14 @@ public final class AutoEatModule extends ClientModule {
    }
 
    private static float score(FoodProperties food, boolean healing) {
-      float score = food.comp_2491() + food.comp_2492();
-      return healing && food.comp_2493() ? score + 100.0F : score;
+      float score = food.nutrition() + food.saturation();
+      return healing && food.canAlwaysEat() ? score + 100.0F : score;
    }
 
    private static FoodProperties foodOf(LocalPlayer player, ItemStack stack) {
       if (!stack.isEmpty() && !NEVER_EAT.contains(stack.getItem()) && !player.getCooldowns().isOnCooldown(stack)) {
          FoodProperties food = (FoodProperties)stack.get(DataComponents.FOOD);
-         return food != null && player.canEat(food.comp_2493()) ? food : null;
+         return food != null && player.canEat(food.canAlwaysEat()) ? food : null;
       } else {
          return null;
       }

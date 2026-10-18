@@ -322,8 +322,8 @@ public final class AutoTpaHereModule extends ClientModule {
    public void onPacket(PacketReceiveNettyEvent event) {
       if (this.completions.ingest(event.packet)) {
          event.setCancelled(true);
-      } else if (event.packet instanceof ClientboundSystemChatPacket chat && chat.comp_763() != null && this.chatLines.size() < 256) {
-         this.chatLines.offer(chat.comp_763().getString());
+      } else if (event.packet instanceof ClientboundSystemChatPacket chat && chat.content() != null && this.chatLines.size() < 256) {
+         this.chatLines.offer(chat.content().getString());
       }
    }
 

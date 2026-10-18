@@ -40,26 +40,26 @@ public final class VanillaSpeedMode extends SpeedMode {
       double velX = 0.0;
       double velZ = 0.0;
       boolean a = false;
-      if (keys.comp_3159()) {
+      if (keys.forward()) {
          velX += forward.x / 20.0 * bps;
          velZ += forward.z / 20.0 * bps;
          a = true;
       }
 
-      if (keys.comp_3160()) {
+      if (keys.backward()) {
          velX -= forward.x / 20.0 * bps;
          velZ -= forward.z / 20.0 * bps;
          a = true;
       }
 
       boolean b = false;
-      if (keys.comp_3162()) {
+      if (keys.right()) {
          velX += right.x / 20.0 * bps;
          velZ += right.z / 20.0 * bps;
          b = true;
       }
 
-      if (keys.comp_3161()) {
+      if (keys.left()) {
          velX -= right.x / 20.0 * bps;
          velZ -= right.z / 20.0 * bps;
          b = true;

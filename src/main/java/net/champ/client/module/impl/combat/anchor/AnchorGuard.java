@@ -41,7 +41,6 @@ import net.minecraft.core.Direction.AxisDirection;
 import net.minecraft.core.Direction.Plane;
 import net.minecraft.world.phys.HitResult.Type;
 import net.minecraft.world.level.ClipContext.Fluid;
-import net.minecraft.world.level.ClipContext.Block;
 
 @Environment(EnvType.CLIENT)
 public final class AnchorGuard {
@@ -60,7 +59,7 @@ public final class AnchorGuard {
       List<Vec3> open = new ArrayList<>(points.size());
 
       for (Vec3 point : points) {
-         BlockHitResult hit = level.clip(new ClipContext(point, blast, Block.COLLIDER, Fluid.NONE, player));
+         BlockHitResult hit = level.clip(new ClipContext(point, blast, ClipContext.Block.COLLIDER, Fluid.NONE, player));
          if (hit.getType() == Type.MISS || hit.getBlockPos().equals(anchor)) {
             open.add(point);
          }
@@ -186,7 +185,7 @@ public final class AnchorGuard {
    public static void click(Minecraft mc, LocalPlayer player, BlockHitResult hit) {
       ItemStack held = player.getMainHandItem();
       int countBefore = held.getCount();
-      if (mc.gameMode.useItemOn(player, InteractionHand.MAIN_HAND, hit) instanceof Success success && success.comp_2909() == SwingSource.CLIENT) {
+      if (mc.gameMode.useItemOn(player, InteractionHand.MAIN_HAND, hit) instanceof Success success && success.swingSource() == SwingSource.CLIENT) {
          player.swing(InteractionHand.MAIN_HAND);
          if (!held.isEmpty() && (held.getCount() != countBefore || player.hasInfiniteMaterials())) {
             mc.gameRenderer.itemInHandRenderer.itemUsed(InteractionHand.MAIN_HAND);
@@ -258,7 +257,7 @@ public final class AnchorGuard {
    public static BlockHitResult trace(ClientLevel level, LocalPlayer player, Rotation look) {
       Vec3 eye = player.getEyePosition();
       Vec3 reach = Vec3.directionFromRotation(look.pitch(), look.yaw()).scale(player.blockInteractionRange());
-      BlockHitResult hit = level.clip(new ClipContext(eye, eye.add(reach), Block.OUTLINE, Fluid.NONE, player));
+      BlockHitResult hit = level.clip(new ClipContext(eye, eye.add(reach), ClipContext.Block.OUTLINE, Fluid.NONE, player));
       return hit.getType() == Type.BLOCK ? hit : null;
    }
 

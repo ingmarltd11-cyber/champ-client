@@ -134,7 +134,7 @@ public final class HurtClock {
    }
 
    private static void damaged(LocalPlayer player, ClientboundDamageEventPacket packet) {
-      if (player.level().getEntity(packet.comp_1267()) instanceof Player target && MeleeAttacks.isEnemy(player, target)) {
+      if (player.level().getEntity(packet.entityId()) instanceof Player target && MeleeAttacks.isEnemy(player, target)) {
          HurtClock.Mark mark = (HurtClock.Mark)MARKS.computeIfAbsent(target.getId(), id -> new HurtClock.Mark());
          if (mark.shotTick != -1000 && !mark.confirmed && ours(player, mark, packet)) {
             mark.lastRaw = mark.shotRaw;
@@ -144,7 +144,7 @@ public final class HurtClock {
                streak = 0;
             }
          } else {
-            Holder<DamageType> type = packet.comp_1268();
+            Holder<DamageType> type = packet.sourceType();
             mark.shotTick = -1000;
             mark.removedAt = -1000;
             mark.lastRaw = !type.is(DamageTypes.PLAYER_ATTACK) && !type.is(DamageTypes.MOB_ATTACK) ? Float.MAX_VALUE : 0.0F;
@@ -153,12 +153,12 @@ public final class HurtClock {
    }
 
    private static boolean ours(LocalPlayer player, HurtClock.Mark mark, ClientboundDamageEventPacket packet) {
-      Holder<DamageType> type = packet.comp_1268();
+      Holder<DamageType> type = packet.sourceType();
       return type.is(DamageTypes.PLAYER_EXPLOSION)
-         ? packet.comp_1269() == player.getId() && mark.shotKey instanceof Integer crystal && packet.comp_1270() == crystal
+         ? packet.sourceCauseId() == player.getId() && mark.shotKey instanceof Integer crystal && packet.sourceDirectId() == crystal
          : type.is(DamageTypes.BAD_RESPAWN_POINT)
             && mark.shotKey instanceof Vec3 center
-            && packet.comp_1271().filter(at -> at.distanceToSqr(center) < 0.25).isPresent();
+            && packet.sourcePosition().filter(at -> at.distanceToSqr(center) < 0.25).isPresent();
    }
 
    private static void removed(IntList ids) {

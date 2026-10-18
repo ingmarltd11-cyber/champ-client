@@ -17,6 +17,6 @@ public abstract class MixinSpeedLocalPlayer {
    @ModifyVariable(method = "move", at = @At("HEAD"), argsOnly = true)
    private Vec3 champ$speedMove(Vec3 movement, @Local(argsOnly = true) MoverType type) {
       SpeedModule speed = SpeedModule.active;
-      return speed != null && type == MoverType.SELF ? speed.onSelfMove((LocalPlayer)this, movement) : movement;
+      return speed != null && type == MoverType.SELF ? speed.onSelfMove((LocalPlayer)(Object)this, movement) : movement;
    }
 }

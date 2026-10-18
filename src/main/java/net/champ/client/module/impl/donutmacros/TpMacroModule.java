@@ -67,8 +67,8 @@ public final class TpMacroModule extends ClientModule {
 
    @EventHandler
    public void onPacket(PacketReceiveNettyEvent event) {
-      if (event.packet instanceof ClientboundSystemChatPacket chat && chat.comp_763() != null) {
-         Matcher wait = RATE_LIMIT.matcher(ServerText.normalize(chat.comp_763().getString()));
+      if (event.packet instanceof ClientboundSystemChatPacket chat && chat.content() != null) {
+         Matcher wait = RATE_LIMIT.matcher(ServerText.normalize(chat.content().getString()));
          if (wait.find()) {
             try {
                this.holdUntil = System.currentTimeMillis() + (long)Math.ceil(Double.parseDouble(wait.group(1)) * 1000.0) + 80L;

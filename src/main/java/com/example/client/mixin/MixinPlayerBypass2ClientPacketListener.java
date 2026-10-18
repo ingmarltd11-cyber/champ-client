@@ -42,7 +42,7 @@ public abstract class MixinPlayerBypass2ClientPacketListener {
       )
    )
    private void champ$pb2Login(ClientboundLoginPacket packet, CallbackInfo ci) {
-      SimulationSignals.onLogin(packet.comp_169(), packet.comp_98(), packet.comp_1727().comp_1554());
+      SimulationSignals.onLogin(packet.simulationDistance(), packet.chunkRadius(), packet.commonPlayerSpawnInfo().dimension());
    }
 
    @Inject(
@@ -54,7 +54,7 @@ public abstract class MixinPlayerBypass2ClientPacketListener {
       )
    )
    private void champ$pb2Respawn(ClientboundRespawnPacket packet, CallbackInfo ci) {
-      SimulationSignals.onRespawn(packet.comp_1728().comp_1554());
+      SimulationSignals.onRespawn(packet.commonPlayerSpawnInfo().dimension());
    }
 
    @Inject(
@@ -78,7 +78,7 @@ public abstract class MixinPlayerBypass2ClientPacketListener {
       )
    )
    private void champ$pb2Simulation(ClientboundSetSimulationDistancePacket packet, CallbackInfo ci) {
-      SimulationSignals.onSimulationDistance(packet.comp_170());
+      SimulationSignals.onSimulationDistance(packet.simulationDistance());
    }
 
    @Inject(

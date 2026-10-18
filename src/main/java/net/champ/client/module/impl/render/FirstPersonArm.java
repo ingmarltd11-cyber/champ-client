@@ -63,7 +63,7 @@ final class FirstPersonArm {
             if (swapped != skin) {
                AvatarRenderer<AbstractClientPlayer> byModel = ((AccessorSkinChangeEntityRenderDispatcher)dispatcher)
                   .champ$skinChangePlayerRenderers()
-                  .get(swapped.comp_1629());
+                  .get(swapped.model());
                if (byModel != null) {
                   renderer = byModel;
                }
@@ -74,10 +74,10 @@ final class FirstPersonArm {
 
          return new FirstPersonArm.Arm(
             renderer,
-            skin.comp_1626().comp_3627(),
+            skin.body().texturePath(),
             player.isModelPartShown(PlayerModelPart.RIGHT_SLEEVE),
             player.isModelPartShown(PlayerModelPart.LEFT_SLEEVE),
-            skin.comp_1629() == PlayerModelType.SLIM
+            skin.model() == PlayerModelType.SLIM
          );
       } else {
          return null;
@@ -150,7 +150,7 @@ final class FirstPersonArm {
                center.x = -center.x;
             }
 
-            return blockGrip(center, transform != null ? transform.comp_3749().y() : 1.0F);
+            return blockGrip(center, transform != null ? transform.scale().y() : 1.0F);
          }
       } else {
          return null;

@@ -25,9 +25,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class MixinSpeedMineMultiPlayerGameMode {
    @Shadow
    @Final
-   private Minecraft field_3712;
+   private Minecraft minecraft;
    @Shadow
-   private int field_3716;
+   private int destroyDelay;
 
    @Inject(method = "continueDestroyBlock", at = @At("HEAD"))
    private void champ$speedMineDelay(BlockPos pos, Direction direction, CallbackInfoReturnable<Boolean> cir) {

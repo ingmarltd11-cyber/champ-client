@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Window.class)
 public abstract class MixinWindow {
    @Shadow
-   public abstract long method_4490();
+   public abstract long handle();
 
    @Inject(method = "setIcon", at = @At("TAIL"))
    private void champ$setIcon(PackResources resources, IconSet iconSet, CallbackInfo ci) {

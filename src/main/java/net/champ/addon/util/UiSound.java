@@ -12,7 +12,7 @@ public final class UiSound {
         try {
             Minecraft mc = Minecraft.getInstance();
             if (mc == null) return;
-            mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.7F, 0.25F));
+            mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.value(), 1.7F, 0.25F));
         } catch (Exception ignored) {}
     }
 }

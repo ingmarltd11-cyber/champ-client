@@ -248,8 +248,8 @@ final class CharacterRenderer {
       }
 
       float share = switch (pose) {
-         case field_3409 -> 1.0F;
-         case field_3410, field_3406, field_42877, field_63542 -> 0.5F;
+         case EMPTY -> 1.0F;
+         case ITEM, BLOCK, BRUSH, THROW_TRIDENT -> 0.5F;
          default -> 0.0F;
       };
       return state.isUsingItem ? share : share * (1.0F - state.swimAmount);
@@ -300,9 +300,9 @@ final class CharacterRenderer {
    private static void pivot(PoseStack stack, ModelPart vp, PartMesh part, float s, float xRot) {
       PartPose rest = vp.getInitialPose();
       stack.translate(
-         (s * part.pivotX + (vp.x - rest.comp_2997()) * s) / 16.0F,
-         (24.0F - s * part.pivotY + (vp.y - rest.comp_2998()) * s) / 16.0F,
-         (-s * part.pivotZ + (vp.z - rest.comp_2999()) * s) / 16.0F
+         (s * part.pivotX + (vp.x - rest.x()) * s) / 16.0F,
+         (24.0F - s * part.pivotY + (vp.y - rest.y()) * s) / 16.0F,
+         (-s * part.pivotZ + (vp.z - rest.z()) * s) / 16.0F
       );
       if (xRot != 0.0F || vp.yRot != 0.0F || vp.zRot != 0.0F) {
          stack.mulPose(ROTATION.rotationZYX(vp.zRot, vp.yRot, xRot));

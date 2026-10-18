@@ -73,12 +73,12 @@ public final class Slots {
 
     public static void select(int hotbarSlot) {
         Player p = player();
-        if (p != null && hotbarSlot >= 0 && hotbarSlot < 9) p.getInventory().selected = hotbarSlot;
+        if (p != null && hotbarSlot >= 0 && hotbarSlot < 9) p.getInventory().setSelectedSlot(hotbarSlot);
     }
 
     public static int selected() {
         Player p = player();
-        return p == null ? -1 : p.getInventory().selected;
+        return p == null ? -1 : p.getInventory().getSelectedSlot();
     }
 
     public static boolean isInHotbar(String itemId) { return hotbarSlotContaining(itemId) >= 0; }

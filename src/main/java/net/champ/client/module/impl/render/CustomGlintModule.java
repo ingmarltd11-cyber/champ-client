@@ -219,7 +219,7 @@ public final class CustomGlintModule extends ClientModule {
                   image.close();
                }
 
-               return (boolean)y;
+               return y != 0;
             }
 
             if (image != null) {
@@ -278,7 +278,7 @@ public final class CustomGlintModule extends ClientModule {
             }
 
             image.close();
-            return (boolean)y;
+            return y != 0;
          } catch (RuntimeException e) {
             CustomGlintModule.LOGGER.warn("[Champ Client] Custom Glint could not write {}", this.id, e);
             return false;

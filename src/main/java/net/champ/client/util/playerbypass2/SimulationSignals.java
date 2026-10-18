@@ -307,9 +307,9 @@ public final class SimulationSignals {
       if (active) {
          ClientLevel level = Minecraft.getInstance().level;
          if (level != null) {
-            Entity entity = level.getEntity(packet.comp_3223());
+            Entity entity = level.getEntity(packet.id());
             if (entity != null) {
-               if (!(entity.position().distanceToSqr(packet.comp_3224().comp_3148()) < 1.0E-4)) {
+               if (!(entity.position().distanceToSqr(packet.values().position()) < 1.0E-4)) {
                   LAST_ACTIVE.put(entity.getId(), now());
                   entitySignal(entity, SimulationSignals.Kind.MOVE, 0);
                }
@@ -335,8 +335,8 @@ public final class SimulationSignals {
       if (active) {
          ClientLevel level = Minecraft.getInstance().level;
          if (level != null) {
-            if (now() - ENTITY_ADDED.getOrDefault(packet.comp_1127(), -4611686018427387904L) >= 2000000000L) {
-               Entity entity = level.getEntity(packet.comp_1127());
+            if (now() - ENTITY_ADDED.getOrDefault(packet.id(), -4611686018427387904L) >= 2000000000L) {
+               Entity entity = level.getEntity(packet.id());
                if (entity != null) {
                   LAST_ACTIVE.put(entity.getId(), now());
                   entitySignal(entity, SimulationSignals.Kind.STATE, 0);
@@ -380,11 +380,11 @@ public final class SimulationSignals {
          ClientLevel level = mc.level;
          LocalPlayer self = mc.player;
          if (level != null && self != null) {
-            Holder<DamageType> type = packet.comp_1268();
+            Holder<DamageType> type = packet.sourceType();
             if (!type.is(DamageTypes.SWEET_BERRY_BUSH) && !type.is(DamageTypes.STALAGMITE) && !type.is(DamageTypes.FALLING_STALACTITE)) {
-               Entity victim = level.getEntity(packet.comp_1267());
+               Entity victim = level.getEntity(packet.entityId());
                if (victim != null) {
-                  int cause = packet.comp_1269();
+                  int cause = packet.sourceCauseId();
                   if (type.is(DamageTypes.PLAYER_ATTACK) && cause >= 0 && cause != self.getId() && level.getEntity(cause) == null) {
                      pin(victim.blockPosition(), "Hidden Attacker hit " + name(victim.getType()));
                   }

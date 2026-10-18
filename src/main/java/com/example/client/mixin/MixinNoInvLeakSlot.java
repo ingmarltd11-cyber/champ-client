@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class MixinNoInvLeakSlot {
    @ModifyReturnValue(method = "getNoItemIcon", at = @At("RETURN"))
    private Identifier champ$noInvLeakSilhouette(Identifier icon) {
-      Slot self = (Slot)this;
+      Slot self = (Slot)(Object)this;
       return icon != null && NoInvLeakModule.overlaying() && self.container instanceof Inventory && self.hasItem() ? null : icon;
    }
 }

@@ -41,7 +41,7 @@ public abstract class MixinCharacterAvatarRenderer<T extends Avatar & ClientAvat
    private void champ$characterFirstPersonHand(
       PoseStack poseStack, SubmitNodeCollector collector, int light, Identifier skin, ModelPart arm, boolean sleeve, CallbackInfo ci
    ) {
-      if (CharacterLayer.firstPersonHand((PlayerModel)this.getModel(), poseStack, collector, light, arm)) {
+      if (CharacterLayer.firstPersonHand((PlayerModel)(Object)this.getModel(), poseStack, collector, light, arm)) {
          ci.cancel();
       }
    }

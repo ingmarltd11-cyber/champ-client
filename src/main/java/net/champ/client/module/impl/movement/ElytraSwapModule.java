@@ -147,7 +147,7 @@ public final class ElytraSwapModule extends ClientModule {
       } else if (player.isUsingItem()) {
          return "you kept using an item";
       } else {
-         return ((AccessorLocalPlayer)player).champ$lastSentInput().comp_3164() ? "you kept sneaking" : null;
+         return ((AccessorLocalPlayer)player).champ$lastSentInput().shift() ? "you kept sneaking" : null;
       }
    }
 
@@ -322,7 +322,7 @@ public final class ElytraSwapModule extends ClientModule {
    private static boolean isChestplate(ItemStack stack) {
       if (!stack.isEmpty() && !stack.has(DataComponents.GLIDER)) {
          Equippable equippable = (Equippable)stack.get(DataComponents.EQUIPPABLE);
-         return equippable != null && equippable.comp_3174() == EquipmentSlot.CHEST;
+         return equippable != null && equippable.slot() == EquipmentSlot.CHEST;
       } else {
          return false;
       }

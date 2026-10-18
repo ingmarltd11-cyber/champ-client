@@ -613,7 +613,7 @@ public final class TrajectoriesModule extends ClientModule implements HudOverlay
 
    private static int rocketFuse(ItemStack rocket) {
       Fireworks fireworks = (Fireworks)rocket.get(DataComponents.FIREWORKS);
-      int flight = 1 + (fireworks != null ? fireworks.comp_2391() : 0);
+      int flight = 1 + (fireworks != null ? fireworks.flightDuration() : 0);
       return 10 * flight + 6;
    }
 

@@ -182,7 +182,7 @@ final class ServerText {
    static List<String> lore(ItemStack stack) {
       List<String> out = new ArrayList<>();
 
-      for (Component line : ((ItemLore)stack.getOrDefault(DataComponents.LORE, ItemLore.EMPTY)).comp_2400()) {
+      for (Component line : ((ItemLore)stack.getOrDefault(DataComponents.LORE, ItemLore.EMPTY)).lines()) {
          out.add(line.getString());
       }
 

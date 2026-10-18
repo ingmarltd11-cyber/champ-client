@@ -91,7 +91,8 @@ public final class SeedWorldgen {
    private static final int MAX_STORED_BIOMES = 4096;
    private static final int MAX_CARVER_BIOMES = 65536;
    private final BiomeManager biomeManager;
-   private static final RegistryAccess CARVER_REGISTRIES = new ImmutableRegistryAccess(List.of(new MappedRegistry(Registries.BIOME, Lifecycle.stable()).freeze()));
+   private static final RegistryAccess CARVER_REGISTRIES = new RegistryAccess.ImmutableRegistryAccess(
+         List.<net.minecraft.core.Registry<?>>of(new MappedRegistry(Registries.BIOME, Lifecycle.stable()).freeze()));
    private static final Set<ResourceKey<Biome>> TALL_TREES = Set.of(
       Biomes.JUNGLE, Biomes.BAMBOO_JUNGLE, Biomes.SPARSE_JUNGLE, Biomes.OLD_GROWTH_PINE_TAIGA, Biomes.OLD_GROWTH_SPRUCE_TAIGA, Biomes.MANGROVE_SWAMP
    );
@@ -99,18 +100,18 @@ public final class SeedWorldgen {
    private SeedWorldgen(long seed) {
       this.seed = seed;
       Provider lookup = new RegistrySetBuilder()
-         .add(Registries.CONFIGURED_CARVER, Carvers::method_46843)
-         .add(Registries.PROCESSOR_LIST, ProcessorLists::method_46846)
-         .add(Registries.CONFIGURED_FEATURE, FeatureUtils::method_39702)
-         .add(Registries.PLACED_FEATURE, PlacementUtils::method_39735)
-         .add(Registries.BIOME, BiomeData::method_40363)
-         .add(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST, MultiNoiseBiomeSourceParameterLists::method_49522)
-         .add(Registries.NOISE, NoiseData::method_39216)
-         .add(Registries.DENSITY_FUNCTION, NoiseRouterData::method_41100)
-         .add(Registries.NOISE_SETTINGS, NoiseGeneratorSettings::method_31111)
+         .add(Registries.CONFIGURED_CARVER, Carvers::bootstrap)
+         .add(Registries.PROCESSOR_LIST, ProcessorLists::bootstrap)
+         .add(Registries.CONFIGURED_FEATURE, FeatureUtils::bootstrap)
+         .add(Registries.PLACED_FEATURE, PlacementUtils::bootstrap)
+         .add(Registries.BIOME, BiomeData::bootstrap)
+         .add(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST, MultiNoiseBiomeSourceParameterLists::bootstrap)
+         .add(Registries.NOISE, NoiseData::bootstrap)
+         .add(Registries.DENSITY_FUNCTION, NoiseRouterData::bootstrap)
+         .add(Registries.NOISE_SETTINGS, NoiseGeneratorSettings::bootstrap)
          .build(RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY));
       Holder<NoiseGeneratorSettings> settingsHolder = lookup.lookupOrThrow(Registries.NOISE_SETTINGS).getOrThrow(NoiseGeneratorSettings.OVERWORLD);
-      this.settings = (NoiseGeneratorSettings)settingsHolder.comp_349();
+      this.settings = (NoiseGeneratorSettings)settingsHolder.value();
       this.randomState = RandomState.create(this.settings, lookup.lookupOrThrow(Registries.NOISE), seed);
       Holder<MultiNoiseBiomeSourceParameterList> parameters = lookup.lookupOrThrow(Registries.MULTI_NOISE_BIOME_SOURCE_PARAMETER_LIST).getOrThrow(MultiNoiseBiomeSourceParameterLists.OVERWORLD);
       this.biomeSource = MultiNoiseBiomeSource.createFromPreset(parameters);
@@ -120,7 +121,7 @@ public final class SeedWorldgen {
       Map<PlacedFeature, String> names = new IdentityHashMap<>();
       lookup.lookupOrThrow(Registries.PLACED_FEATURE)
          .listElements()
-         .forEach(reference -> names.put((PlacedFeature)reference.comp_349(), reference.key().identifier().getPath()));
+         .forEach(reference -> names.put((PlacedFeature)reference.value(), reference.key().identifier().getPath()));
       this.specs = OreSpec.derive(steps, biomes, this.generator, placed -> names.getOrDefault(placed, "?"), -64, 319);
       Holder<Biome> plains = lookup.lookupOrThrow(Registries.BIOME).getOrThrow(Biomes.PLAINS);
       List<Holder<Biome>> ids = new ArrayList<>(biomes);
@@ -241,7 +242,7 @@ public final class SeedWorldgen {
          throw new IllegalStateException("carving before the noise fill");
       });
       Aquifer aquifer = noise.aquifer();
-      CarvingContext context = new CarvingContext(this.generator, CARVER_REGISTRIES, chunk.getHeightAccessorForGeneration(), noise, this.randomState, this.settings.comp_478());
+      CarvingContext context = new CarvingContext(this.generator, CARVER_REGISTRIES, chunk.getHeightAccessorForGeneration(), noise, this.randomState, this.settings.surfaceRule());
       CarvingMask mask = chunk.getOrCreateCarvingMask();
 
       for (int dx = -8; dx <= 8; dx++) {
@@ -262,14 +263,28 @@ public final class SeedWorldgen {
 
             for (Holder<ConfiguredWorldCarver<?>> holder : biome.getCarvers()) {
                random.setLargeFeatureSeed(this.seed + index, from.x, from.z);
-               if (((ConfiguredWorldCarver)holder.comp_349()).isStartChunk(random)) {
-                  ((ConfiguredWorldCarver)holder.comp_349()).carve(context, chunk, carverBiomeManager::method_22393, random, aquifer, from, mask);
+               ConfiguredWorldCarver<?> configured = holder.value();
+               if (isStartChunk(configured, random)) {
+                  carveConfigured(configured, context, chunk, carverBiomeManager::getBiome, random, aquifer, from, mask);
                }
 
                index++;
             }
          }
       }
+   }
+
+   private static <WC extends net.minecraft.world.level.levelgen.carver.CarverConfiguration> boolean isStartChunk(
+         ConfiguredWorldCarver<WC> configured, WorldgenRandom random) {
+      return configured.worldCarver().isStartChunk(configured.config(), random);
+   }
+
+   private static <WC extends net.minecraft.world.level.levelgen.carver.CarverConfiguration> boolean carveConfigured(
+         ConfiguredWorldCarver<WC> configured, net.minecraft.world.level.levelgen.carver.CarvingContext context,
+         net.minecraft.world.level.chunk.ChunkAccess chunk,
+         java.util.function.Function<BlockPos, Holder<Biome>> biomes, WorldgenRandom random, Aquifer aquifer,
+         net.minecraft.world.level.ChunkPos from, CarvingMask mask) {
+      return configured.worldCarver().carve(context, configured.config(), chunk, biomes, random, aquifer, from, mask);
    }
 
    private static IdMap<Holder<Biome>> listIds(List<Holder<Biome>> list) {
@@ -289,7 +304,7 @@ public final class SeedWorldgen {
             return id >= 0 && id < list.size() ? list.get(id) : null;
          }
 
-         public int method_10204() {
+         public int size() {
             return list.size();
          }
 
@@ -302,6 +317,17 @@ public final class SeedWorldgen {
    private static LevelAccessor emptyLevel(PalettedContainerFactory containers, LevelHeightAccessor height) {
       ProtoChunk empty = new ProtoChunk(new ChunkPos(0, 0), UpgradeData.EMPTY, height, containers, null);
       InvocationHandler handler = (proxy, method, args) -> {
+         if (method.getDeclaringClass() == Object.class) {
+            switch (method.getName()) {
+               case "equals": return proxy == args[0];
+               case "hashCode": return System.identityHashCode(proxy);
+               case "toString": return "SeedWorldgen.emptyLevel";
+               default: throw new IllegalStateException(method.getName());
+            }
+         }
+         if (LevelAccessor.class.isAssignableFrom(method.getReturnType()) && method.getParameterCount() == 4) return proxy;
+         if (method.isDefault()) return InvocationHandler.invokeDefault(proxy, method, args);
+         throw new UnsupportedOperationException("structure-free level: " + method);
          // java.lang.RuntimeException: invalid constant type: Ljava/io/Serializable; with value SeedWorldgen.emptyLevel
          //   at org.jetbrains.java.decompiler.modules.decompiler.exps.ConstExprent.toJava(ConstExprent.java:364)
          //   at org.jetbrains.java.decompiler.modules.decompiler.exps.SwitchExprent.toJava(SwitchExprent.java:152)

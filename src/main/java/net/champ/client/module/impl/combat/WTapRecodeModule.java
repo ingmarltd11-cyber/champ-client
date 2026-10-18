@@ -43,7 +43,7 @@ public final class WTapRecodeModule extends ClientModule {
          && self.isSprinting()
          && MeleeAttacks.charge(self) > 0.9F
          && target instanceof LivingEntity
-         && self.input.keyPresses.comp_3159();
+         && self.input.keyPresses.forward();
    }
 
    public void afterAttack() {
@@ -54,7 +54,7 @@ public final class WTapRecodeModule extends ClientModule {
 
    public void afterStab() {
       LocalPlayer player = Minecraft.getInstance().player;
-      if (player.isSprinting() && player.input.keyPresses.comp_3159()) {
+      if (player.isSprinting() && player.input.keyPresses.forward()) {
          if (MeleeAttacks.stabTarget(player, entity -> PiercingWeapon.canHitEntity(player, entity)) != null) {
             this.start(player);
          }

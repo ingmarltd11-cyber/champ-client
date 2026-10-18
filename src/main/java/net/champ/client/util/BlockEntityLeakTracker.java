@@ -107,7 +107,7 @@ public final class BlockEntityLeakTracker {
          case "brushable_block" -> Blocks.SUSPICIOUS_SAND;
          default -> null;
       };
-      return mapped != null ? mapped : BuiltInRegistries.BLOCK.get(id).<Block>map(Holder::comp_349).orElse(Blocks.AIR);
+      return mapped != null ? mapped : BuiltInRegistries.BLOCK.get(id).<Block>map(Holder::value).orElse(Blocks.AIR);
    }
 
    @Environment(EnvType.CLIENT)

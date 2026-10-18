@@ -13,11 +13,11 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class MixinEntityControlAbstractBoat {
    @ModifyExpressionValue(method = "controlBoat", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/vehicle/boat/AbstractBoat;inputLeft:Z", opcode = 180))
    private boolean champ$entityControlInputLeft(boolean original) {
-      return original && !EntityControlVehicleHook.locksBoatTurning((AbstractBoat)this);
+      return original && !EntityControlVehicleHook.locksBoatTurning((AbstractBoat)(Object)(Object)this);
    }
 
    @ModifyExpressionValue(method = "controlBoat", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/vehicle/boat/AbstractBoat;inputRight:Z", opcode = 180))
    private boolean champ$entityControlInputRight(boolean original) {
-      return original && !EntityControlVehicleHook.locksBoatTurning((AbstractBoat)this);
+      return original && !EntityControlVehicleHook.locksBoatTurning((AbstractBoat)(Object)(Object)this);
    }
 }

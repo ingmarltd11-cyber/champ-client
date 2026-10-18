@@ -432,7 +432,7 @@ public final class JumpCirclesModule extends ClientModule {
          super(id);
       }
 
-      protected void method_65856(NativeImage image) {
+      protected void doLoad(NativeImage image) {
          int levels = 32 - Integer.numberOfLeadingZeros(Math.min(image.getWidth(), image.getHeight()));
          NativeImage[] mips = MipmapGenerator.generateMipLevels(this.resourceId(), new NativeImage[]{image}, levels - 1, MipmapStrategy.MEAN, 0.0F);
 

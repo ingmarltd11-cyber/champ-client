@@ -78,7 +78,7 @@ public final class SpawnerNametagsModule extends ClientModule implements HudOver
          return null;
       }
 
-      String id = data.comp_64().getStringOr("id", "");
+      String id = data.entityToSpawn().getStringOr("id", "");
       return id.isEmpty() ? null : EntityType.byString(id).map(type -> type.getDescription().getString()).orElse(null);
    }
 

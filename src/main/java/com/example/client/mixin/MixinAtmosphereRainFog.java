@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(AtmosphericFogEnvironment.class)
 public abstract class MixinAtmosphereRainFog {
    @Shadow
-   private float field_60589;
+   private float rainFogMultiplier;
 
    @Inject(method = "updateRainFogState", at = @At("TAIL"))
    private void champ$keepClearInRain(Camera camera, ClientLevel level, DeltaTracker deltaTracker, CallbackInfo ci) {

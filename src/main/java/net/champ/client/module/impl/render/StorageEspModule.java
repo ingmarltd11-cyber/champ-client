@@ -10,6 +10,7 @@ import net.champ.client.module.ClientModule;
 import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.BooleanSetting;
 import net.champ.client.module.setting.ColorSetting;
+import net.champ.client.module.setting.Setting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.world.level.block.Block;
@@ -26,7 +27,12 @@ import net.minecraft.world.level.block.BarrelBlock;
 
 @Environment(EnvType.CLIENT)
 public final class StorageEspModule extends ClientModule implements ChunkScanner.Consumer {
-   private final EspStyle style = new EspStyle((x$0, x$1) -> (S)this.addSetting(x$0, x$1), "Outline", 0.25F, 256.0F);
+   private final EspStyle style = new EspStyle(new EspStyle.Registrar() {
+      @Override
+      public <S extends Setting> S add(String id, S setting) {
+         return StorageEspModule.this.addSetting(id, setting);
+      }
+   }, "Outline", 0.25F, 256.0F);
    private final BooleanSetting sTracers = this.addSetting("tracers", new BooleanSetting("Tracers", false));
    private final StorageEspModule.Type chest = new StorageEspModule.Type(
       "Chest", true, -6530304, "chests", "chest-color", "chest-tracers", "chest-tracer-color"

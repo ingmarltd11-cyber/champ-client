@@ -27,7 +27,7 @@ public abstract class MixinJesusEntity {
    @Unique
    private void champ$jesusMarkBubbleColumn() {
       JesusModule jesus = JesusModule.active;
-      if (jesus != null && this == Minecraft.getInstance().player) {
+      if (jesus != null && (Object) this == Minecraft.getInstance().player) {
          jesus.markInBubbleColumn();
       }
    }

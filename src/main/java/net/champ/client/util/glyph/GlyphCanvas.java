@@ -299,7 +299,7 @@ public final class GlyphCanvas implements Gizmo {
       this.band(x, y, z, inner, outer, 0.0F, (float) (Math.PI * 2), segments, argb);
    }
 
-   public void method_75531(GizmoPrimitives out, float alpha) {
+   public void emit(GizmoPrimitives out, float alpha) {
       boolean faded = alpha < 1.0F;
       double[] q = this.quadPos;
       int i = 0;

@@ -69,7 +69,7 @@ public final class ItemEnchants {
       }
 
       for (Holder<Enchantment> holder : all) {
-         if (((Enchantment)holder.comp_349()).isSupportedItem(stack)) {
+         if (((Enchantment)holder.value()).isSupportedItem(stack)) {
             return true;
          }
       }
@@ -87,12 +87,12 @@ public final class ItemEnchants {
       boolean book = item == Items.ENCHANTED_BOOK;
 
       for (Holder<Enchantment> holder : all()) {
-         if (book || ((Enchantment)holder.comp_349()).isSupportedItem(stack)) {
+         if (book || ((Enchantment)holder.value()).isSupportedItem(stack)) {
             out.add(holder);
          }
       }
 
-      out.sort(Comparator.comparing(holderx -> ((Enchantment)holderx.comp_349()).comp_2686().getString(), String.CASE_INSENSITIVE_ORDER));
+      out.sort(Comparator.comparing(holderx -> ((Enchantment)holderx.value()).description().getString(), String.CASE_INSENSITIVE_ORDER));
       return out;
    }
 

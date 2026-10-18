@@ -45,9 +45,9 @@ public final class FakeStats extends ClientModule {
    private static final String OBJECTIVE = "champ_fs";
    private static final String SHOWN_BY_DEFAULT = ".gg/champ";
    private static final int LINES = 15;
-   private static final Comparator<PlayerScoreEntry> ORDER = Comparator.<PlayerScoreEntry>comparingInt(PlayerScoreEntry::comp_2128)
+   private static final Comparator<PlayerScoreEntry> ORDER = Comparator.<PlayerScoreEntry>comparingInt(PlayerScoreEntry::value)
       .reversed()
-      .thenComparing(PlayerScoreEntry::comp_2127, String.CASE_INSENSITIVE_ORDER);
+      .thenComparing(PlayerScoreEntry::owner, String.CASE_INSENSITIVE_ORDER);
    private static final Pattern MONEY = Pattern.compile("\\$\\s?(\\d[\\d.,]*[KkMmBbTtQq]?)");
    private static final String SMALL_CAPS = "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘǫʀꜱᴛᴜᴠᴡxʏᴢ";
    private static volatile FakeStats active;
@@ -127,19 +127,19 @@ public final class FakeStats extends ClientModule {
       final FakeStats module = active;
       LocalPlayer player = Minecraft.getInstance().player;
       return module != null && real != null && player != null && player.getScoreboardName().equals(holder.getScoreboardName()) ? new ReadOnlyScoreInfo() {
-         public int method_55397() {
+         public int value() {
             return real.value();
          }
 
-         public boolean method_1131() {
+         public boolean isLocked() {
             return real.isLocked();
          }
 
-         public NumberFormat method_55400() {
+         public NumberFormat numberFormat() {
             return real.numberFormat();
          }
 
-         public MutableComponent method_55399(NumberFormat fallback) {
+         public MutableComponent formatValue(NumberFormat fallback) {
             return Component.empty().append(module.fakeTabMoney(real.formatValue(fallback)));
          }
       } : real;
@@ -248,7 +248,7 @@ public final class FakeStats extends ClientModule {
 
       for (int i = 0; i < rows.size(); i++) {
          PlayerScoreEntry row = rows.get(i);
-         Component name = visible(PlayerTeam.formatNameForTeam(current.getPlayersTeam(row.comp_2127()), row.ownerName()));
+         Component name = visible(PlayerTeam.formatNameForTeam(current.getPlayersTeam(row.owner()), row.ownerName()));
          Component number = visible(row.formatValue(format));
          Component renamed = this.renamed(name);
          FakeStats.Hit hit = renamed == null ? this.find(name.getString(), number.getString()) : null;
@@ -278,7 +278,7 @@ public final class FakeStats extends ClientModule {
          ScoreHolder holder = ScoreHolder.forNameOnly(holderName(i));
          current.removePlayerFromTeam(holder.getScoreboardName());
          ScoreAccess access = current.getOrCreatePlayerScore(holder, objective);
-         access.set(row.comp_2128());
+         access.set(row.value());
          access.display(name);
          access.numberFormatOverride(new FixedFormat(number));
       }
@@ -300,7 +300,7 @@ public final class FakeStats extends ClientModule {
       StringBuilder lines = new StringBuilder("title: ").append(escaped(title.getString()));
 
       for (PlayerScoreEntry row : rows) {
-         Component name = visible(PlayerTeam.formatNameForTeam(current.getPlayersTeam(row.comp_2127()), row.ownerName()));
+         Component name = visible(PlayerTeam.formatNameForTeam(current.getPlayersTeam(row.owner()), row.ownerName()));
          lines.append("\n  ").append(escaped(name.getString())).append(" | ").append(escaped(visible(row.formatValue(format)).getString()));
       }
 

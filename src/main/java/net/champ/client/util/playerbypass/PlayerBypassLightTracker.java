@@ -130,7 +130,7 @@ public final class PlayerBypassLightTracker {
    private static String worldKey(Minecraft mc) {
       IntegratedServer local = mc.getSingleplayerServer();
       if (local != null) {
-         Path folder = local.method_27050(LevelResource.ROOT).normalize().getFileName();
+         Path folder = local.getWorldPath(LevelResource.ROOT).normalize().getFileName();
          return ProtectedChunkStore.singleplayerKey(folder == null ? "world" : folder.toString());
       } else {
          ServerData server = mc.getCurrentServer();

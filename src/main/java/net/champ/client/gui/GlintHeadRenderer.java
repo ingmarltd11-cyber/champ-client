@@ -40,7 +40,7 @@ public final class GlintHeadRenderer implements NoDataSpecialModelRenderer {
       return head;
    }
 
-   public void method_65699(ItemDisplayContext context, PoseStack pose, SubmitNodeCollector collector, int light, int overlay, boolean foil, int outline) {
+   public void submit(ItemDisplayContext context, PoseStack pose, SubmitNodeCollector collector, int light, int overlay, boolean foil, int outline) {
       SkullBlockRenderer.submitSkull(null, 180.0F, 0.0F, pose, collector, light, this.model, PlayerSkinRenderCache.DEFAULT_PLAYER_SKIN_RENDER_TYPE, outline, null);
       if (foil) {
          pose.pushPose();
@@ -53,7 +53,7 @@ public final class GlintHeadRenderer implements NoDataSpecialModelRenderer {
       }
    }
 
-   public void method_72175(Consumer<Vector3fc> output) {
+   public void getExtents(Consumer<Vector3fc> output) {
       PoseStack pose = new PoseStack();
       pose.translate(0.5F, 0.0F, 0.5F);
       pose.scale(-1.0F, -1.0F, 1.0F);
@@ -61,15 +61,15 @@ public final class GlintHeadRenderer implements NoDataSpecialModelRenderer {
    }
 
    @Environment(EnvType.CLIENT)
-   public record Unbaked() implements Unbaked {
+   public record Unbaked() implements SpecialModelRenderer.Unbaked {
       public static final MapCodec<GlintHeadRenderer.Unbaked> MAP_CODEC = MapCodec.unit(new GlintHeadRenderer.Unbaked());
 
-      public MapCodec<GlintHeadRenderer.Unbaked> method_65696() {
+      public MapCodec<GlintHeadRenderer.Unbaked> type() {
          return MAP_CODEC;
       }
 
-      public SpecialModelRenderer<?> method_65698(BakingContext context) {
-         SkullModelBase model = SkullBlockRenderer.createModel(context.comp_3391(), Types.PLAYER);
+      public SpecialModelRenderer<?> bake(BakingContext context) {
+         SkullModelBase model = SkullBlockRenderer.createModel(context.entityModelSet(), Types.PLAYER);
          return model == null ? null : new GlintHeadRenderer(model);
       }
    }

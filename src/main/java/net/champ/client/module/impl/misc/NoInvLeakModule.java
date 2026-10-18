@@ -185,12 +185,12 @@ public final class NoInvLeakModule extends ClientModule {
 
    private static int inventorySlot(EquipmentSlot slot) {
       return switch (slot) {
-         case field_6169 -> 39;
-         case field_6174 -> 38;
-         case field_6172 -> 37;
-         case field_6166 -> 36;
-         case field_6171 -> 40;
-         case field_6173 -> {
+         case HEAD -> 39;
+         case CHEST -> 38;
+         case LEGS -> 37;
+         case FEET -> 36;
+         case OFFHAND -> 40;
+         case MAINHAND -> {
             LocalPlayer player = Minecraft.getInstance().player;
             yield player != null ? player.getInventory().getSelectedSlot() : 41;
          }

@@ -18,11 +18,11 @@ public abstract class MixinSneakKeyboardInput {
    private void champ$forceSneak(CallbackInfo ci) {
       SneakModule sneak = SneakModule.active;
       if (sneak != null && sneak.doVanilla()) {
-         ClientInput input = (ClientInput)this;
+         ClientInput input = (ClientInput)(Object)this;
          Input keys = input.keyPresses;
-         if (!keys.comp_3164()) {
+         if (!keys.shift()) {
             input.keyPresses = new Input(
-               keys.comp_3159(), keys.comp_3160(), keys.comp_3161(), keys.comp_3162(), keys.comp_3163(), true, keys.comp_3165()
+               keys.forward(), keys.backward(), keys.left(), keys.right(), keys.jump(), true, keys.sprint()
             );
          }
       }

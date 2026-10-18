@@ -22,7 +22,7 @@ public abstract class MixinElytraFlyEntity {
       } else {
          Minecraft mc = Minecraft.getInstance();
          LocalPlayer player = mc.player;
-         if (this == player && mc.isSameThread()) {
+         if ((Object) this == player && mc.isSameThread()) {
             return module.canPacketEfly(player) ? Pose.FALL_FLYING : original;
          } else {
             return original;

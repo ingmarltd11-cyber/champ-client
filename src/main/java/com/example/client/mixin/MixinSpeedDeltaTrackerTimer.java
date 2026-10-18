@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Timer.class)
 public abstract class MixinSpeedDeltaTrackerTimer {
    @Shadow
-   private float field_51958;
+   private float deltaTicks;
 
    @Inject(method = "advanceGameTime", at = @At(value = "FIELD", target = "Lnet/minecraft/client/DeltaTracker$Timer;lastMs:J", opcode = 181))
    private void champ$speedTimer(long time, CallbackInfoReturnable<Integer> cir) {

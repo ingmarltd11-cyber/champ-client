@@ -8,9 +8,9 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @Environment(EnvType.CLIENT)
 @Mixin(targets = "net/minecraft/world/item/ItemCooldowns$CooldownInstance")
 public interface AccessorHudCooldownInstance {
-   @Accessor("comp_3083")
+   @Accessor("startTime")
    int champ$hudStartTime();
 
-   @Accessor("comp_3084")
+   @Accessor("endTime")
    int champ$hudEndTime();
 }

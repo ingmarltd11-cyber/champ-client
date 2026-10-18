@@ -18,13 +18,13 @@ public abstract class MixinSwingAnimationLivingEntity {
    @ModifyExpressionValue(method = {"updateSwingTime", "swing"}, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;getCurrentSwingDuration()I"))
    private int champ$swingTempo(int ticks) {
       SwingAnimationModule module = SwingAnimationModule.active;
-      return module != null && this == Minecraft.getInstance().player ? module.swingTicks(ticks) : ticks;
+      return module != null && (Object) this == Minecraft.getInstance().player ? module.swingTicks(ticks) : ticks;
    }
 
    @Inject(method = "swing", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/LivingEntity;swinging:Z", opcode = 181))
    private void champ$latchSwing(InteractionHand hand, boolean broadcast, CallbackInfo ci) {
       SwingAnimationModule module = SwingAnimationModule.active;
-      if (module != null && this == Minecraft.getInstance().player) {
+      if (module != null && (Object) this == Minecraft.getInstance().player) {
          module.latch();
       }
    }

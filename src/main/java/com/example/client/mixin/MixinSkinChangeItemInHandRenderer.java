@@ -26,10 +26,10 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class MixinSkinChangeItemInHandRenderer {
    @Shadow
    @Final
-   private Minecraft field_4050;
+   private Minecraft minecraft;
    @Shadow
    @Final
-   private EntityRenderDispatcher field_4046;
+   private EntityRenderDispatcher entityRenderDispatcher;
 
    @WrapOperation(
       method = {"renderPlayerArm", "renderMapHand"},
@@ -53,8 +53,8 @@ public abstract class MixinSkinChangeItemInHandRenderer {
          PlayerSkin own = player.getSkin();
          PlayerSkin skin = mod.skinFor(player.getId(), own);
          if (skin != own) {
-            texture = skin.comp_1626().comp_3627();
-            AvatarRenderer<AbstractClientPlayer> byModel = ((AccessorSkinChangeEntityRenderDispatcher)this.entityRenderDispatcher).champ$skinChangePlayerRenderers().get(skin.comp_1629());
+            texture = skin.body().texturePath();
+            AvatarRenderer<AbstractClientPlayer> byModel = ((AccessorSkinChangeEntityRenderDispatcher)(Object)this.entityRenderDispatcher).champ$skinChangePlayerRenderers().get(skin.model());
             if (byModel != null) {
                renderer = byModel;
             }

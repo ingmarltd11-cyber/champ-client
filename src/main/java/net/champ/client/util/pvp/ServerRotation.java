@@ -116,8 +116,8 @@ public final class ServerRotation {
          return keys;
       }
 
-      int forward = impulse(keys.comp_3159(), keys.comp_3160());
-      int strafe = impulse(keys.comp_3161(), keys.comp_3162());
+      int forward = impulse(keys.forward(), keys.backward());
+      int strafe = impulse(keys.left(), keys.right());
       if (forward == 0 && strafe == 0) {
          return keys;
       }
@@ -143,7 +143,7 @@ public final class ServerRotation {
 
       return bestForward == forward && bestStrafe == strafe
          ? keys
-         : new Input(bestForward > 0, bestForward < 0, bestStrafe > 0, bestStrafe < 0, keys.comp_3163(), keys.comp_3164(), keys.comp_3165());
+         : new Input(bestForward > 0, bestForward < 0, bestStrafe > 0, bestStrafe < 0, keys.jump(), keys.shift(), keys.sprint());
    }
 
    public static boolean misses(LocalPlayer player, AABB box, double range) {

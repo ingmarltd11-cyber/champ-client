@@ -218,10 +218,10 @@ public final class TracersModule extends ClientModule implements HudOverlayProvi
       }
 
       return switch (entity.getType().getCategory()) {
-         case field_6294 -> this.animals.get() ? this.animalsColor : null;
-         case field_24460, field_6300, field_30092, field_34447 -> this.waterAnimals.get() ? this.waterAnimalsColor : null;
-         case field_6302 -> this.monsters.get() ? this.monstersColor : null;
-         case field_6303 -> this.ambient.get() ? this.ambientColor : null;
+         case CREATURE -> this.animals.get() ? this.animalsColor : null;
+         case WATER_AMBIENT, WATER_CREATURE, UNDERGROUND_WATER_CREATURE, AXOLOTLS -> this.waterAnimals.get() ? this.waterAnimalsColor : null;
+         case MONSTER -> this.monsters.get() ? this.monstersColor : null;
+         case AMBIENT -> this.ambient.get() ? this.ambientColor : null;
          default -> this.misc.get() ? this.miscColor : null;
       };
    }

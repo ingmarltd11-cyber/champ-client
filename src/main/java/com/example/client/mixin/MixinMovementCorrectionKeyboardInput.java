@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MixinMovementCorrectionKeyboardInput {
    @Inject(method = "tick", at = @At("TAIL"))
    private void champ$shapeInput(CallbackInfo ci) {
-      ClientInput input = (ClientInput)this;
+      ClientInput input = (ClientInput)(Object)this;
       LocalPlayer player = Minecraft.getInstance().player;
       if (player != null && player.input == input) {
          Input keys = input.keyPresses;
@@ -29,7 +29,7 @@ public abstract class MixinMovementCorrectionKeyboardInput {
             input.keyPresses = corrected;
             ((AccessorMovementClientInput)input)
                .champ$setMoveVector(
-                  new Vec2(impulse(corrected.comp_3161(), corrected.comp_3162()), impulse(corrected.comp_3159(), corrected.comp_3160())).normalized()
+                  new Vec2(impulse(corrected.left(), corrected.right()), impulse(corrected.forward(), corrected.backward())).normalized()
                );
          }
       }

@@ -144,7 +144,7 @@ public final class TriggerbotModule extends ClientModule {
       Vec3 eye = player.getEyePosition();
       Vec3 start = eye.add(look.scale(range.effectiveMinRange(player)));
       Vec3 end = eye.add(look.scale(range.effectiveMaxRange(player) + Math.max(0.0, player.getKnownMovement().dot(look))));
-      float margin = range.comp_5262();
+      float margin = range.hitboxMargin();
       Vec3 at = (Vec3)target.getBoundingBox().inflate(margin).clip(eye, end).orElse(null);
       if (at != null && MeleeAttacks.lineIsClear(player, eye, at)) {
          for (Entity entity : player.level().getEntities(player, new AABB(start, end).inflate(1.0))) {

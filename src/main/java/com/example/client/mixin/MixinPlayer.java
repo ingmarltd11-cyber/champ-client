@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MixinPlayer {
    @Inject(method = "attack", at = @At("HEAD"))
    private void champ$onAttack(Entity target, CallbackInfo ci) {
-      if (this == Minecraft.getInstance().player) {
+      if ((Object) this == Minecraft.getInstance().player) {
          PlayerAttackEntityEvent.dispatch(target);
       }
    }
@@ -31,7 +31,7 @@ public abstract class MixinPlayer {
          return original;
       } else {
          LocalPlayer player = Minecraft.getInstance().player;
-         if (player != null && this == player) {
+         if (player != null && (Object) this == player) {
             float override = fly.getOffGroundSpeed(player);
             return override != -1.0F ? override : original;
          } else {

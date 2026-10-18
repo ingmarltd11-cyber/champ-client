@@ -303,8 +303,8 @@ public final class InstantPack {
      */
     static final class ReachModule extends ModuleBase {
         final NumberSetting bonus = addSetting(new NumberSetting("Extra reach", 1.0F, 0F, 4F));
-        static final net.minecraft.resources.ResourceLocation REACH_ID =
-                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("champ-addons", "reach");
+        static final net.minecraft.resources.Identifier REACH_ID =
+                net.minecraft.resources.Identifier.fromNamespaceAndPath("champ-addons", "reach");
 
         ReachModule() {
             super("reach", "Reach",
@@ -323,7 +323,7 @@ public final class InstantPack {
                 if (level == null) return null;
                 var lookup = level.registryAccess()
                         .lookupOrThrow(net.minecraft.core.registries.Registries.ATTRIBUTE);
-                var holder = lookup.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(id));
+                var holder = lookup.get(net.minecraft.resources.Identifier.withDefaultNamespace(id));
                 if (holder.isEmpty()) return null;
                 return p.getAttribute(holder.get());
             } catch (Exception e) {

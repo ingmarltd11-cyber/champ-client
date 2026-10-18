@@ -118,26 +118,26 @@ public final class EntityControlVehicleHook {
       double velX = 0.0;
       double velZ = 0.0;
       boolean longitudinal = false;
-      if (input.comp_3159()) {
+      if (input.forward()) {
          velX += forward.x / 20.0 * bps;
          velZ += forward.z / 20.0 * bps;
          longitudinal = true;
       }
 
-      if (input.comp_3160()) {
+      if (input.backward()) {
          velX -= forward.x / 20.0 * bps;
          velZ -= forward.z / 20.0 * bps;
          longitudinal = true;
       }
 
       boolean lateral = false;
-      if (input.comp_3162()) {
+      if (input.right()) {
          velX += right.x / 20.0 * bps;
          velZ += right.z / 20.0 * bps;
          lateral = true;
       }
 
-      if (input.comp_3161()) {
+      if (input.left()) {
          velX -= right.x / 20.0 * bps;
          velZ -= right.z / 20.0 * bps;
          lateral = true;

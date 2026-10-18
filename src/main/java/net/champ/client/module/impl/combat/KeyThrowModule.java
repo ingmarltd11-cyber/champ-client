@@ -114,7 +114,7 @@ public final class KeyThrowModule extends ClientModule {
 
                         InteractionHand hand = offhand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
                         if (mc.gameMode.useItem(player, hand) instanceof Success success) {
-                           if (success.comp_2909() == SwingSource.CLIENT) {
+                           if (success.swingSource() == SwingSource.CLIENT) {
                               player.swing(hand);
                            }
 

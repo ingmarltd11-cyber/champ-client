@@ -120,7 +120,9 @@ public final class EventBus {
             }
          }
 
-         throw failure;
+         if (failure instanceof RuntimeException rte) throw rte;
+         if (failure instanceof Error err) throw err;
+         throw new AssertionError(failure);
       }
 
       this.subscriptions.put(subscriber, entries);

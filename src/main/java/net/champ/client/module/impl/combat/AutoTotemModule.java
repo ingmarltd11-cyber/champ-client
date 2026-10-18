@@ -153,7 +153,7 @@ public final class AutoTotemModule extends ClientModule {
          int hotbar = findHotbarTotem(inventory);
          if (hotbar != -1) {
             this.swapOffhand(mc, player, hotbar);
-         } else if (stored != -1 && !settled && this.tick >= this.idleUntil && !((AccessorLocalPlayer)player).champ$lastSentInput().comp_3164()) {
+         } else if (stored != -1 && !settled && this.tick >= this.idleUntil && !((AccessorLocalPlayer)player).champ$lastSentInput().shift()) {
             InputControl.idle();
             this.settling = true;
          } else if (settled) {

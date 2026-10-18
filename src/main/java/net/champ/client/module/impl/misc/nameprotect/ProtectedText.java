@@ -103,11 +103,11 @@ public final class ProtectedText {
 
    private static HoverEvent rewriteHover(NameMatcher matcher, HoverEvent hover) {
       if (hover instanceof ShowText showText) {
-         Component value = showText.comp_3510();
+         Component value = showText.value();
          Component rewritten = value != null ? rebuild(matcher, value, false) : null;
          return (HoverEvent)(rewritten != null ? new ShowText(rewritten) : hover);
       } else if (hover instanceof ShowEntity showEntity) {
-         EntityTooltipInfo info = showEntity.comp_3508();
+         EntityTooltipInfo info = showEntity.entity();
          if (info != null && !info.name.isEmpty()) {
             Component rewritten = rebuild(matcher, (FormattedText)info.name.get(), false);
             return (HoverEvent)(rewritten != null ? new ShowEntity(new EntityTooltipInfo(info.type, info.uuid, rewritten)) : hover);

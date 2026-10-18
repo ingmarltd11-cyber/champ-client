@@ -20,9 +20,9 @@ public abstract class MixinSneakLocalPlayer {
    )
    private Input champ$packetSneak(Input original) {
       SneakModule sneak = SneakModule.active;
-      return sneak != null && !original.comp_3164() && sneak.doPacket()
+      return sneak != null && !original.shift() && sneak.doPacket()
          ? new Input(
-            original.comp_3159(), original.comp_3160(), original.comp_3161(), original.comp_3162(), original.comp_3163(), true, original.comp_3165()
+            original.forward(), original.backward(), original.left(), original.right(), original.jump(), true, original.sprint()
          )
          : original;
    }

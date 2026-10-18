@@ -83,7 +83,7 @@ public final class MeleeAttacks {
 
    private static boolean rowing(LocalPlayer player) {
       Input sent = ((AccessorLocalPlayer)player).champ$lastSentInput();
-      return player.getVehicle() instanceof AbstractBoat && (sent.comp_3159() != sent.comp_3160() || sent.comp_3161() != sent.comp_3162());
+      return player.getVehicle() instanceof AbstractBoat && (sent.forward() != sent.backward() || sent.left() != sent.right());
    }
 
    public static boolean clickPending(Minecraft mc) {
@@ -259,7 +259,7 @@ public final class MeleeAttacks {
          end = wall.getLocation();
       }
 
-      float margin = range.comp_5262();
+      float margin = range.hitboxMargin();
 
       for (Entity entity : player.level().getEntities(player, new AABB(eye, end).inflate(margin + 1.0), wanted)) {
          AABB box = entity.getBoundingBox().inflate(margin);
@@ -338,7 +338,7 @@ public final class MeleeAttacks {
       }
 
       DamageSource source = attacker.level().damageSources().playerAttack(attacker);
-      if (blocks.comp_3637().map(tag -> source.is(tag)).orElse(false)) {
+      if (blocks.bypassedBy().map(tag -> source.is(tag)).orElse(false)) {
          return false;
       }
 
@@ -381,7 +381,7 @@ public final class MeleeAttacks {
 
    public static boolean disablesShields(ItemStack stack) {
       Weapon weapon = (Weapon)stack.get(DataComponents.WEAPON);
-      return weapon != null && weapon.comp_3602() > 0.0F;
+      return weapon != null && weapon.disableBlockingForSeconds() > 0.0F;
    }
 
    public static boolean isMeleeWeapon(ItemStack stack) {
@@ -395,8 +395,8 @@ public final class MeleeAttacks {
    public static double attackDamage(ItemStack stack) {
       double[] total = new double[]{0.0};
       stack.forEachModifier(EquipmentSlot.MAINHAND, (attribute, modifier) -> {
-         if (Attributes.ATTACK_DAMAGE.equals(attribute) && modifier.comp_2450() == Operation.ADD_VALUE) {
-            total[0] += modifier.comp_2449();
+         if (Attributes.ATTACK_DAMAGE.equals(attribute) && modifier.operation() == Operation.ADD_VALUE) {
+            total[0] += modifier.amount();
          }
       });
       return total[0];

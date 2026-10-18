@@ -197,7 +197,7 @@ public final class ChunkScanner {
                      continue;
                   }
 
-                  scanning = new ChunkScanner.ScanCursor(chunk, mc.level.dimensionType().comp_651() >> 4, snapshot);
+                  scanning = new ChunkScanner.ScanCursor(chunk, mc.level.dimensionType().minY() >> 4, snapshot);
                }
 
                ChunkScanner.ScanCursor cursor = scanning;
@@ -221,7 +221,7 @@ public final class ChunkScanner {
    private static void scan(Minecraft mc, LevelChunk chunk) {
       int minX = chunk.getPos().getMinBlockX();
       int minZ = chunk.getPos().getMinBlockZ();
-      int minSection = mc.level.dimensionType().comp_651() >> 4;
+      int minSection = mc.level.dimensionType().minY() >> 4;
       LevelChunkSection[] sections = chunk.getSections();
       List<ChunkScanner.Consumer> interested = new ArrayList<>(consumers.size());
 

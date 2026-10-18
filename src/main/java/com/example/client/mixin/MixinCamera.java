@@ -20,10 +20,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Camera.class)
 public abstract class MixinCamera {
    @Shadow
-   protected abstract void method_19325(float var1, float var2);
+   protected abstract void setRotation(float var1, float var2);
 
    @Shadow
-   protected abstract void method_19327(double var1, double var3, double var5);
+   protected abstract void setPosition(double var1, double var3, double var5);
 
    @WrapOperation(method = "setup", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;setRotation(FF)V"))
    private void champ$freelookRotation(Camera camera, float yRot, float xRot, Operation<Void> original) {

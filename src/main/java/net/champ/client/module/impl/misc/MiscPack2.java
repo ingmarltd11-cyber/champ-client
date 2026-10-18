@@ -103,9 +103,9 @@ public final class MiscPack2 {
                     var msgField = ev.packet.getClass().getDeclaredField("message");
                     msgField.setAccessible(true);
                     Object msg = msgField.get(ev.packet);
-                    if (msg instanceof String text && text.contains(p.getGameProfile().getName())) {
+                    if (msg instanceof String text && text.contains(p.getGameProfile().name())) {
                         msgField.set(ev.packet, text.replace(
-                                p.getGameProfile().getName(), replacement.get()));
+                                p.getGameProfile().name(), replacement.get()));
                     }
                 } catch (ReflectiveOperationException ignored) {}
             });
@@ -133,9 +133,9 @@ public final class MiscPack2 {
                     var msgField = ev.packet.getClass().getDeclaredField("message");
                     msgField.setAccessible(true);
                     Object msg = msgField.get(ev.packet);
-                    if (msg instanceof String text && text.contains(p.getGameProfile().getName())) {
+                    if (msg instanceof String text && text.contains(p.getGameProfile().name())) {
                         msgField.set(ev.packet, text.replace(
-                                p.getGameProfile().getName(), fakeName.get()));
+                                p.getGameProfile().name(), fakeName.get()));
                     }
                 } catch (ReflectiveOperationException ignored) {}
             });

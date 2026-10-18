@@ -361,7 +361,7 @@ public class HoleEspModule extends ClientModule {
       if (chunk != null) {
          int baseX = chunkX << 4;
          int baseZ = chunkZ << 4;
-         int minBuildY = level.dimensionType().comp_651();
+         int minBuildY = level.dimensionType().minY();
          int maxBuildY = minBuildY + chunk.getSections().length * 16;
          int minY = Math.min(maxBuildY - 1, minBuildY + Math.round(value(this.sMinYOffset, 0.0F)));
          int maxY = Math.max(minY + 1, maxBuildY - Math.round(value(this.sMaxYOffset, 0.0F)));

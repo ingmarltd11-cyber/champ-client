@@ -26,9 +26,9 @@ public abstract class MixinNoInvLeakGui {
    @Unique
    private static final Identifier CHAMP$SELECTION = Identifier.withDefaultNamespace("hud/hotbar_selection");
    @Shadow
-   private int field_2040;
+   private int toolHighlightTimer;
    @Shadow
-   private ItemStack field_2031;
+   private ItemStack lastToolHighlight;
 
    @ModifyVariable(method = "renderSlot", at = @At("HEAD"), argsOnly = true)
    private ItemStack champ$noInvLeakHotbar(

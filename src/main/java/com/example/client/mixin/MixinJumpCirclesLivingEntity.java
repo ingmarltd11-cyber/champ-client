@@ -15,7 +15,7 @@ public abstract class MixinJumpCirclesLivingEntity {
    @Inject(method = "jumpFromGround", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;setDeltaMovement(DDD)V"))
    private void champ$jumpCircle(CallbackInfo ci) {
       if (JumpCirclesModule.active != null) {
-         JumpCirclesModule.onJump((LivingEntity)this);
+         JumpCirclesModule.onJump((LivingEntity)(Object)(Object)this);
       }
    }
 }

@@ -107,13 +107,13 @@ public record OreSpec(
 
       for (int step : STEPS) {
          if (step < steps.size()) {
-            List<PlacedFeature> features = steps.get(step).comp_303();
+            List<PlacedFeature> features = steps.get(step).features();
 
             for (int index = 0; index < features.size(); index++) {
                PlacedFeature placed = features.get(index);
-               ConfiguredFeature<?, ?> configured = (ConfiguredFeature<?, ?>)placed.comp_334().comp_349();
-               if (configured.comp_332() == Feature.ORE) {
-                  OreConfiguration config = (OreConfiguration)configured.comp_333();
+               ConfiguredFeature<?, ?> configured = (ConfiguredFeature<?, ?>)placed.feature().value();
+               if (configured.feature() == Feature.ORE) {
+                  OreConfiguration config = (OreConfiguration)configured.config();
                   String id = names.apply(placed);
                   Set<Holder<Biome>> carriers = Collections.newSetFromMap(new IdentityHashMap<>());
 
@@ -135,7 +135,7 @@ public record OreSpec(
    private static OreSpec read(
       String id, int step, int index, int order, PlacedFeature placed, OreConfiguration config, Set<Holder<Biome>> biomes, int minY, int maxY
    ) {
-      List<PlacementModifier> mods = placed.comp_335();
+      List<PlacementModifier> mods = placed.placement();
       if (mods.size() != 4) {
          throw unsupported(id, "placement " + mods.size() + " modifiers");
       }
@@ -256,7 +256,7 @@ public record OreSpec(
       Set<Block> have = Collections.newSetFromMap(new IdentityHashMap<>());
 
       for (Holder<Block> holder : BuiltInRegistries.BLOCK.getTagOrEmpty(tag)) {
-         have.add((Block)holder.comp_349());
+         have.add((Block)holder.value());
       }
 
       if (!have.equals(want)) {

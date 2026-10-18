@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class MixinEntity {
    @Inject(method = "isCurrentlyGlowing", at = @At("HEAD"), cancellable = true)
    private void champ$isCurrentlyGlowing(CallbackInfoReturnable<Boolean> cir) {
-      Entity self = (Entity)this;
+      Entity self = (Entity)(Object)this;
       if (self.level().isClientSide()) {
          if (EspModule.shouldGlow(self) || ItemEspModule.shouldGlow(self)) {
             cir.setReturnValue(true);
@@ -27,7 +27,7 @@ public class MixinEntity {
 
    @Inject(method = "getTeamColor", at = @At("HEAD"), cancellable = true)
    private void champ$getTeamColor(CallbackInfoReturnable<Integer> cir) {
-      Entity self = (Entity)this;
+      Entity self = (Entity)(Object)this;
       if (self.level().isClientSide()) {
          if (EspModule.shouldGlow(self)) {
             cir.setReturnValue(EspModule.glowColor(self));
@@ -40,7 +40,7 @@ public class MixinEntity {
    @Inject(method = "isInvisibleTo", at = @At("HEAD"), cancellable = true)
    private void champ$freecamOwnBody(Player viewer, CallbackInfoReturnable<Boolean> cir) {
       FreecamModule freecam = FreecamModule.active;
-      if (freecam != null && freecam.drawsSelf((Entity)this, viewer)) {
+      if (freecam != null && freecam.drawsSelf((Entity)(Object)this, viewer)) {
          cir.setReturnValue(false);
       }
    }

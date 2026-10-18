@@ -103,7 +103,7 @@ public final class PlayerBypass2Module extends ClientModule {
          || dimension.equals(Level.END)
          || level.dimensionTypeRegistration().is(BuiltinDimensionTypes.NETHER)
          || level.dimensionTypeRegistration().is(BuiltinDimensionTypes.END)
-         || !level.dimensionType().comp_642();
+         || !level.dimensionType().hasSkyLight();
    }
 
    private float threshold() {

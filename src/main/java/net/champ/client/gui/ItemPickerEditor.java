@@ -1198,8 +1198,8 @@ final class ItemPickerEditor {
 
          for (Holder<Enchantment> holder : all) {
             if (ItemEnchants.key(ItemEnchants.path(holder)).equals(entry.getKey())) {
-               name = ((Enchantment)holder.comp_349()).comp_2686().getString();
-               max = ((Enchantment)holder.comp_349()).getMaxLevel();
+               name = ((Enchantment)holder.value()).description().getString();
+               max = ((Enchantment)holder.value()).getMaxLevel();
                break;
             }
          }
@@ -1391,8 +1391,8 @@ final class ItemPickerEditor {
          this.holder = holder;
          this.path = ItemEnchants.path(holder);
          this.key = ItemEnchants.key(this.path);
-         this.name = ((Enchantment)holder.comp_349()).comp_2686().getString();
-         this.max = Math.max(1, ((Enchantment)holder.comp_349()).getMaxLevel());
+         this.name = ((Enchantment)holder.value()).description().getString();
+         this.max = Math.max(1, ((Enchantment)holder.value()).getMaxLevel());
          this.level = this.max;
       }
    }

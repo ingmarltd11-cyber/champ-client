@@ -1,5 +1,6 @@
 {
   "required": false,
+  "refmap": "champ.refmap.json",
   "package": "com.example.client.mixin.indigo",
   "plugin": "com.example.client.mixin.indigo.ChampIndigoMixinPlugin",
   "compatibilityLevel": "JAVA_21",

@@ -11,6 +11,7 @@ import net.champ.client.module.ClientModule;
 import net.champ.client.module.ModuleCategory;
 import net.champ.client.module.setting.BlockColorListSetting;
 import net.champ.client.module.setting.BooleanSetting;
+import net.champ.client.module.setting.Setting;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.world.level.block.Block;
@@ -19,7 +20,12 @@ import net.minecraft.client.Minecraft;
 
 @Environment(EnvType.CLIENT)
 public final class BlockEspModule extends ClientModule implements ChunkScanner.Consumer {
-   private final EspStyle style = new EspStyle((x$0, x$1) -> (S)this.addSetting(x$0, x$1), "Outline", 0.2F, 2048.0F);
+   private final EspStyle style = new EspStyle(new EspStyle.Registrar() {
+      @Override
+      public <S extends Setting> S add(String id, S setting) {
+         return BlockEspModule.this.addSetting(id, setting);
+      }
+   }, "Outline", 0.2F, 2048.0F);
    private final BooleanSetting sTracers = this.addSetting("tracers", new BooleanSetting("Tracers", false));
    private final BlockColorListSetting sBlockColors = this.addSetting(BlockColorListSetting.createDefault());
    private final BlockLayer layer = new BlockLayer(new BlockLayer.Palette() {

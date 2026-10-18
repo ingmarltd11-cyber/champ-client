@@ -40,7 +40,7 @@ public class ChallengeToast implements Toast {
    private Visibility wanted = Visibility.HIDE;
 
    public ChallengeToast(ItemStack icon, Component title, Component message, boolean sound) {
-      this(field_2208, icon, title, message, sound);
+      this(NO_TOKEN, icon, title, message, sound);
    }
 
    private ChallengeToast(Object token, ItemStack icon, Component title, Component message, boolean sound) {
@@ -80,23 +80,23 @@ public class ChallengeToast implements Toast {
       this.width = Mth.clamp(30 + text + 7, 160, 240);
    }
 
-   public Object method_1987() {
+   public Object getToken() {
       return this.token;
    }
 
-   public SoundEvent method_66530() {
-      return this.sound ? (SoundEvent)SoundEvents.NOTE_BLOCK_BELL.comp_349() : null;
+   public SoundEvent getSoundEvent() {
+      return this.sound ? (SoundEvent)SoundEvents.NOTE_BLOCK_BELL.value() : null;
    }
 
-   public Visibility method_61988() {
+   public Visibility getWantedVisibility() {
       return this.wanted;
    }
 
-   public int method_29049() {
+   public int width() {
       return this.width;
    }
 
-   public void method_61989(ToastManager toasts, long visibleFor) {
+   public void update(ToastManager toasts, long visibleFor) {
       if (!this.hiding) {
          if (this.changed) {
             this.changedAt = visibleFor;
@@ -108,14 +108,14 @@ public class ChallengeToast implements Toast {
       }
    }
 
-   public void method_71995() {
+   public void onFinishedRendering() {
       if (this.changed) {
          this.hiding = false;
          Minecraft.getInstance().getToastManager().addToast(this);
       }
    }
 
-   public void method_1986(GuiGraphics graphics, Font font, long visibleFor) {
+   public void render(GuiGraphics graphics, Font font, long visibleFor) {
       int right = this.width - 3;
       int bottom = 31;
       rounded(graphics, 0, 1, right, bottom, -266921698);

@@ -82,7 +82,7 @@ final class SkyMesh {
             }
 
             RenderSystem.getDevice().createCommandEncoder().writeToBuffer(this.buffer.slice(0L, mesh.vertexBuffer().remaining()), mesh.vertexBuffer());
-            this.indexCount = mesh.drawState().comp_751();
+            this.indexCount = mesh.drawState().indexCount();
          } catch (Throwable var6) {
             if (mesh != null) {
                try {
@@ -131,7 +131,7 @@ final class SkyMesh {
                RenderSystem.bindDefaultUniforms(pass);
                pass.setUniform("DynamicTransforms", transforms);
                pass.setVertexBuffer(0, this.buffer);
-               pass.setIndexBuffer(indices.method_68274(this.indexCount), indices.method_31924());
+               pass.setIndexBuffer(indices.getBuffer(this.indexCount), indices.type());
                pass.drawIndexed(0, 0, this.indexCount, 1);
             } catch (Throwable var15) {
                if (pass != null) {

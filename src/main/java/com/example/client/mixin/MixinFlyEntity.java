@@ -31,6 +31,6 @@ public abstract class MixinFlyEntity {
 
    @Unique
    private boolean champ$flyAffects() {
-      return FlyModule.active != null && this == Minecraft.getInstance().player;
+      return FlyModule.active != null && (Object) this == Minecraft.getInstance().player;
    }
 }

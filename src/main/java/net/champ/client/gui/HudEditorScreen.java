@@ -14,24 +14,24 @@ public final class HudEditorScreen extends Screen {
       super(Component.literal("CHAMP HUD Layout"));
    }
 
-   public void method_25432() {
+   public void removed() {
       super.removed();
       HudLayoutStore.getInstance().save();
    }
 
-   public void method_25419() {
+   public void onClose() {
       HudLayoutStore.getInstance().save();
       Minecraft.getInstance().setScreen(null);
    }
 
-   public void method_25420(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+   public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
    }
 
-   public void method_25394(GuiGraphics graphics, int mouseX, int mouseY, float tickDelta) {
+   public void render(GuiGraphics graphics, int mouseX, int mouseY, float tickDelta) {
       ImGuiManager.getInstance().requestCursor(graphics);
    }
 
-   public boolean method_25421() {
+   public boolean isPauseScreen() {
       return false;
    }
 }
