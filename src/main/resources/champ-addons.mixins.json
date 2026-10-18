@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "net.champ.addon.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "refmap": "champ-addons-refmap.json",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixins": [
+    "MixinEntityBoxExpand"
+  ]
+}

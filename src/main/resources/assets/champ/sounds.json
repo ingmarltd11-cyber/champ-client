@@ -1,0 +1,7 @@
+{
+  "spawner_notify": {
+    "sounds": [
+      "champ:spawner_notify"
+    ]
+  }
+}
